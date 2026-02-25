@@ -21,3 +21,12 @@
 - Known issues: AGENT_HANDOFF contains stale bootstrap "Next task: Phase 1" entry; root git repository not initialized yet (Phase 2 not executed)
 - Verify: cd apps/backend && pnpm build && cd ../frontend && pnpm exec tsc --noEmit
 - Context: Phase 7 Step 1 files are created and compile/type-check clean. Step 2 should wire API prefix/versioning, CORS whitelist, Helmet, and global filter/interceptor without changing schema.
+
+## Session End: 2026-02-25T18:33:45Z
+- Completed: Vendor onboarding Task 1 DTOs (onboard/update) with Indian GST regex validation using class-validator @Matches
+- Branch: feature/vendor
+- Last commit: abcc51c feat(vendor): add onboarding DTOs with GST regex validation
+- Next task: Vendor profile service + Cloudinary document upload adapter | Files: apps/backend/src/vendors/vendors.service.ts, apps/backend/src/files/cloudinary.adapter.ts, apps/backend/src/vendors/vendors.module.ts
+- Known issues: Branch intentionally created from develop (not feature/auth), so auth-related dependencies and modules are not present here yet; task 18 tracker paths use `vendors/...` but DTOs were created under `src/vendor/dto/*` per explicit user instruction.
+- Verify: review apps/backend/src/vendor/dto/onboard-vendor.dto.ts and apps/backend/src/vendor/dto/update-vendor.dto.ts for GST regex decorators
+- Context: No schema changes and no new Prisma models. DTOs contain validation decorators only (no business logic).
