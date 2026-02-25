@@ -6,9 +6,10 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtSignOptions } from '@nestjs/jwt';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import type { CookieOptions, Response } from 'express';
+import { PrismaService } from '../prisma/prisma.service';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import type { JwtTokenPayload } from './strategies/jwt.strategy';
@@ -33,9 +34,11 @@ type LogoutResponse = {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly prisma = new PrismaClient();
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async sendOtp({ phone }: SendOtpDto): Promise<SendOtpResponse> {
     const user = await this.prisma.user.upsert({

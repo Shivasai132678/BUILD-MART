@@ -79,3 +79,19 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: Local runtime requires JWT_SECRET (and ideally JWT_EXPIRES_IN/FRONTEND_URL) in apps/backend/.env for auth startup/use; @nestjs/throttler v6 uses object-form @Throttle({ default: { limit, ttl } }) instead of positional @Throttle(5, 60); prisma shadow DB P1010 status issue remains known/non-blocking and is already logged.
 - Verify: cd apps/backend && pnpm build
 - Context: Auth controller contains delegation-only methods (business logic in AuthService). OTPs are SHA-256 hashed in OTPRecord, logged via Nest Logger only, and JWT is issued exclusively via HTTP-only access_token cookie (never in response body).
+
+## Session End: 2026-02-25T18:15:00Z
+- Completed: fix(prisma): resolve P1010 connection error — created PrismaService/PrismaModule, injected via DI, added ConfigModule for .env loading, added directUrl to schema datasource, moved @prisma/client to dependencies, created missing PostgreSQL role+database
+- Branch: feature/auth
+- Last commit: (pending) fix(prisma): resolve P1010 connection error with directUrl and $connect
+- Next task: Vendor onboarding DTOs + GST validation rules
+- Root causes found:
+  1. PostgreSQL role `buildmart` did not exist — created with LOGIN + PASSWORD + CREATEDB
+  2. Database `buildmart_dev` did not exist — created with OWNER buildmart
+  3. No PrismaService/PrismaModule — AuthService used raw `new PrismaClient()` without lifecycle hooks ($connect/$disconnect)
+  4. No .env loading at runtime — added @nestjs/config ConfigModule.forRoot({ isGlobal: true })
+  5. @prisma/client was in devDependencies — moved to dependencies
+  6. schema.prisma lacked directUrl — added directUrl = env("DIRECT_URL")
+- Files changed: apps/backend/src/prisma/prisma.service.ts (new), apps/backend/src/prisma/prisma.module.ts (new), apps/backend/src/app.module.ts, apps/backend/src/auth/auth.service.ts, apps/backend/prisma/schema.prisma, apps/backend/package.json
+- Verify: cd apps/backend && pnpm build && pnpm start:dev → curl -X POST http://localhost:3001/api/v1/auth/send-otp -H "Content-Type: application/json" -d '{"phone": "+919000000002"}' → {"message": "OTP sent"}
+
