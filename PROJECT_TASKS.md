@@ -33,10 +33,10 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [ ] Vendor available RFQ feed endpoint with filters | Files: `apps/backend/src/rfq/rfq.controller.ts`, `apps/backend/src/rfq/rfq.service.ts` | Expected outcome: Vendors see only matching open RFQs in a paginated endpoint.
 
 ## BACKEND — Quote Module
-- [ ] Quote create endpoint + quote item persistence | Files: `apps/backend/src/quotes/quotes.controller.ts`, `apps/backend/src/quotes/quotes.service.ts`, `apps/backend/src/quotes/dto/create-quote.dto.ts` | Expected outcome: Vendors can submit quotes with line items and totals for eligible RFQs.
-- [ ] Enforce quote uniqueness and quote validity rules | Files: `apps/backend/src/quotes/quotes.service.ts`, `apps/backend/src/quotes/repositories/quotes.repository.ts` | Expected outcome: Duplicate `(rfqId, vendorId)` quotes are rejected and invalid/expired quote submissions are blocked.
-- [ ] Buyer quote comparison list sorted by total amount | Files: `apps/backend/src/quotes/quotes.controller.ts`, `apps/backend/src/quotes/quotes.service.ts` | Expected outcome: Buyer can fetch RFQ quotes sorted ascending by `totalAmount`.
-- [ ] Vendor quote update/delete constraints | Files: `apps/backend/src/quotes/quotes.controller.ts`, `apps/backend/src/quotes/quotes.service.ts`, `apps/backend/src/quotes/dto/update-quote.dto.ts` | Expected outcome: Vendor can edit before `validUntil`; delete only when no order exists.
+- [x] Quote create endpoint + quote item persistence | Files: `apps/backend/src/quotes/quotes.controller.ts`, `apps/backend/src/quotes/quotes.service.ts`, `apps/backend/src/quotes/dto/create-quote.dto.ts` | Expected outcome: Vendors can submit quotes with line items and totals for eligible RFQs.
+- [x] Enforce quote uniqueness and quote validity rules | Files: `apps/backend/src/quotes/quotes.service.ts`, `apps/backend/src/quotes/repositories/quotes.repository.ts` | Expected outcome: Duplicate `(rfqId, vendorId)` quotes are rejected and invalid/expired quote submissions are blocked.
+- [x] Buyer quote comparison list sorted by total amount | Files: `apps/backend/src/quotes/quotes.controller.ts`, `apps/backend/src/quotes/quotes.service.ts` | Expected outcome: Buyer can fetch RFQ quotes sorted ascending by `totalAmount`.
+- [x] Vendor quote update/delete constraints | Files: `apps/backend/src/quotes/quotes.controller.ts`, `apps/backend/src/quotes/quotes.service.ts`, `apps/backend/src/quotes/dto/update-quote.dto.ts` | Expected outcome: Vendor can edit before `validUntil`; delete only when no order exists.
 
 ## BACKEND — Order Module
 - [ ] Order creation from accepted quote + RFQ close transaction | Files: `apps/backend/src/orders/orders.controller.ts`, `apps/backend/src/orders/orders.service.ts`, `apps/backend/src/orders/dto/create-order.dto.ts` | Expected outcome: Buyer accepts quote, order is created transactionally, RFQ status closes, and duplicate acceptance is prevented.
