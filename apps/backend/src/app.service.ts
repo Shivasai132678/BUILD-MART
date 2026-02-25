@@ -1,8 +1,16 @@
 import { Injectable } from '@nestjs/common';
 
+type HealthStatusResponse = {
+  status: 'ok';
+  service: 'buildmart-backend';
+};
+
 @Injectable()
 export class AppService {
-  getHello(): string {
-    return 'Hello World!';
+  getHealth(): HealthStatusResponse {
+    return {
+      status: 'ok',
+      service: 'buildmart-backend',
+    };
   }
 }
