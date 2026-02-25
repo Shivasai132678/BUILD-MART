@@ -64,3 +64,18 @@
 - Known issues: `npx prisma migrate dev --name init` and `npx prisma migrate resolve --applied <migration>` fail in this environment with blank `Schema engine error:` (Prisma v6 schema-engine DB path) despite reachable Postgres and valid schema; workaround used: Prisma `migrate diff --from-empty --to-schema-datamodel --script` to generate `apps/backend/prisma/migrations/20260225171438_init/migration.sql`, then applied via `docker exec buildmart-db-1 psql`.
 - Verify: cd apps/backend && source ~/.nvm/nvm.sh && nvm use 20 && npx prisma generate && pnpm build
 - Context: `schema.prisma` was not modified. Migration SQL creates all 16 model tables and 6 enums in PostgreSQL; local Prisma migration metadata could not be registered because `migrate resolve` hits the same engine error.
+
+Known issue: npx prisma migrate status returns P1010 (shadow DB permission denied).
+Root cause: Prisma migrate commands require shadow database creation rights.
+Impact: ZERO impact on app runtime. All 16 tables confirmed in buildmart_dev.
+Fix for CI: Use prisma migrate deploy (no shadow DB needed) — already in Rule 21.
+Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 task).
+
+## Session End: 2026-02-25T17:43:58Z
+- Completed: Phase 7 Step 4 Auth module — OTP send/verify/logout endpoints, JWT cookie auth, DTO validation, throttling, JWT strategy/guards/roles decorator, AuthModule registration in AppModule
+- Branch: feature/auth
+- Last commit: 876bfa1 feat(auth): implement OTP send, verify, logout with JWT cookie
+- Next task: Vendor onboarding DTOs + GST validation rules | Files: apps/backend/src/vendors/dto/onboard-vendor.dto.ts, apps/backend/src/vendors/dto/update-vendor-profile.dto.ts, apps/backend/src/vendors/vendors.controller.ts
+- Known issues: Local runtime requires JWT_SECRET (and ideally JWT_EXPIRES_IN/FRONTEND_URL) in apps/backend/.env for auth startup/use; @nestjs/throttler v6 uses object-form @Throttle({ default: { limit, ttl } }) instead of positional @Throttle(5, 60); prisma shadow DB P1010 status issue remains known/non-blocking and is already logged.
+- Verify: cd apps/backend && pnpm build
+- Context: Auth controller contains delegation-only methods (business logic in AuthService). OTPs are SHA-256 hashed in OTPRecord, logged via Nest Logger only, and JWT is issued exclusively via HTTP-only access_token cookie (never in response body).
