@@ -55,3 +55,12 @@
 - Known issues: PROJECT_TASKS Step 2 checkbox was already checked before this session; AGENT_HANDOFF retains a prior garbled block from earlier shell backtick interpolation (append-only rule preserved)
 - Verify: cd apps/backend && pnpm build && FRONTEND_URL=http://localhost:3000 PORT=3001 pnpm start:dev
 - Context: Health endpoint now lives in apps/backend/src/health/health.controller.ts and returns raw { status, timestamp } (response interceptor skips /api/health for probe compatibility).
+
+## Session End: 2026-02-25T17:16:49Z
+- Completed: Phase 7 Step 3 initial Prisma migration (init) created and applied; Prisma Client generated; backend build verified
+- Branch: feature/backend-skeleton
+- Last commit: f2f2d08 chore(prisma): add initial migration and generate client
+- Next task: Auth module skeleton + DTO validation | Files: apps/backend/src/auth/auth.module.ts, apps/backend/src/auth/auth.controller.ts, apps/backend/src/auth/dto/send-otp.dto.ts, apps/backend/src/auth/dto/verify-otp.dto.ts
+- Known issues: `npx prisma migrate dev --name init` and `npx prisma migrate resolve --applied <migration>` fail in this environment with blank `Schema engine error:` (Prisma v6 schema-engine DB path) despite reachable Postgres and valid schema; workaround used: Prisma `migrate diff --from-empty --to-schema-datamodel --script` to generate `apps/backend/prisma/migrations/20260225171438_init/migration.sql`, then applied via `docker exec buildmart-db-1 psql`.
+- Verify: cd apps/backend && source ~/.nvm/nvm.sh && nvm use 20 && npx prisma generate && pnpm build
+- Context: `schema.prisma` was not modified. Migration SQL creates all 16 model tables and 6 enums in PostgreSQL; local Prisma migration metadata could not be registered because `migrate resolve` hits the same engine error.
