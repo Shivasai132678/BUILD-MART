@@ -21,3 +21,12 @@
 - Known issues: AGENT_HANDOFF contains stale bootstrap "Next task: Phase 1" entry; root git repository not initialized yet (Phase 2 not executed)
 - Verify: cd apps/backend && pnpm build && cd ../frontend && pnpm exec tsc --noEmit
 - Context: Phase 7 Step 1 files are created and compile/type-check clean. Step 2 should wire API prefix/versioning, CORS whitelist, Helmet, and global filter/interceptor without changing schema.
+
+## Session End: 2026-02-25T20:05:00Z
+- Completed: Products & Categories Task 1 — category/product CRUD service + controllers + DTO validation (including Decimal-safe `basePrice` string DTO), pagination, Prisma DI, and ProductsModule wiring into AppModule
+- Branch: feature/products
+- Last commit: e0d3f5b feat(products): add products and categories CRUD module
+- Next task: Products & Categories Task 3 — read-only product/category browsing for BUYER/VENDOR (or merge/align with auth/bootstrap work on develop before runtime testing)
+- Known issues: `develop` branch lacked auth and Prisma DI scaffolding, so this session added minimal `src/common/auth/*` guards/decorator and `src/prisma/*`; routes use versioned controllers (`version: '1'`) but `/api/v1/...` runtime paths still depend on global prefix/versioning setup (Setup task remains unchecked on this branch); `JwtAuthGuard` is a placeholder request-user guard and requires upstream auth middleware/strategy to populate `req.user` for runtime access.
+- Verify: cd apps/backend && pnpm build
+- Context: Category CRUD and Product CRUD are implemented in a single `products` module/file set (`apps/backend/src/products/*`) rather than separate `categories/*` and `products/*` modules; no schema changes or migrations were made.
