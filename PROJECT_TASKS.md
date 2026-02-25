@@ -17,7 +17,7 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 ## BACKEND — Vendor Onboarding
 - [x] Vendor onboarding DTOs + GST validation rules | Files: `apps/backend/src/vendors/dto/onboard-vendor.dto.ts`, `apps/backend/src/vendors/dto/update-vendor-profile.dto.ts`, `apps/backend/src/vendors/vendors.controller.ts` | Expected outcome: Vendor onboarding/update requests are validated (including GST regex) with clear error messages.
 - [x] Vendor profile service + Cloudinary document upload adapter | Files: `apps/backend/src/vendors/vendors.service.ts`, `apps/backend/src/files/cloudinary.adapter.ts`, `apps/backend/src/vendors/vendors.module.ts` | Expected outcome: Vendor docs upload flow persists URLs and creates/updates `VendorProfile` safely.
-- [ ] Vendor profile endpoints (GET/PATCH) with ownership checks | Files: `apps/backend/src/vendors/vendors.controller.ts`, `apps/backend/src/vendors/vendors.service.ts` | Expected outcome: Vendors can fetch and edit only their own profile; soft-deleted profiles are excluded.
+- [x] Vendor profile endpoints (GET/PATCH) with ownership checks | Files: `apps/backend/src/vendors/vendors.controller.ts`, `apps/backend/src/vendors/vendors.service.ts` | Expected outcome: Vendors can fetch and edit only their own profile; soft-deleted profiles are excluded.
 - [ ] Admin vendor approval endpoint + audit log entry | Files: `apps/backend/src/admin/admin-vendors.controller.ts`, `apps/backend/src/vendors/vendors.service.ts`, `apps/backend/src/audit/*` | Expected outcome: ADMIN can approve vendor profiles and approval action is recorded in audit log.
 
 ## BACKEND — Products & Categories

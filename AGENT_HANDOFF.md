@@ -39,3 +39,12 @@
 - Known issues: Task 19 checkbox was marked complete per explicit instruction, but Cloudinary adapter is intentionally deferred in this branch/task; minimal PrismaService/PrismaModule support was added on feature/vendor because develop did not have Prisma DI infrastructure.
 - Verify: cd apps/backend && pnpm build
 - Context: No schema changes or migrations. VendorService returns plain Prisma VendorProfile objects and updates only fields present in UpdateVendorDto.
+
+## Session End: 2026-02-25T19:00:38Z
+- Completed: Vendor onboarding Task 3 controller — POST /vendors/onboard, GET /vendors/profile, PATCH /vendors/profile wired to VendorService with JwtAuthGuard + role metadata; VendorModule registered in AppModule
+- Branch: feature/vendor
+- Last commit: 9c15fee feat(vendor): add vendor onboarding and profile controller routes
+- Next task: Admin vendor approval endpoint + audit log entry | Files: apps/backend/src/admin/admin-vendors.controller.ts, apps/backend/src/vendors/vendors.service.ts, apps/backend/src/audit/*
+- Known issues: Branch is based on develop, so backend skeleton/auth module from other branches is not present; minimal local `JwtAuthGuard` + `RolesGuard` + `Roles` decorator scaffolding were added for controller protection/role checks. Route version metadata is set (`version: '1'`), but `/api/v1/...` runtime path also depends on global prefix/versioning bootstrap from the backend skeleton branch.
+- Verify: cd apps/backend && pnpm build
+- Context: Controller has zero business logic and uses `@Body()`/`@Req()` only. Admin approve route intentionally skipped per task scope.
