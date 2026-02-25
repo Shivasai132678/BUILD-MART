@@ -30,3 +30,12 @@
 - Known issues: Branch intentionally created from develop (not feature/auth), so auth-related dependencies and modules are not present here yet; task 18 tracker paths use `vendors/...` but DTOs were created under `src/vendor/dto/*` per explicit user instruction.
 - Verify: review apps/backend/src/vendor/dto/onboard-vendor.dto.ts and apps/backend/src/vendor/dto/update-vendor.dto.ts for GST regex decorators
 - Context: No schema changes and no new Prisma models. DTOs contain validation decorators only (no business logic).
+
+## Session End: 2026-02-25T18:49:19Z
+- Completed: Vendor onboarding Task 2 service/module — VendorService.onboard/getProfile/updateProfile with PrismaService DI, conflict/not-found guards, partial updates, and Nest Logger usage
+- Branch: feature/vendor
+- Last commit: 77c472b feat(vendor): add vendor service methods with Prisma DI
+- Next task: Vendor profile endpoints (GET/PATCH) with ownership checks | Files: apps/backend/src/vendors/vendors.controller.ts, apps/backend/src/vendors/vendors.service.ts
+- Known issues: Task 19 checkbox was marked complete per explicit instruction, but Cloudinary adapter is intentionally deferred in this branch/task; minimal PrismaService/PrismaModule support was added on feature/vendor because develop did not have Prisma DI infrastructure.
+- Verify: cd apps/backend && pnpm build
+- Context: No schema changes or migrations. VendorService returns plain Prisma VendorProfile objects and updates only fields present in UpdateVendorDto.
