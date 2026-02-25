@@ -1,0 +1,389 @@
+
+// ============================================================
+// BuildMart — prisma/schema.prisma
+// FINAL LOCKED VERSION — DO NOT MODIFY WITHOUT MIGRATION
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────
+
+enum UserRole {
+  BUYER
+  VENDOR
+  ADMIN
+}
+
+enum RFQStatus {
+  OPEN
+  QUOTED
+  CLOSED
+  EXPIRED
+}
+
+enum OrderStatus {
+  CONFIRMED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  INITIATED
+  SUCCESS
+  FAILED
+}
+
+enum PaymentMethod {
+  ONLINE
+  COD
+}
+
+enum NotificationType {
+  RFQ_CREATED
+  QUOTE_RECEIVED
+  ORDER_CONFIRMED
+  STATUS_UPDATED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+}
+
+// ─── USERS ──────────────────────────────────────────────────
+
+model User {
+  id        String    @id @default(cuid())
+  phone     String    @unique
+  email     String?   @unique
+  name      String?
+  role      UserRole  @default(BUYER)
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  addresses     Address[]
+  vendorProfile VendorProfile?
+  rfqs          RFQ[]
+  orders        Order[]        @relation("BuyerOrders")
+  reviews       Review[]
+  notifications Notification[]
+  otpRecords    OTPRecord[]
+
+  @@index([phone])
+  @@index([role])
+  @@index([deletedAt])
+}
+
+model OTPRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  otpHash   String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── VENDOR PROFILE ─────────────────────────────────────────
+
+model VendorProfile {
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  businessName       String
+  gstNumber          String    @unique
+  gstDocumentUrl     String?
+  businessLicenseUrl String?
+  city               String    @default("Hyderabad")
+  serviceableAreas   String[]
+  isApproved         Boolean   @default(false)
+  approvedAt         DateTime?
+  averageRating      Decimal   @default(0) @db.Decimal(3, 2)
+  totalReviews       Int       @default(0)
+  deletedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products VendorProduct[]
+  quotes   Quote[]
+  orders   Order[]         @relation("VendorOrders")
+  reviews  Review[]
+
+  @@index([city, isApproved])
+  @@index([deletedAt])
+}
+
+// ─── CATEGORIES & PRODUCTS ──────────────────────────────────
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  categoryId  String
+  name        String
+  description String?
+  unit        String
+  basePrice   Decimal   @db.Decimal(10, 2)
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  vendorProducts VendorProduct[]
+  rfqItems       RFQItem[]
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model VendorProduct {
+  id             String   @id @default(cuid())
+  vendorId       String
+  productId      String
+  customPrice    Decimal? @db.Decimal(10, 2)
+  stockAvailable Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  vendor  VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  product Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([vendorId, productId])
+  @@index([productId, vendorId])
+}
+
+// ─── ADDRESSES ──────────────────────────────────────────────
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  label     String?
+  line1     String
+  line2     String?
+  area      String
+  city      String   @default("Hyderabad")
+  pincode   String
+  state     String   @default("Telangana")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rfqs RFQ[]
+
+  @@index([userId])
+}
+
+// ─── RFQ ────────────────────────────────────────────────────
+
+model RFQ {
+  id         String    @id @default(cuid())
+  buyerId    String
+  addressId  String
+  city       String    @default("Hyderabad")
+  status     RFQStatus @default(OPEN)
+  notes      String?
+  validUntil DateTime
+  closedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  address Address @relation(fields: [addressId], references: [id], onDelete: Restrict)
+  items   RFQItem[]
+  quotes  Quote[]
+  order   Order?
+
+  @@index([buyerId])
+  @@index([city])
+  @@index([status])
+  @@index([validUntil])
+}
+
+model RFQItem {
+  id        String  @id @default(cuid())
+  rfqId     String
+  productId String
+  quantity  Decimal @db.Decimal(10, 2)
+  unit      String
+  notes     String?
+
+  rfq     RFQ     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([rfqId])
+  @@index([productId])
+}
+
+// ─── QUOTES ─────────────────────────────────────────────────
+
+model Quote {
+  id          String   @id @default(cuid())
+  rfqId       String
+  vendorId    String
+  subtotal    Decimal  @db.Decimal(10, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
+  deliveryFee Decimal  @db.Decimal(10, 2)
+  totalAmount Decimal  @db.Decimal(10, 2)
+  validUntil  DateTime
+  notes       String?
+  isWithdrawn Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rfq    RFQ           @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  vendor VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  items  QuoteItem[]
+  order  Order?
+
+  @@unique([rfqId, vendorId])
+  @@index([rfqId])
+  @@index([vendorId])
+  @@index([validUntil])
+}
+
+model QuoteItem {
+  id          String  @id @default(cuid())
+  quoteId     String
+  productName String
+  quantity    Decimal @db.Decimal(10, 2)
+  unit        String
+  unitPrice   Decimal @db.Decimal(10, 2)
+  subtotal    Decimal @db.Decimal(10, 2)
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+}
+
+// ─── ORDERS ─────────────────────────────────────────────────
+
+model Order {
+  id            String        @id @default(cuid())
+  rfqId         String        @unique
+  quoteId       String        @unique
+  buyerId       String
+  vendorId      String
+  totalAmount   Decimal       @db.Decimal(10, 2)
+  status        OrderStatus   @default(CONFIRMED)
+  paymentMethod PaymentMethod @default(COD)
+  confirmedAt   DateTime?
+  dispatchedAt  DateTime?
+  deliveredAt   DateTime?
+  cancelledAt   DateTime?
+  cancelReason  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  rfq     RFQ           @relation(fields: [rfqId], references: [id], onDelete: Restrict)
+  quote   Quote         @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  buyer   User          @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  vendor  VendorProfile @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: Restrict)
+  payment Payment?
+  review  Review?
+
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([status])
+}
+
+// ─── PAYMENTS ───────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(cuid())
+  orderId           String        @unique
+  razorpayOrderId   String?       @unique
+  razorpayPaymentId String?       @unique
+  amount            Decimal       @db.Decimal(10, 2)
+  status            PaymentStatus @default(INITIATED)
+  webhookVerified   Boolean       @default(false)
+  failureReason     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ─── REVIEWS ────────────────────────────────────────────────
+
+model Review {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  buyerId   String
+  vendorId  String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  order  Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  buyer  User          @relation(fields: [buyerId], references: [id], onDelete: Restrict)
+  vendor VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+
+  @@index([vendorId])
+  @@index([buyerId])
+}
+
+// ─── NOTIFICATIONS ──────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  metadata  Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ─── AUDIT LOG ──────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+

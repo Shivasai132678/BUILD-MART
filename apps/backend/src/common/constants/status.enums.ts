@@ -1,0 +1,39 @@
+export enum UserRole {
+  BUYER = 'BUYER',
+  VENDOR = 'VENDOR',
+  ADMIN = 'ADMIN',
+}
+
+export enum RFQStatus {
+  OPEN = 'OPEN',
+  QUOTED = 'QUOTED',
+  CLOSED = 'CLOSED',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum OrderStatus {
+  CONFIRMED = 'CONFIRMED',
+  OUT_FOR_DELIVERY = 'OUT_FOR_DELIVERY',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PaymentStatus {
+  INITIATED = 'INITIATED',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+}
+
+export enum PaymentMethod {
+  ONLINE = 'ONLINE',
+  COD = 'COD',
+}
+
+export enum NotificationType {
+  RFQ_CREATED = 'RFQ_CREATED',
+  QUOTE_RECEIVED = 'QUOTE_RECEIVED',
+  ORDER_CONFIRMED = 'ORDER_CONFIRMED',
+  STATUS_UPDATED = 'STATUS_UPDATED',
+  PAYMENT_SUCCESS = 'PAYMENT_SUCCESS',
+  PAYMENT_FAILED = 'PAYMENT_FAILED',
+}
