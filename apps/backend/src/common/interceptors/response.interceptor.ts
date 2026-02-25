@@ -26,6 +26,11 @@ export class ResponseInterceptor<T>
 
     return next.handle().pipe(
       map((data) => {
+        // Keep the health endpoint payload minimal for uptime probes.
+        if (path === '/api/health') {
+          return data;
+        }
+
         if (this.isAlreadyWrapped(data)) {
           return data;
         }
