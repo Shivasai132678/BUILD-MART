@@ -48,3 +48,12 @@
 - Known issues: Branch is based on develop, so backend skeleton/auth module from other branches is not present; minimal local `JwtAuthGuard` + `RolesGuard` + `Roles` decorator scaffolding were added for controller protection/role checks. Route version metadata is set (`version: '1'`), but `/api/v1/...` runtime path also depends on global prefix/versioning bootstrap from the backend skeleton branch.
 - Verify: cd apps/backend && pnpm build
 - Context: Controller has zero business logic and uses `@Body()`/`@Req()` only. Admin approve route intentionally skipped per task scope.
+
+## Session End: 2026-02-25T19:47:00Z
+- Completed: Vendor onboarding Task 4 — Admin vendor approval endpoint (`PATCH /api/v1/admin/vendors/:id/approve`) with ADMIN role protection, plus manual curl smoke test covering auth send-otp/verify-otp, vendor onboard, vendor profile fetch, and admin approve
+- Branch: feature/vendor
+- Last commit: 542f67f feat(vendor): add admin vendor approve endpoint
+- Next task: Vendor onboarding Task 5+ (audit log entry for admin approval or subsequent approved vendor role/status flow) per prompt sequencing
+- Known issues: `feature/vendor` was branched from `develop`, so backend skeleton + auth runtime wiring/auth module were added here as prerequisites to run `/api/v1/...` smoke tests; local API writes are hitting a different Postgres instance than `docker exec buildmart-db-1 psql` (Prisma one-off queries show rows, Docker DB tables are empty); PROJECT_TASKS item 21 was checked to reflect user task scope, but audit log entry is still deferred and not implemented in this session
+- Verify: cd apps/backend && pnpm build && (run server) curl /api/v1/auth/send-otp -> /verify-otp -> /vendors/onboard -> /vendors/profile -> PATCH /api/v1/admin/vendors/:id/approve
+- Context: Manual smoke test succeeded using `+919000000004` as buyer/vendor candidate and a locally promoted admin test user `+919000000001` (role elevated via Prisma one-off on the active datasource before `verify-otp`).
