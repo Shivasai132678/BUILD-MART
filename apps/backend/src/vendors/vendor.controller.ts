@@ -11,7 +11,7 @@ import type { Request } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../common/constants/status.enums';
+import { UserRole } from '@prisma/client';
 import { OnboardVendorDto } from './dto/onboard-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { VendorService } from './vendor.service';

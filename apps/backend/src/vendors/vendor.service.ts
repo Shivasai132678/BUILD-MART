@@ -67,6 +67,28 @@ export class VendorService {
     return updatedProfile;
   }
 
+  async approveVendor(vendorId: string): Promise<VendorProfile> {
+    const existingProfile = await this.prisma.vendorProfile.findUnique({
+      where: { id: vendorId },
+    });
+
+    if (!existingProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const approvedProfile = await this.prisma.vendorProfile.update({
+      where: { id: vendorId },
+      data: {
+        isApproved: true,
+        approvedAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Vendor profile approved id=${vendorId}`);
+
+    return approvedProfile;
+  }
+
   private buildCreateData(
     userId: string,
     dto: OnboardVendorDto,
