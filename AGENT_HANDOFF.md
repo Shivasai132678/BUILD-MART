@@ -130,3 +130,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `feature/vendor` was branched from `develop`, so backend skeleton + auth runtime wiring/auth module were added here as prerequisites to run `/api/v1/...` smoke tests; local API writes are hitting a different Postgres instance than `docker exec buildmart-db-1 psql` (Prisma one-off queries show rows, Docker DB tables are empty); PROJECT_TASKS item 21 was checked to reflect user task scope, but audit log entry is still deferred and not implemented in this session
 - Verify: cd apps/backend && pnpm build && (run server) curl /api/v1/auth/send-otp -> /verify-otp -> /vendors/onboard -> /vendors/profile -> PATCH /api/v1/admin/vendors/:id/approve
 - Context: Manual smoke test succeeded using `+919000000004` as buyer/vendor candidate and a locally promoted admin test user `+919000000001` (role elevated via Prisma one-off on the active datasource before `verify-otp`).
+
+## Session End: 2026-02-25T20:05:00Z
+- Completed: Products & Categories Task 1 — category/product CRUD service + controllers + DTO validation (including Decimal-safe `basePrice` string DTO), pagination, Prisma DI, and ProductsModule wiring into AppModule
+- Branch: feature/products
+- Last commit: e0d3f5b feat(products): add products and categories CRUD module
+- Next task: Products & Categories Task 3 — read-only product/category browsing for BUYER/VENDOR (or merge/align with auth/bootstrap work on develop before runtime testing)
+- Known issues: `develop` branch lacked auth and Prisma DI scaffolding, so this session added minimal `src/common/auth/*` guards/decorator and `src/prisma/*`; routes use versioned controllers (`version: '1'`) but `/api/v1/...` runtime paths still depend on global prefix/versioning setup (Setup task remains unchecked on this branch); `JwtAuthGuard` is a placeholder request-user guard and requires upstream auth middleware/strategy to populate `req.user` for runtime access.
+- Verify: cd apps/backend && pnpm build
+- Context: Category CRUD and Product CRUD are implemented in a single `products` module/file set (`apps/backend/src/products/*`) rather than separate `categories/*` and `products/*` modules; no schema changes or migrations were made.

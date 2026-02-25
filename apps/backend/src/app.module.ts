@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProductsModule } from './products/products.module';
 import { VendorModule } from './vendors/vendor.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { VendorModule } from './vendors/vendor.module';
     PrismaModule,
     AuthModule,
     VendorModule,
+    ProductsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
