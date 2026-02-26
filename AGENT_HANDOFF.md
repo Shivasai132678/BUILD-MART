@@ -190,3 +190,21 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `PROJECT_TASKS.md` did not have a dedicated seed-script checkbox, so a new checked SETUP task entry was added to track this work explicitly. Prisma warns that `package.json#prisma` seed config is deprecated in Prisma 7, but this repo is intentionally pinned to Prisma 6.
 - Verify: cd apps/backend && npx prisma db seed && npx prisma db seed && DATABASE_URL='postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev' node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); Promise.all([p.user.count(), p.category.count(), p.product.count(), p.vendorProfile.count()]).then(([u,c,pr,v]) => console.log('users:',u,'categories:',c,'products:',pr,'vendors:',v)).finally(() => p.\$disconnect());"
 - Context: Products are seeded with deterministic string IDs so `Product` can be upserted despite no natural unique key on product name; vendor-product rows use composite upsert on `(vendorId, productId)`.
+
+## Session End: 2026-02-26T15:29:40Z
+- Completed: BACKEND — Admin Metrics + Pending Vendors
+- Branch: feature/admin-metrics
+- Last commit: 0f921f6 feat(admin): add metrics endpoint and pending vendor list
+- Next task: Merge all feature branches into develop (buyer, vendor, admin frontend + admin-metrics backend), then CI/CD pipeline
+- Known issues: Admin frontend branch currently expects pending vendors at \ and may expect a different metrics key naming; this backend task adds \ and returns \ per spec, so merge-time API alignment may be needed.
+- Verify: cd apps/backend && pnpm build
+- Context: after this merge, all MVP features are code-complete; next step is Step 17 CI/CD then Step 18 deployment.
+
+## Session End: 2026-02-26T15:31:00Z
+- Completed: BACKEND — Admin Metrics + Pending Vendors
+- Branch: feature/admin-metrics
+- Last commit: 0f921f6 feat(admin): add metrics endpoint and pending vendor list
+- Next task: Merge all feature branches into develop (buyer, vendor, admin frontend + admin-metrics backend), then CI/CD pipeline
+- Known issues: Admin frontend branch currently expects pending vendors at "GET /api/v1/vendors?isApproved=false..." and may expect different metrics key naming; this backend task adds "GET /api/v1/admin/vendors/pending" and returns "totalVendors" per spec, so merge-time API alignment may be needed.
+- Verify: cd apps/backend && pnpm build
+- Context: after this merge, all MVP features are code-complete; next step is Step 17 CI/CD then Step 18 deployment.
