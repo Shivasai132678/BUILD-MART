@@ -164,3 +164,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: This work was initially committed on `feature/quotes` by mistake and then corrected by cherry-picking onto `feature/orders`; `PROJECT_TASKS` references `list-orders.dto.ts` and `cancel-order.dto.ts`, but this implementation uses query params and an inline cancel body type instead of separate DTO files while preserving requested behavior.
 - Verify: cd apps/backend && pnpm build
 - Context: `getOrder` includes `Quote`, `RFQ`, and `Payment`; vendor ownership checks resolve `VendorProfile.id` from authenticated `User.id`. No schema changes or migrations.
+
+## Session End: 2026-02-26T05:45:00Z
+- Completed: Notifications Module — global `NotificationsModule`, DB-backed NotificationsService, unread-first list/read/read-all endpoints, and event trigger wiring in `RfqService`, `QuotesService`, and `OrdersService`
+- Branch: feature/notifications
+- Last commit: 8537d0f feat(notifications): add notifications module and wire event triggers
+- Next task: Notifications adapters (SMS/WhatsApp/email) and broader event wiring (auth/payment) or Payment task 50 sync/notifications integration
+- Known issues: `PROJECT_TASKS` notification task 54 is complete; task 53 (adapter interfaces), task 55 (external adapters), and task 56 (full auth/RFQ/quote/order/payment wiring) remain pending. This session intentionally persists notifications to DB + logs only, with TODO comments for MSG91 and WhatsApp providers in `NotificationsService`.
+- Verify: cd apps/backend && pnpm build
+- Context: Notification metadata is persisted via `Notification.metadata` JSON field. Order/Quote/RFQ services now route user-facing notification events through `NotificationsService` (Rule 15 for covered modules).
