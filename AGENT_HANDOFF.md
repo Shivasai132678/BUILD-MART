@@ -191,6 +191,24 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Verify: cd apps/backend && npx prisma db seed && npx prisma db seed && DATABASE_URL='postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev' node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); Promise.all([p.user.count(), p.category.count(), p.product.count(), p.vendorProfile.count()]).then(([u,c,pr,v]) => console.log('users:',u,'categories:',c,'products:',pr,'vendors:',v)).finally(() => p.\$disconnect());"
 - Context: Products are seeded with deterministic string IDs so `Product` can be upserted despite no natural unique key on product name; vendor-product rows use composite upsert on `(vendorId, productId)`.
 
+## Session End: 2026-02-26T06:08:40Z
+- Completed: Frontend auth scaffold foundation — added frontend deps (axios, zustand, React Query, RHF/Zod), `apps/frontend/lib/api.ts`, `apps/frontend/store/user.store.ts`, route-protecting `apps/frontend/middleware.ts`, updated `formatIST()` to the required IST-only formatter shape, and added backend `GET /api/v1/auth/me` for middleware role checks
+- Branch: feature/frontend-auth
+- Last commit: ab28009 feat(frontend): scaffold Next.js with axios, zustand, auth middleware
+- Next task: Frontend Auth Flows — build `/login` phone+OTP screens and connect to `/api/v1/auth/send-otp` + `/verify-otp`
+- Known issues: Next.js 16 build passes but warns that `middleware.ts` is deprecated in favor of `proxy.ts`; middleware checks `token` cookie per task request and falls back to existing backend `access_token` cookie for compatibility. `apps/frontend/.env.local` was created locally (ignored) and is not committed.
+- Verify: cd apps/frontend && pnpm build && cd ../backend && pnpm build
+- Context: Middleware calls backend `/api/v1/auth/me` to resolve role from the HTTP-only JWT cookie before allowing `/buyer/*`, `/vendor/*`, and `/admin/*` routes.
+
+## Session End: 2026-02-26T06:14:35Z
+- Completed: Frontend auth pages — `/login` phone + OTP step flow with `react-hook-form` + Zod validation, API error messages, loading spinners, 30s resend countdown, Zustand `setUser`, and role-based post-login redirects
+- Branch: feature/frontend-auth
+- Last commit: 44b6800 feat(frontend): add phone+OTP login flow
+- Next task: Frontend auth polish and route targets (dashboard pages/placeholders), then buyer/vendor/admin protected flows
+- Known issues: `OtpStep` supports both wrapped (`response.data.data.user`) and direct (`response.data.user`) backend response shapes; redirect targets (`/buyer/dashboard`, `/vendor/dashboard`, `/admin/dashboard`) are not yet implemented in this branch. Next.js still warns that `middleware.ts` is deprecated in favor of `proxy.ts` (non-blocking).
+- Verify: cd apps/frontend && pnpm build
+- Context: No localStorage is used for auth; backend HTTP-only cookie is set by `/api/v1/auth/verify-otp`, and frontend state only stores the returned user profile for UI routing/state.
+
 ## Session End: 2026-02-26T15:29:40Z
 - Completed: BACKEND — Admin Metrics + Pending Vendors
 - Branch: feature/admin-metrics
