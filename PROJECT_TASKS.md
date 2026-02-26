@@ -57,8 +57,8 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [ ] Event wiring from auth/RFQ/quote/order/payment modules | Files: `apps/backend/src/*/*.service.ts`, `apps/backend/src/notifications/notifications.service.ts` | Expected outcome: All user-facing notifications route through NotificationsService and no direct provider calls exist elsewhere.
 
 ## BACKEND — Admin Metrics
-- [ ] Admin metrics summary endpoint (users/vendors/RFQs/orders/GMV) | Files: `apps/backend/src/admin/admin-metrics.controller.ts`, `apps/backend/src/admin/admin-metrics.service.ts` | Expected outcome: ADMIN can fetch dashboard metric cards from aggregated Prisma queries.
-- [ ] Admin vendor approval queue list endpoint (paginated) | Files: `apps/backend/src/admin/admin-vendors.controller.ts`, `apps/backend/src/admin/admin-vendors.service.ts` | Expected outcome: ADMIN can list pending vendor approvals with pagination and filters.
+- [x] Admin metrics summary endpoint (users/vendors/RFQs/orders/GMV) | Files: `apps/backend/src/admin/admin-metrics.controller.ts`, `apps/backend/src/admin/admin-metrics.service.ts` | Expected outcome: ADMIN can fetch dashboard metric cards from aggregated Prisma queries.
+- [x] Admin vendor approval queue list endpoint (paginated) | Files: `apps/backend/src/admin/admin-vendors.controller.ts`, `apps/backend/src/admin/admin-vendors.service.ts` | Expected outcome: ADMIN can list pending vendor approvals with pagination and filters.
 - [ ] Admin auth/role protection + DTOs for metrics filters | Files: `apps/backend/src/admin/dto/*`, `apps/backend/src/common/auth/*`, `apps/backend/src/admin/*.controller.ts` | Expected outcome: Admin endpoints are protected and support validated date-range/filter params.
 
 ## FRONTEND — Auth Flows
