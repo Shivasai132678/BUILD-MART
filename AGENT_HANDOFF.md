@@ -181,3 +181,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `PROJECT_TASKS` notification task 54 is complete; task 53 (adapter interfaces), task 55 (external adapters), and task 56 (full auth/RFQ/quote/order/payment wiring) remain pending. This session intentionally persists notifications to DB + logs only, with TODO comments for MSG91 and WhatsApp providers in `NotificationsService`.
 - Verify: cd apps/backend && pnpm build
 - Context: Notification metadata is persisted via `Notification.metadata` JSON field. Order/Quote/RFQ services now route user-facing notification events through `NotificationsService` (Rule 15 for covered modules).
+
+## Session End: 2026-02-26T05:56:15Z
+- Completed: Seed script task — added idempotent Prisma seed (`apps/backend/prisma/seed.ts`) for demo users, approved vendor profiles, categories, products, and vendor-product mappings from `SEED.md`; configured `package.json#prisma.seed` to run `ts-node prisma/seed.ts`
+- Branch: feature/seed
+- Last commit: a49f1a8 feat(seed): add deterministic seed script with Hyderabad demo data
+- Next task: Admin Metrics module (or next user-prioritized backend/frontend task on a new feature branch)
+- Known issues: `PROJECT_TASKS.md` did not have a dedicated seed-script checkbox, so a new checked SETUP task entry was added to track this work explicitly. Prisma warns that `package.json#prisma` seed config is deprecated in Prisma 7, but this repo is intentionally pinned to Prisma 6.
+- Verify: cd apps/backend && npx prisma db seed && npx prisma db seed && DATABASE_URL='postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev' node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); Promise.all([p.user.count(), p.category.count(), p.product.count(), p.vendorProfile.count()]).then(([u,c,pr,v]) => console.log('users:',u,'categories:',c,'products:',pr,'vendors:',v)).finally(() => p.\$disconnect());"
+- Context: Products are seeded with deterministic string IDs so `Product` can be upserted despite no natural unique key on product name; vendor-product rows use composite upsert on `(vendorId, productId)`.
