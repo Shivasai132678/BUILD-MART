@@ -190,3 +190,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `PROJECT_TASKS.md` did not have a dedicated seed-script checkbox, so a new checked SETUP task entry was added to track this work explicitly. Prisma warns that `package.json#prisma` seed config is deprecated in Prisma 7, but this repo is intentionally pinned to Prisma 6.
 - Verify: cd apps/backend && npx prisma db seed && npx prisma db seed && DATABASE_URL='postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev' node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); Promise.all([p.user.count(), p.category.count(), p.product.count(), p.vendorProfile.count()]).then(([u,c,pr,v]) => console.log('users:',u,'categories:',c,'products:',pr,'vendors:',v)).finally(() => p.\$disconnect());"
 - Context: Products are seeded with deterministic string IDs so `Product` can be upserted despite no natural unique key on product name; vendor-product rows use composite upsert on `(vendorId, productId)`.
+
+## Session End: 2026-02-26T06:28:07Z
+- Completed: Frontend buyer flows — buyer layout/nav/logout, buyer dashboard stats, RFQ creation form (multi-item, dynamic rows), RFQ detail with quote polling (15s), quote acceptance -> order creation, orders list, and order detail timeline/cancel flow
+- Branch: feature/frontend-buyer
+- Last commit: 13f5773 feat(frontend): add buyer dashboard, RFQ creation, quote acceptance, order tracking
+- Next task: Frontend vendor portal pages or merge frontend feature branches into `develop`
+- Known issues: This branch starts from `develop`, so it also includes prerequisite frontend scaffolding not yet merged (`apps/frontend/lib/api.ts`, Zustand store, React Query provider in root layout, `formatIST()` rule-compliant formatter). Buyer layout checks Zustand user state only; if the page is refreshed before auth/session hydration wiring is added, it redirects to `/login`. RFQ create uses `TODO_ADDRESS_ID` placeholder and will show backend validation error until address UI/API exists.
+- Verify: cd apps/frontend && pnpm build
+- Context: All API requests use the shared Axios client (`withCredentials: true`) and unwrap backend success envelopes. Quote polling on `/buyer/rfq/[id]` uses React Query `refetchInterval: 15000`.
