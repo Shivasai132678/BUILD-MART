@@ -139,3 +139,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `develop` branch lacked auth and Prisma DI scaffolding, so this session added minimal `src/common/auth/*` guards/decorator and `src/prisma/*`; routes use versioned controllers (`version: '1'`) but `/api/v1/...` runtime paths still depend on global prefix/versioning setup (Setup task remains unchecked on this branch); `JwtAuthGuard` is a placeholder request-user guard and requires upstream auth middleware/strategy to populate `req.user` for runtime access.
 - Verify: cd apps/backend && pnpm build
 - Context: Category CRUD and Product CRUD are implemented in a single `products` module/file set (`apps/backend/src/products/*`) rather than separate `categories/*` and `products/*` modules; no schema changes or migrations were made.
+
+## Session End: 2026-02-26T04:50:00Z
+- Completed: Order Module Task 1 — order create/list/detail/status-update/cancel routes with ownership checks, transactional order creation from accepted quote, RFQ close on create, and hardcoded state machine transition enforcement
+- Branch: feature/orders
+- Last commit: e8dd4f3 feat(orders): add order module with state machine transitions
+- Next task: Payment Module Task 1 (Razorpay create-order endpoint) or Order Module follow-up tests
+- Known issues: This work was initially committed on `feature/quotes` by mistake and then corrected by cherry-picking onto `feature/orders`; `PROJECT_TASKS` references `list-orders.dto.ts` and `cancel-order.dto.ts`, but this implementation uses query params and an inline cancel body type instead of separate DTO files while preserving requested behavior.
+- Verify: cd apps/backend && pnpm build
+- Context: `getOrder` includes `Quote`, `RFQ`, and `Payment`; vendor ownership checks resolve `VendorProfile.id` from authenticated `User.id`. No schema changes or migrations.
