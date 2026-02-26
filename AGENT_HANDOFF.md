@@ -209,6 +209,15 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Verify: cd apps/frontend && pnpm build
 - Context: No localStorage is used for auth; backend HTTP-only cookie is set by `/api/v1/auth/verify-otp`, and frontend state only stores the returned user profile for UI routing/state.
 
+## Session End: 2026-02-26T06:28:07Z
+- Completed: Frontend buyer flows — buyer layout/nav/logout, buyer dashboard stats, RFQ creation form (multi-item, dynamic rows), RFQ detail with quote polling (15s), quote acceptance -> order creation, orders list, and order detail timeline/cancel flow
+- Branch: feature/frontend-buyer
+- Last commit: 13f5773 feat(frontend): add buyer dashboard, RFQ creation, quote acceptance, order tracking
+- Next task: Frontend vendor portal pages or merge frontend feature branches into `develop`
+- Known issues: This branch starts from `develop`, so it also includes prerequisite frontend scaffolding not yet merged (`apps/frontend/lib/api.ts`, Zustand store, React Query provider in root layout, `formatIST()` rule-compliant formatter). Buyer layout checks Zustand user state only; if the page is refreshed before auth/session hydration wiring is added, it redirects to `/login`. RFQ create uses `TODO_ADDRESS_ID` placeholder and will show backend validation error until address UI/API exists.
+- Verify: cd apps/frontend && pnpm build
+- Context: All API requests use the shared Axios client (`withCredentials: true`) and unwrap backend success envelopes. Quote polling on `/buyer/rfq/[id]` uses React Query `refetchInterval: 15000`.
+
 ## Session End: 2026-02-26T15:29:40Z
 - Completed: BACKEND — Admin Metrics + Pending Vendors
 - Branch: feature/admin-metrics
