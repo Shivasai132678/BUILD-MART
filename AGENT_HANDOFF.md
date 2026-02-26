@@ -190,3 +190,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `PROJECT_TASKS.md` did not have a dedicated seed-script checkbox, so a new checked SETUP task entry was added to track this work explicitly. Prisma warns that `package.json#prisma` seed config is deprecated in Prisma 7, but this repo is intentionally pinned to Prisma 6.
 - Verify: cd apps/backend && npx prisma db seed && npx prisma db seed && DATABASE_URL='postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev' node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); Promise.all([p.user.count(), p.category.count(), p.product.count(), p.vendorProfile.count()]).then(([u,c,pr,v]) => console.log('users:',u,'categories:',c,'products:',pr,'vendors:',v)).finally(() => p.\$disconnect());"
 - Context: Products are seeded with deterministic string IDs so `Product` can be upserted despite no natural unique key on product name; vendor-product rows use composite upsert on `(vendorId, productId)`.
+
+## Session End: 2026-02-26T15:13:09Z
+- Completed: FRONTEND — Vendor Portal
+- Branch: feature/frontend-vendor
+- Last commit: d6da74c feat(frontend): add vendor portal with RFQ browsing, quote submission, order management
+- Next task: FRONTEND — Admin Dashboard (feature/frontend-admin)
+- Known issues: Vendor onboarding/profile UI task remains pending in `PROJECT_TASKS.md`. Vendor order detail shows buyer ID (backend order detail response does not include buyer name yet). `Toaster` is a local host placeholder for future toast wiring. This branch ports frontend shared scaffolding from `feature/frontend-buyer` (React Query provider, Axios client, Zustand store, UI helpers, `formatIST`) because `develop` did not include them.
+- Verify: cd apps/frontend && pnpm build
+- Context: Vendor portal complete for RFQ browsing, quote submission, and order management. Admin dashboard is next (approval queue + metrics).
