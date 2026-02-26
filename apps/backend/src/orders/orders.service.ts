@@ -6,7 +6,15 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Order, OrderStatus, Prisma, RFQStatus, UserRole } from '@prisma/client';
+import {
+  NotificationType,
+  Order,
+  OrderStatus,
+  Prisma,
+  RFQStatus,
+  UserRole,
+} from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -33,7 +41,10 @@ const ALLOWED_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async createOrder(buyerId: string, dto: CreateOrderDto): Promise<Order> {
     const quote = await this.prisma.quote.findUnique({
@@ -109,6 +120,18 @@ export class OrdersService {
       });
 
       this.logger.log(`Order created id=${createdOrder.id} rfqId=${quote.rfqId}`);
+
+      await this.notificationsService.createNotification(
+        buyerId,
+        NotificationType.ORDER_CONFIRMED,
+        'Order confirmed',
+        `Your order ${createdOrder.id} has been confirmed.`,
+        {
+          orderId: createdOrder.id,
+          rfqId: quote.rfqId,
+        },
+      );
+
       return createdOrder;
     } catch (error: unknown) {
       if (
@@ -192,6 +215,22 @@ export class OrdersService {
       `Order status updated id=${id} ${existingOrder.status} -> ${dto.status}`,
     );
 
+    if (
+      dto.status === OrderStatus.OUT_FOR_DELIVERY ||
+      dto.status === OrderStatus.DELIVERED
+    ) {
+      await this.notificationsService.createNotification(
+        updatedOrder.buyerId,
+        NotificationType.STATUS_UPDATED,
+        'Order status updated',
+        `Your order ${updatedOrder.id} is now ${dto.status}.`,
+        {
+          orderId: updatedOrder.id,
+          status: dto.status,
+        },
+      );
+    }
+
     return updatedOrder;
   }
 
@@ -234,6 +273,24 @@ export class OrdersService {
         ...(cancelReason !== undefined ? { cancelReason } : {}),
       },
     });
+
+    const vendorUserId = await this.getVendorUserIdByVendorProfileId(existingOrder.vendorId);
+    const recipientIds = Array.from(new Set([existingOrder.buyerId, vendorUserId]));
+
+    await Promise.all(
+      recipientIds.map((recipientId) =>
+        this.notificationsService.createNotification(
+          recipientId,
+          NotificationType.STATUS_UPDATED,
+          'Order cancelled',
+          `Order ${cancelledOrder.id} was cancelled.`,
+          {
+            orderId: cancelledOrder.id,
+            status: OrderStatus.CANCELLED,
+          },
+        ),
+      ),
+    );
 
     this.logger.log(`Order cancelled id=${id} by role=${role}`);
     return cancelledOrder;
@@ -295,6 +352,19 @@ export class OrdersService {
     }
 
     return vendorProfile.id;
+  }
+
+  private async getVendorUserIdByVendorProfileId(vendorProfileId: string): Promise<string> {
+    const vendorProfile = await this.prisma.vendorProfile.findUnique({
+      where: { id: vendorProfileId },
+      select: { userId: true },
+    });
+
+    if (!vendorProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    return vendorProfile.userId;
   }
 
   private assertValidOrderTransition(
