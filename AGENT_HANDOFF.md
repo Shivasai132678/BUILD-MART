@@ -139,3 +139,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `develop` branch lacked auth and Prisma DI scaffolding, so this session added minimal `src/common/auth/*` guards/decorator and `src/prisma/*`; routes use versioned controllers (`version: '1'`) but `/api/v1/...` runtime paths still depend on global prefix/versioning setup (Setup task remains unchecked on this branch); `JwtAuthGuard` is a placeholder request-user guard and requires upstream auth middleware/strategy to populate `req.user` for runtime access.
 - Verify: cd apps/backend && pnpm build
 - Context: Category CRUD and Product CRUD are implemented in a single `products` module/file set (`apps/backend/src/products/*`) rather than separate `categories/*` and `products/*` modules; no schema changes or migrations were made.
+
+## Session End: 2026-02-25T20:30:00Z
+- Completed: RFQ Module Task 1 — DTOs, BUYER create/list/detail/close routes, VENDOR available RFQ feed, RFQService transaction create flow with address ownership validation, and product-level vendor matching query (logged matched vendor IDs only)
+- Branch: feature/rfq
+- Last commit: 0e43d75 feat(rfq): add RFQ module with product-level vendor matching
+- Next task: RFQ Module Task 2 — extract/extend product-level vendor matching and trigger NotificationsService integration (currently intentionally deferred)
+- Known issues: `@Throttle` is implemented using Nest Throttler v6 object syntax (`@Throttle({ default: { limit: 10, ttl: 60000 } })`) instead of positional `@Throttle(10, 60)`; `PROJECT_TASKS` RFQ task 31 remains unchecked because this task intentionally logs matched vendor IDs and does not call `NotificationsService` yet.
+- Verify: cd apps/backend && pnpm build
+- Context: RFQ available feed uses product-level matching only (city match + at least one `RFQItem.productId` in vendor `VendorProduct` list), not category-level matching (Rule 5 in `CLAUDE.md`). No schema changes or migrations.

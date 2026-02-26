@@ -27,10 +27,10 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [ ] VendorProduct mapping management for vendor sellable items | Files: `apps/backend/src/vendor-products/vendor-products.controller.ts`, `apps/backend/src/vendor-products/vendor-products.service.ts`, `apps/backend/src/vendor-products/dto/*` | Expected outcome: Vendors can maintain product mappings used for RFQ matching query logic.
 
 ## BACKEND — RFQ Module
-- [ ] RFQ create endpoint + DTOs + throttle guard | Files: `apps/backend/src/rfq/rfq.controller.ts`, `apps/backend/src/rfq/rfq.service.ts`, `apps/backend/src/rfq/dto/create-rfq.dto.ts` | Expected outcome: BUYER can create RFQs via `/api/v1/rfq` with `@Throttle(10, 60)` and validated multi-item payloads.
+- [x] RFQ create endpoint + DTOs + throttle guard | Files: `apps/backend/src/rfq/rfq.controller.ts`, `apps/backend/src/rfq/rfq.service.ts`, `apps/backend/src/rfq/dto/create-rfq.dto.ts` | Expected outcome: BUYER can create RFQs via `/api/v1/rfq` with `@Throttle(10, 60)` and validated multi-item payloads.
 - [ ] Product-level vendor matching query + notification trigger | Files: `apps/backend/src/rfq/rfq.service.ts`, `apps/backend/src/rfq/queries/vendor-matching.query.ts`, `apps/backend/src/notifications/notifications.service.ts` | Expected outcome: Matching uses product-level logic only and emits notification events through `NotificationsService`.
-- [ ] Buyer RFQ list/detail/close endpoints (paginated) | Files: `apps/backend/src/rfq/rfq.controller.ts`, `apps/backend/src/rfq/rfq.service.ts`, `apps/backend/src/rfq/dto/list-rfq.dto.ts` | Expected outcome: Buyers can paginate their RFQs, inspect details, and close eligible RFQs.
-- [ ] Vendor available RFQ feed endpoint with filters | Files: `apps/backend/src/rfq/rfq.controller.ts`, `apps/backend/src/rfq/rfq.service.ts` | Expected outcome: Vendors see only matching open RFQs in a paginated endpoint.
+- [x] Buyer RFQ list/detail/close endpoints (paginated) | Files: `apps/backend/src/rfq/rfq.controller.ts`, `apps/backend/src/rfq/rfq.service.ts`, `apps/backend/src/rfq/dto/list-rfq.dto.ts` | Expected outcome: Buyers can paginate their RFQs, inspect details, and close eligible RFQs.
+- [x] Vendor available RFQ feed endpoint with filters | Files: `apps/backend/src/rfq/rfq.controller.ts`, `apps/backend/src/rfq/rfq.service.ts` | Expected outcome: Vendors see only matching open RFQs in a paginated endpoint.
 
 ## BACKEND — Quote Module
 - [ ] Quote create endpoint + quote item persistence | Files: `apps/backend/src/quotes/quotes.controller.ts`, `apps/backend/src/quotes/quotes.service.ts`, `apps/backend/src/quotes/dto/create-quote.dto.ts` | Expected outcome: Vendors can submit quotes with line items and totals for eligible RFQs.
