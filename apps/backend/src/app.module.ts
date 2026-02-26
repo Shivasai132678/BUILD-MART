@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { HealthController } from './health/health.controller';
 import { OrdersModule } from './orders/orders.module';
+import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProductsModule } from './products/products.module';
 import { QuotesModule } from './quotes/quotes.module';
@@ -30,6 +31,7 @@ import { VendorModule } from './vendors/vendor.module';
     RfqModule,
     QuotesModule,
     OrdersModule,
+    PaymentsModule,
   ],
   controllers: [AppController, HealthController],
   providers: [
