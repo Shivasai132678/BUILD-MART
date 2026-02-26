@@ -148,3 +148,11 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `@Throttle` is implemented using Nest Throttler v6 object syntax (`@Throttle({ default: { limit: 10, ttl: 60000 } })`) instead of positional `@Throttle(10, 60)`; `PROJECT_TASKS` RFQ task 31 remains unchecked because this task intentionally logs matched vendor IDs and does not call `NotificationsService` yet.
 - Verify: cd apps/backend && pnpm build
 - Context: RFQ available feed uses product-level matching only (city match + at least one `RFQItem.productId` in vendor `VendorProduct` list), not category-level matching (Rule 5 in `CLAUDE.md`). No schema changes or migrations.
+## Session End: 2026-02-25T20:55:00Z
+- Completed: Quote Module Task 1 — quote create/list(update buyer RFQ quotes sorted by totalAmount ASC)/update/delete endpoints with DTO validation, quote+quoteItems transaction persistence, RFQ status promotion OPEN→QUOTED, uniqueness/validity checks, and order-exists guards
+- Branch: feature/quotes
+- Last commit: b365647 feat(quotes): add quote submission and management module
+- Next task: Order Module Task 1 (order creation from accepted quote + RFQ close transaction) or Quote follow-up refinements/tests
+- Known issues: Quote task 37 was implemented directly in `apps/backend/src/quotes/quotes.service.ts` (no separate `quotes.repository.ts` abstraction yet); quote ownership uses authenticated `User.id` mapped to `VendorProfile.id` internally before comparing/persisting `Quote.vendorId`.
+- Verify: cd apps/backend && pnpm build
+- Context: No schema changes or migrations. Controllers are thin and use auth guards/roles only; DTO decimal fields are accepted as strings and passed through to Prisma Decimal columns.
