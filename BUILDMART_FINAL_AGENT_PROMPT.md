@@ -30,8 +30,6 @@ HARD CONSTRAINTS (every session):
 - Never overwrite apps/backend/prisma/schema.prisma.
 - Never overwrite AGENT_HANDOFF.md — only append new session blocks.
 - Never modify schema after bootstrap without a named migration.
-
-
 ════════════════════════════════════════════════════════════════
 PHASE 0 — BOOTSTRAP (FIRST RUN ONLY)
 ════════════════════════════════════════════════════════════════
@@ -95,17 +93,66 @@ Frontend (Next.js):
   pnpm dlx create-next-app@latest frontend \
     --typescript --tailwind --app --no-src-dir --import-alias "@/*"
 
-Pin Prisma to v6 (REQUIRED — Prisma 7 removes url from schema.prisma and breaks the locked schema):
+Pin Prisma CLI to devDependencies, but @prisma/client to RUNTIME dependencies:   ← UPDATED
   cd apps/backend
-  pnpm add prisma@6 @prisma/client@6 --save-dev
+  pnpm add -D prisma@6                  ← CLI only: devDependencies
+  pnpm add @prisma/client@6             ← Runtime: dependencies (NOT --save-dev)
+
+CRITICAL: @prisma/client MUST be in dependencies, not devDependencies.            ← UPDATED
+Verify with:
+  node -e "const p=require('./package.json'); console.log(p.dependencies['@prisma/client'])"
+  Must print: ^6.x.x  (if undefined, re-run: pnpm add @prisma/client@6)
+
+Add @nestjs/config to runtime dependencies:                                        ← UPDATED
+  pnpm add @nestjs/config
 
 Verify Prisma version before continuing:
   cd apps/backend && npx prisma --version
   Must show: Prisma CLI: 6.x.x
-  If it shows 7.x.x — re-run the pnpm add command above.
+  If it shows 7.x.x — re-run the pnpm add -D prisma@6 command above.
   Do NOT proceed to Step 0.4 until version shows 6.x.x.
 
+Create PrismaModule BEFORE any other module (required for $connect lifecycle):     ← UPDATED
+  Create apps/backend/src/prisma/prisma.service.ts with this EXACT content:
 
+    import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+    import { PrismaClient } from '@prisma/client';
+
+    @Injectable()
+    export class PrismaService extends PrismaClient
+      implements OnModuleInit, OnModuleDestroy {
+      async onModuleInit() {
+        await this.$connect();
+      }
+      async onModuleDestroy() {
+        await this.$disconnect();
+      }
+    }
+
+  Create apps/backend/src/prisma/prisma.module.ts with this EXACT content:
+
+    import { Global, Module } from '@nestjs/common';
+    import { PrismaService } from './prisma.service';
+
+    @Global()
+    @Module({
+      providers: [PrismaService],
+      exports: [PrismaService],
+    })
+    export class PrismaModule {}
+
+  Update apps/backend/src/app.module.ts — imports array MUST include:             ← UPDATED
+
+    import { ConfigModule } from '@nestjs/config';
+    import { PrismaModule } from './prisma/prisma.module';
+
+    @Module({
+      imports: [
+        ConfigModule.forRoot({ isGlobal: true }),   ← loads .env at runtime
+        PrismaModule,                                 ← @Global, provides PrismaService
+        ...
+      ],
+    })
 ────────────────────────────────────────
 Step 0.4 — Write Prisma schema
 ────────────────────────────────────────
@@ -125,10 +172,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")        ← pooled connection URL
+  directUrl  = env("DIRECT_URL")          ← direct URL (required by Prisma 6)  ← UPDATED
 }
-
 // ─── ENUMS ──────────────────────────────────────────────────
 
 enum UserRole {
@@ -543,6 +590,77 @@ Write docker-compose.yml at PROJECT ROOT (not inside apps/backend):
       env_file: ./apps/backend/.env
   volumes:
     pgdata:
+
+After writing docker-compose.yml, start ONLY the db container:               ← UPDATED
+  docker-compose up -d db
+
+Wait 5 seconds for PostgreSQL to initialize, then verify role and database    ← UPDATED
+exist with correct ownership:
+
+  docker-compose exec db psql -U buildmart -d buildmart_dev -c "SELECT current_user, current_database();"
+
+Expected output:
+   current_user | current_database
+  --------------+-----------------
+   buildmart    | buildmart_dev
+
+If you see "role does not exist" or "database does not exist":                ← UPDATED
+  docker-compose exec db psql -U postgres -c "
+    CREATE ROLE buildmart WITH LOGIN PASSWORD 'buildmart' CREATEDB;
+    CREATE DATABASE buildmart_dev OWNER buildmart;
+    GRANT ALL PRIVILEGES ON DATABASE buildmart_dev TO buildmart;
+  "
+  Then re-run the SELECT above to confirm.
+
+Write apps/backend/.env:                                                       ← UPDATED
+
+  DATABASE_URL=postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev?connection_limit=5&pool_timeout=10
+  DIRECT_URL=postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev
+  JWT_SECRET=buildmart-local-dev-secret-change-in-production
+  JWT_EXPIRES_IN=7d
+  PORT=3001
+  NODE_ENV=development
+  FRONTEND_URL=http://localhost:3000
+
+RULE: Never commit .env. Only commit .env.example with blank values.
+
+────────────────────────────────────────
+Step 0.5-VERIFY — Confirm Prisma connects BEFORE writing any feature code     ← NEW
+────────────────────────────────────────
+
+Run migrations first:
+  cd apps/backend && npx prisma migrate dev --name init
+
+Then run this connection smoke test:
+
+  cd apps/backend && DATABASE_URL='postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev' \
+  node -e "
+  const { PrismaClient } = require('@prisma/client');
+  const p = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
+  p.user.findMany()
+    .then(r => console.log('✅ Prisma OK —', r.length, 'users'))
+    .catch(e => { console.log('❌ FAIL', e.code, e.message); process.exit(1); })
+    .finally(() => p.\$disconnect());
+  "
+
+If this prints "✅ Prisma OK" → proceed to Phase 1.
+
+If this prints "❌ FAIL P1010 — User was denied access":                      ← NEW
+  Checklist (fix in order, stop at first resolution):
+  1. Is @prisma/client in dependencies (not devDependencies)?
+       node -e "const p=require('./package.json'); console.log(p.dependencies['@prisma/client'])"
+       Must print ^6.x.x — if undefined: pnpm add @prisma/client@6
+  2. Does schema.prisma datasource block have directUrl = env("DIRECT_URL")?
+       If missing: add it, then re-run npx prisma generate
+  3. Does .env have DIRECT_URL set?
+       If missing: add DIRECT_URL=postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev
+  4. Does PrismaService extend PrismaClient and call $connect() in onModuleInit?
+       If missing: fix prisma.service.ts (see Step 0.3)
+  5. Does app.module.ts import ConfigModule.forRoot({ isGlobal: true }) and PrismaModule?
+       If missing: add both imports
+
+  Do NOT proceed to Phase 1 until smoke test prints "✅ Prisma OK".
+
 
 ────────────────────────────────────────
 Step 0.6 — Write shared ESLint + Prettier
