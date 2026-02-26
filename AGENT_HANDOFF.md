@@ -190,3 +190,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `PROJECT_TASKS.md` did not have a dedicated seed-script checkbox, so a new checked SETUP task entry was added to track this work explicitly. Prisma warns that `package.json#prisma` seed config is deprecated in Prisma 7, but this repo is intentionally pinned to Prisma 6.
 - Verify: cd apps/backend && npx prisma db seed && npx prisma db seed && DATABASE_URL='postgresql://buildmart:buildmart@127.0.0.1:5432/buildmart_dev' node -e "const { PrismaClient } = require('@prisma/client'); const p = new PrismaClient(); Promise.all([p.user.count(), p.category.count(), p.product.count(), p.vendorProfile.count()]).then(([u,c,pr,v]) => console.log('users:',u,'categories:',c,'products:',pr,'vendors:',v)).finally(() => p.\$disconnect());"
 - Context: Products are seeded with deterministic string IDs so `Product` can be upserted despite no natural unique key on product name; vendor-product rows use composite upsert on `(vendorId, productId)`.
+
+## Session End: 2026-02-26T15:19:55Z
+- Completed: FRONTEND — Admin Dashboard
+- Branch: feature/frontend-admin
+- Last commit: 5094d4b feat(frontend): add admin dashboard with vendor approval queue and metrics
+- Next task: Merge all feature branches into develop, then develop -> main
+- Known issues: Backend `/api/v1/admin/metrics` is not implemented yet, so dashboard metrics render fallback "N/A" cards with a yellow "Admin metrics endpoint pending" notice. Backend pending-vendor list endpoint (`GET /api/v1/vendors?isApproved=false`) is also not implemented, so the approvals page shows a graceful pending-endpoint notice while keeping approve mutation wiring in place. This branch also ports shared frontend scaffolding from `feature/frontend-vendor` because `develop` lacked it.
+- Verify: cd apps/frontend && pnpm build
+- Context: all frontend flows complete after this task; next step is branch merges and CI/CD pipeline
