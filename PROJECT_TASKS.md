@@ -78,9 +78,9 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] Vendor orders list + status update controls | Files: `apps/frontend/app/(vendor)/orders/page.tsx`, `apps/frontend/app/(vendor)/orders/[id]/page.tsx` | Expected outcome: Vendor can filter orders and perform allowed status transitions only.
 
 ## FRONTEND — Admin Dashboard
-- [ ] Admin dashboard layout + navigation shell | Files: `apps/frontend/app/(admin)/layout.tsx`, `apps/frontend/app/(admin)/page.tsx`, `apps/frontend/components/admin/nav.tsx` | Expected outcome: Admin area has protected layout and navigable dashboard shell.
-- [ ] Vendor approval queue UI (approve/reject actions) | Files: `apps/frontend/app/(admin)/vendors/page.tsx`, `apps/frontend/components/admin/vendor-queue.tsx`, `apps/frontend/lib/api/admin.ts` | Expected outcome: Admin can review pending vendors and approve/reject from UI.
-- [ ] Metrics cards for users/vendors/RFQs/orders/GMV | Files: `apps/frontend/components/admin/metric-cards.tsx`, `apps/frontend/app/(admin)/page.tsx` | Expected outcome: Admin dashboard renders live metric summaries from backend endpoint.
+- [x] Admin dashboard layout + navigation shell | Files: `apps/frontend/app/(admin)/layout.tsx`, `apps/frontend/app/(admin)/page.tsx`, `apps/frontend/components/admin/nav.tsx` | Expected outcome: Admin area has protected layout and navigable dashboard shell.
+- [x] Vendor approval queue UI (approve/reject actions) | Files: `apps/frontend/app/(admin)/vendors/page.tsx`, `apps/frontend/components/admin/vendor-queue.tsx`, `apps/frontend/lib/api/admin.ts` | Expected outcome: Admin can review pending vendors and approve/reject from UI.
+- [x] Metrics cards for users/vendors/RFQs/orders/GMV | Files: `apps/frontend/components/admin/metric-cards.tsx`, `apps/frontend/app/(admin)/page.tsx` | Expected outcome: Admin dashboard renders live metric summaries from backend endpoint.
 
 ## DEVOPS — Docker & CI/CD
 - [ ] Backend Dockerfile for NestJS production build | Files: `apps/backend/Dockerfile`, `apps/backend/.dockerignore` | Expected outcome: Backend can be containerized and run in production mode for Render/Railway.

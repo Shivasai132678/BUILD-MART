@@ -227,6 +227,15 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Verify: cd apps/frontend && pnpm build
 - Context: Vendor portal complete for RFQ browsing, quote submission, and order management. Admin dashboard is next (approval queue + metrics).
 
+## Session End: 2026-02-26T15:19:55Z
+- Completed: FRONTEND — Admin Dashboard
+- Branch: feature/frontend-admin
+- Last commit: 5094d4b feat(frontend): add admin dashboard with vendor approval queue and metrics
+- Next task: Merge all feature branches into develop, then develop -> main
+- Known issues: Backend `/api/v1/admin/metrics` is not implemented yet, so dashboard metrics render fallback "N/A" cards with a yellow "Admin metrics endpoint pending" notice. Backend pending-vendor list endpoint (`GET /api/v1/vendors?isApproved=false`) is also not implemented, so the approvals page shows a graceful pending-endpoint notice while keeping approve mutation wiring in place. This branch also ports shared frontend scaffolding from `feature/frontend-vendor` because `develop` lacked it.
+- Verify: cd apps/frontend && pnpm build
+- Context: all frontend flows complete after this task; next step is branch merges and CI/CD pipeline
+
 ## Session End: 2026-02-26T15:29:40Z
 - Completed: BACKEND — Admin Metrics + Pending Vendors
 - Branch: feature/admin-metrics
