@@ -262,3 +262,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: Resolved repeated AGENT_HANDOFF.md merge conflicts manually while preserving all session blocks. Admin frontend is merged but still uses graceful fallback paths/key assumptions until it is aligned to backend admin endpoints (/api/v1/admin/metrics and /api/v1/admin/vendors/pending).
 - Verify: cd apps/backend && pnpm build && cd ../frontend && pnpm build
 - Context: develop is now fully integrated MVP; CI runs on push to develop and PR to main; next step is staging deployment and end-to-end smoke test.
+
+## Session End: 2026-02-26T16:45:16Z
+- Completed: DEPLOYMENT — Render (backend) + Vercel (frontend) + staging smoke test prep
+- Branch: develop
+- Last commit: 3c66732 chore(deploy): add Render/Vercel deployment configs and README
+- Next task: Step 18 — live deployment execution (Render backend + Vercel frontend) and staging smoke test with real URLs/credentials
+- Known issues: No live Render/Vercel deployment was executed from this environment (no cloud credentials/URLs provided). The requested backend Dockerfile/render config uses dockerContext=apps/backend and copies pnpm-lock.yaml inside that context, but this repo currently keeps the workspace lockfile at the root; deployment may require either a backend-local lockfile or Docker/render config adjustment before first Render build. apps/frontend/.env.example is ignored by apps/frontend/.gitignore (.env*) and must be force-added if modified again.
+- Verify: ruby -e "require 'yaml'; YAML.load_file('apps/backend/render.yaml')" && node -e "JSON.parse(require('fs').readFileSync('apps/frontend/vercel.json','utf8'))" && cd apps/backend && pnpm build && cd ../frontend && pnpm build
+- Context: Added Render backend Dockerfile + render blueprint + backend env example, Vercel frontend config + env example, and a new root README with local setup, deployment steps, and staging smoke-test checklist.

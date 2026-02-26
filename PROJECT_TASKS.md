@@ -83,7 +83,7 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] Metrics cards for users/vendors/RFQs/orders/GMV | Files: `apps/frontend/components/admin/metric-cards.tsx`, `apps/frontend/app/(admin)/page.tsx` | Expected outcome: Admin dashboard renders live metric summaries from backend endpoint.
 
 ## DEVOPS — Docker & CI/CD
-- [ ] Backend Dockerfile for NestJS production build | Files: `apps/backend/Dockerfile`, `apps/backend/.dockerignore` | Expected outcome: Backend can be containerized and run in production mode for Render/Railway.
+- [x] Backend Dockerfile for NestJS production build | Files: `apps/backend/Dockerfile`, `apps/backend/.dockerignore` | Expected outcome: Backend can be containerized and run in production mode for Render/Railway.
 - [ ] Docker Compose local workflow validation | Files: `docker-compose.yml`, `apps/backend/.env.example`, `README.md` | Expected outcome: Local DB + backend startup flow is documented and reproducible.
 - [x] GitHub Actions CI pipeline (lint/test/build/migrate) | Files: `.github/workflows/ci.yml` | Expected outcome: CI runs on `develop` pushes and PRs to `main`, using `prisma migrate deploy` (not `migrate dev`).
 
@@ -94,12 +94,12 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [ ] Frontend smoke tests for key buyer/vendor/admin flows | Files: `apps/frontend/tests/*` | Expected outcome: Critical page rendering and API interaction regressions are caught early.
 
 ## DEPLOYMENT
-- [ ] Backend staging deployment configuration | Files: `README.md`, `ENV.md`, `apps/backend/Dockerfile` | Expected outcome: Render/Railway deployment steps and environment setup are documented and executable.
-- [ ] Frontend staging deployment configuration | Files: `README.md`, `apps/frontend/vercel.json` (if needed), `ENV.md` | Expected outcome: Vercel deployment variables and build settings are documented.
-- [ ] Post-deploy verification checklist + seed run procedure | Files: `README.md`, `SEED.md` | Expected outcome: Staging demo flow can be validated end-to-end after deployment and seed execution.
+- [x] Backend staging deployment configuration | Files: `README.md`, `ENV.md`, `apps/backend/Dockerfile` | Expected outcome: Render/Railway deployment steps and environment setup are documented and executable.
+- [x] Frontend staging deployment configuration | Files: `README.md`, `apps/frontend/vercel.json` (if needed), `ENV.md` | Expected outcome: Vercel deployment variables and build settings are documented.
+- [x] Post-deploy verification checklist + seed run procedure | Files: `README.md`, `SEED.md` | Expected outcome: Staging demo flow can be validated end-to-end after deployment and seed execution.
 
 ## DOCUMENTATION POLISH
-- [ ] README setup guide + local development instructions + demo credentials | Files: `README.md`, `ENV.md`, `SEED.md` | Expected outcome: New developers can bootstrap locally and run the demo flow without ambiguity.
+- [x] README setup guide + local development instructions + demo credentials | Files: `README.md`, `ENV.md`, `SEED.md` | Expected outcome: New developers can bootstrap locally and run the demo flow without ambiguity.
 - [ ] API usage and Swagger access policy documentation | Files: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md` | Expected outcome: API versioning, staging-only Swagger, and route conventions are clearly documented.
 - [ ] Cross-document consistency review (architecture/decisions/env/seed/handoff/tasks) | Files: `ARCHITECTURE.md`, `DECISIONS.md`, `ENV.md`, `SEED.md`, `AGENT_HANDOFF.md`, `PROJECT_TASKS.md` | Expected outcome: Terminology, status names, and lifecycle rules are consistent across docs.
 
