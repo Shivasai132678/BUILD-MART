@@ -5,8 +5,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { RFQStatus, UserRole } from '@prisma/client';
+import { NotificationType, RFQStatus, UserRole } from '@prisma/client';
 import type { Prisma, RFQ } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRfqDto } from './dto/create-rfq.dto';
 
@@ -21,7 +22,10 @@ type PaginatedRfqResponse = {
 export class RfqService {
   private readonly logger = new Logger(RfqService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async createRFQ(userId: string, dto: CreateRfqDto): Promise<RFQ> {
     const createdRfq = await this.prisma.$transaction(async (tx) => {
@@ -78,6 +82,35 @@ export class RfqService {
     this.logger.log(
       `RFQ ${createdRfq.id} matched vendor ids: ${matchedVendorIds.length > 0 ? matchedVendorIds.join(', ') : 'none'}`,
     );
+
+    if (matchedVendorIds.length > 0) {
+      const matchedVendors = await this.prisma.vendorProfile.findMany({
+        where: {
+          id: {
+            in: matchedVendorIds,
+          },
+        },
+        select: {
+          id: true,
+          userId: true,
+        },
+      });
+
+      await Promise.all(
+        matchedVendors.map((vendor) =>
+          this.notificationsService.createNotification(
+            vendor.userId,
+            NotificationType.RFQ_CREATED,
+            'New RFQ available',
+            `A new RFQ is available in ${createdRfq.city}.`,
+            {
+              rfqId: createdRfq.id,
+              vendorProfileId: vendor.id,
+            },
+          ),
+        ),
+      );
+    }
 
     return createdRfq;
   }

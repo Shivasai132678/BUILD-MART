@@ -173,3 +173,11 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: `@types/razorpay` install failed with npm 404 (package not published); implementation uses Razorpay SDK built-in typings. Webhook service verifies signature and handles `UnauthorizedException` internally to always return HTTP 200 to Razorpay as required. `PROJECT_TASKS` task 48 references an adapter file (`payments/adapters/razorpay.adapter.ts`), but this session implements the Razorpay client directly in `PaymentsService` per requested file list.
 - Verify: cd apps/backend && pnpm build
 - Context: `main.ts` now enables raw webhook handling via `app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }))` and Nest raw-body support. No schema changes or migrations.
+## Session End: 2026-02-26T05:45:00Z
+- Completed: Notifications Module — global `NotificationsModule`, DB-backed NotificationsService, unread-first list/read/read-all endpoints, and event trigger wiring in `RfqService`, `QuotesService`, and `OrdersService`
+- Branch: feature/notifications
+- Last commit: 8537d0f feat(notifications): add notifications module and wire event triggers
+- Next task: Notifications adapters (SMS/WhatsApp/email) and broader event wiring (auth/payment) or Payment task 50 sync/notifications integration
+- Known issues: `PROJECT_TASKS` notification task 54 is complete; task 53 (adapter interfaces), task 55 (external adapters), and task 56 (full auth/RFQ/quote/order/payment wiring) remain pending. This session intentionally persists notifications to DB + logs only, with TODO comments for MSG91 and WhatsApp providers in `NotificationsService`.
+- Verify: cd apps/backend && pnpm build
+- Context: Notification metadata is persisted via `Notification.metadata` JSON field. Order/Quote/RFQ services now route user-facing notification events through `NotificationsService` (Rule 15 for covered modules).

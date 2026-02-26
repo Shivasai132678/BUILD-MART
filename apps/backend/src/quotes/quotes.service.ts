@@ -6,8 +6,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { RFQStatus } from '@prisma/client';
+import { NotificationType, RFQStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
@@ -20,7 +21,10 @@ type QuoteWithItems = Prisma.QuoteGetPayload<{
 export class QuotesService {
   private readonly logger = new Logger(QuotesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async createQuote(vendorUserId: string, dto: CreateQuoteDto): Promise<QuoteWithItems> {
     const vendorProfile = await this.getVendorProfileByUserId(vendorUserId);
@@ -28,6 +32,7 @@ export class QuotesService {
       where: { id: dto.rfqId },
       select: {
         id: true,
+        buyerId: true,
         status: true,
       },
     });
@@ -94,6 +99,17 @@ export class QuotesService {
       });
 
       this.logger.log(`Quote created id=${createdQuote.id} rfqId=${dto.rfqId}`);
+
+      await this.notificationsService.createNotification(
+        rfq.buyerId,
+        NotificationType.QUOTE_RECEIVED,
+        'New quote received',
+        `A vendor submitted a quote for RFQ ${dto.rfqId}.`,
+        {
+          rfqId: dto.rfqId,
+          quoteId: createdQuote.id,
+        },
+      );
 
       return createdQuote;
     } catch (error: unknown) {
