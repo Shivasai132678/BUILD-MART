@@ -218,6 +218,15 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Verify: cd apps/frontend && pnpm build
 - Context: All API requests use the shared Axios client (`withCredentials: true`) and unwrap backend success envelopes. Quote polling on `/buyer/rfq/[id]` uses React Query `refetchInterval: 15000`.
 
+## Session End: 2026-02-26T15:13:09Z
+- Completed: FRONTEND — Vendor Portal
+- Branch: feature/frontend-vendor
+- Last commit: d6da74c feat(frontend): add vendor portal with RFQ browsing, quote submission, order management
+- Next task: FRONTEND — Admin Dashboard (feature/frontend-admin)
+- Known issues: Vendor onboarding/profile UI task remains pending in `PROJECT_TASKS.md`. Vendor order detail shows buyer ID (backend order detail response does not include buyer name yet). `Toaster` is a local host placeholder for future toast wiring. This branch ports frontend shared scaffolding from `feature/frontend-buyer` (React Query provider, Axios client, Zustand store, UI helpers, `formatIST`) because `develop` did not include them.
+- Verify: cd apps/frontend && pnpm build
+- Context: Vendor portal complete for RFQ browsing, quote submission, and order management. Admin dashboard is next (approval queue + metrics).
+
 ## Session End: 2026-02-26T15:29:40Z
 - Completed: BACKEND — Admin Metrics + Pending Vendors
 - Branch: feature/admin-metrics

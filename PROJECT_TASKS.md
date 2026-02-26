@@ -74,8 +74,8 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 
 ## FRONTEND — Vendor Portal
 - [ ] Vendor onboarding/profile management UI | Files: `apps/frontend/app/(vendor)/onboarding/page.tsx`, `apps/frontend/app/(vendor)/profile/page.tsx`, `apps/frontend/components/vendor/*` | Expected outcome: Vendor can submit onboarding docs and manage profile details.
-- [ ] Available RFQs list + quote submission form | Files: `apps/frontend/app/(vendor)/rfqs/page.tsx`, `apps/frontend/app/(vendor)/rfqs/[id]/quote/page.tsx`, `apps/frontend/components/vendor-quote/*` | Expected outcome: Vendor sees matching RFQs and can submit valid quotes with totals.
-- [ ] Vendor orders list + status update controls | Files: `apps/frontend/app/(vendor)/orders/page.tsx`, `apps/frontend/app/(vendor)/orders/[id]/page.tsx` | Expected outcome: Vendor can filter orders and perform allowed status transitions only.
+- [x] Available RFQs list + quote submission form | Files: `apps/frontend/app/(vendor)/rfqs/page.tsx`, `apps/frontend/app/(vendor)/rfqs/[id]/quote/page.tsx`, `apps/frontend/components/vendor-quote/*` | Expected outcome: Vendor sees matching RFQs and can submit valid quotes with totals.
+- [x] Vendor orders list + status update controls | Files: `apps/frontend/app/(vendor)/orders/page.tsx`, `apps/frontend/app/(vendor)/orders/[id]/page.tsx` | Expected outcome: Vendor can filter orders and perform allowed status transitions only.
 
 ## FRONTEND — Admin Dashboard
 - [ ] Admin dashboard layout + navigation shell | Files: `apps/frontend/app/(admin)/layout.tsx`, `apps/frontend/app/(admin)/page.tsx`, `apps/frontend/components/admin/nav.tsx` | Expected outcome: Admin area has protected layout and navigable dashboard shell.
