@@ -45,8 +45,8 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] Order cancellation endpoint for CONFIRMED state only | Files: `apps/backend/src/orders/orders.controller.ts`, `apps/backend/src/orders/orders.service.ts`, `apps/backend/src/orders/dto/cancel-order.dto.ts` | Expected outcome: Buyer/Vendor cancellation allowed only in `CONFIRMED`, with reason captured.
 
 ## BACKEND — Payment Module
-- [ ] Razorpay create-order endpoint (sandbox) | Files: `apps/backend/src/payments/payments.controller.ts`, `apps/backend/src/payments/payments.service.ts`, `apps/backend/src/payments/adapters/razorpay.adapter.ts` | Expected outcome: Backend creates Razorpay sandbox orders and persists `Payment` in `INITIATED` state.
-- [ ] Razorpay webhook signature verification + idempotency | Files: `apps/backend/src/payments/payments.controller.ts`, `apps/backend/src/payments/payments.service.ts` | Expected outcome: Webhook HMAC is verified, duplicate SUCCESS callbacks return HTTP 200 without reprocessing (Rule 14).
+- [x] Razorpay create-order endpoint (sandbox) | Files: `apps/backend/src/payments/payments.controller.ts`, `apps/backend/src/payments/payments.service.ts`, `apps/backend/src/payments/adapters/razorpay.adapter.ts` | Expected outcome: Backend creates Razorpay sandbox orders and persists `Payment` in `INITIATED` state.
+- [x] Razorpay webhook signature verification + idempotency | Files: `apps/backend/src/payments/payments.controller.ts`, `apps/backend/src/payments/payments.service.ts` | Expected outcome: Webhook HMAC is verified, duplicate SUCCESS callbacks return HTTP 200 without reprocessing (Rule 14).
 - [ ] Payment-order status synchronization and failure handling | Files: `apps/backend/src/payments/payments.service.ts`, `apps/backend/src/orders/orders.service.ts`, `apps/backend/src/notifications/notifications.service.ts` | Expected outcome: Payment success/failure updates persist correctly and trigger notifications via NotificationsService only.
 
 ## BACKEND — Notifications Module

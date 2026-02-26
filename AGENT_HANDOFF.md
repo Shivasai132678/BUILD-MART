@@ -164,3 +164,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: This work was initially committed on `feature/quotes` by mistake and then corrected by cherry-picking onto `feature/orders`; `PROJECT_TASKS` references `list-orders.dto.ts` and `cancel-order.dto.ts`, but this implementation uses query params and an inline cancel body type instead of separate DTO files while preserving requested behavior.
 - Verify: cd apps/backend && pnpm build
 - Context: `getOrder` includes `Quote`, `RFQ`, and `Payment`; vendor ownership checks resolve `VendorProfile.id` from authenticated `User.id`. No schema changes or migrations.
+
+## Session End: 2026-02-26T05:20:00Z
+- Completed: Payment Module Task 1 — Razorpay create-order endpoint (BUYER), public webhook endpoint with raw-body HMAC verification, webhook idempotency (skip duplicate SUCCESS), and Payment INITIATED/SUCCESS/FAILED persistence updates
+- Branch: feature/payments
+- Last commit: d04ab3a feat(payments): add Razorpay payment module with idempotent webhook
+- Next task: Payment Module Task 2/3 — payment-order synchronization refinements + NotificationsService integration (task 50 still pending)
+- Known issues: `@types/razorpay` install failed with npm 404 (package not published); implementation uses Razorpay SDK built-in typings. Webhook service verifies signature and handles `UnauthorizedException` internally to always return HTTP 200 to Razorpay as required. `PROJECT_TASKS` task 48 references an adapter file (`payments/adapters/razorpay.adapter.ts`), but this session implements the Razorpay client directly in `PaymentsService` per requested file list.
+- Verify: cd apps/backend && pnpm build
+- Context: `main.ts` now enables raw webhook handling via `app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }))` and Nest raw-body support. No schema changes or migrations.
