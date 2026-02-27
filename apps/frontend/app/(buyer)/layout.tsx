@@ -14,6 +14,7 @@ type BuyerLayoutProps = {
 
 const navLinks = [
   { href: '/buyer/dashboard', label: 'Dashboard' },
+  { href: '/buyer/catalog', label: 'Catalog' },
   { href: '/buyer/rfq/new', label: 'Create RFQ' },
   { href: '/buyer/orders', label: 'My Orders' },
 ] as const;
@@ -110,4 +111,3 @@ export default function BuyerLayout({ children }: BuyerLayoutProps) {
     </div>
   );
 }
-

@@ -347,3 +347,20 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   4. cd apps/backend && pnpm build
   5. cd apps/frontend && pnpm build
 - Context: Added `Msg91Adapter` for OTP delivery with safe dev fallback, updated RFQ vendor notifications with per-vendor try/catch logging, wired payment success/failure buyer notifications from Razorpay webhook events, and replaced notification adapter TODO stubs with best-effort WhatsApp/SMS calls that never block core flows.
+
+## Session End: 2026-02-27T09:21:44Z
+- Completed: Catalog backend + frontend
+- Branch: feature/catalog → develop → main
+- Scope delivered:
+  1. Backend public read-only catalog GET routes for categories/products
+  2. Product list filter support: categoryId, search (case-insensitive), limit/offset
+  3. Active/non-deleted product filtering on list/detail
+  4. Frontend catalog API helper (`apps/frontend/lib/catalog-api.ts`)
+  5. Buyer catalog page (`/buyer/catalog`) with category filter, debounced search, pagination, and Add to RFQ action
+  6. RFQ new page prefill via `?productId=` query param
+  7. Buyer nav updated with Catalog link
+- Verify:
+  1. cd apps/backend && pnpm build
+  2. cd apps/frontend && pnpm build
+- Next task: Vendor onboarding/profile UI
+- Context: Catalog browsing now works without auth guards on GET endpoints, while admin write endpoints remain protected.
