@@ -291,6 +291,8 @@ export class RfqService {
     const vendors = await this.prisma.vendorProfile.findMany({
       where: {
         city,
+        isApproved: true,
+        deletedAt: null,
         products: {
           some: {
             productId: {

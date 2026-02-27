@@ -373,3 +373,13 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   2. cd apps/backend && pnpm build
 - Next task: Tests (auth, orders, RFQ)
 - Context: Added vendor onboarding and profile management pages, a dedicated vendor profile API helper, and vendor layout profile-link + onboarding redirect behavior when profile is missing.
+
+## Session End: 2026-02-27T09:40:26Z
+- Completed: Auth, Order, RFQ unit tests
+- Branch: feature/tests
+- Tests passing: 21/21
+- Verify:
+  1. cd apps/backend && pnpm test
+  2. cd apps/backend && pnpm build
+- Next task: Final review — Docker Compose validation + README polish
+- Context: Added unit tests for auth OTP lifecycle, order state machine transitions, and RFQ vendor matching. Also patched service gaps for per-phone OTP rate limiting and approved-vendor-only RFQ matching.
