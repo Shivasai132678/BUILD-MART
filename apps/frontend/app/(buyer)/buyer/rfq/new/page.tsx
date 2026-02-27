@@ -1,13 +1,23 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spinner } from '@/components/ui/Spinner';
-import { createRfq, fetchProducts } from '@/lib/buyer-api';
+import {
+  createAddress,
+  createRfq,
+  fetchProducts,
+  getAddresses,
+} from '@/lib/buyer-api';
 import { getApiErrorMessage } from '@/lib/api';
 
 const rfqItemSchema = z.object({
@@ -18,28 +28,43 @@ const rfqItemSchema = z.object({
 });
 
 const rfqFormSchema = z.object({
+  addressId: z.string().min(1, 'Select an address'),
   city: z.string().min(1, 'City is required'),
   validUntil: z.string().min(1, 'Valid until date is required'),
   notes: z.string().optional(),
   items: z.array(rfqItemSchema).min(1, 'Add at least one item'),
 });
 
-type RfqFormValues = z.infer<typeof rfqFormSchema>;
+const addressFormSchema = z.object({
+  label: z.string().max(100, 'Label is too long').optional(),
+  line1: z.string().min(1, 'Address line is required'),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  pincode: z.string().regex(/^\d{6}$/, 'Pincode must be a valid 6-digit code'),
+});
 
-const TODO_ADDRESS_ID = 'TODO_ADDRESS_ID';
+type RfqFormValues = z.infer<typeof rfqFormSchema>;
+type AddressFormValues = z.infer<typeof addressFormSchema>;
 
 export default function BuyerNewRfqPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const productsQuery = useQuery({
     queryKey: ['products', 'rfq-form'],
     queryFn: () => fetchProducts(200, 0),
   });
 
+  const addressesQuery = useQuery({
+    queryKey: ['buyer-addresses'],
+    queryFn: () => getAddresses(50, 0),
+  });
+
   const {
     control,
     register,
     handleSubmit,
+    watch,
     formState: { errors },
     setValue,
     setError,
@@ -47,6 +72,7 @@ export default function BuyerNewRfqPage() {
   } = useForm<RfqFormValues>({
     resolver: zodResolver(rfqFormSchema),
     defaultValues: {
+      addressId: '',
       city: 'Hyderabad',
       validUntil: '',
       notes: '',
@@ -54,9 +80,64 @@ export default function BuyerNewRfqPage() {
     },
   });
 
+  const {
+    register: registerAddress,
+    handleSubmit: handleAddressSubmit,
+    reset: resetAddressForm,
+    formState: { errors: addressErrors },
+    setError: setAddressError,
+    clearErrors: clearAddressErrors,
+  } = useForm<AddressFormValues>({
+    resolver: zodResolver(addressFormSchema),
+    defaultValues: {
+      label: '',
+      line1: '',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      pincode: '',
+    },
+  });
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'items',
+  });
+
+  const selectedAddressId = watch('addressId');
+  const addresses = addressesQuery.data?.items ?? [];
+
+  useEffect(() => {
+    if (selectedAddressId || addresses.length === 0) {
+      return;
+    }
+
+    const defaultAddressId = addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id;
+
+    if (defaultAddressId) {
+      setValue('addressId', defaultAddressId, { shouldValidate: true });
+    }
+  }, [addresses, selectedAddressId, setValue]);
+
+  const createAddressMutation = useMutation({
+    mutationFn: createAddress,
+    onSuccess: async (address) => {
+      await queryClient.invalidateQueries({ queryKey: ['buyer-addresses'] });
+      setValue('addressId', address.id, { shouldValidate: true });
+      setValue('city', address.city, { shouldValidate: true });
+      resetAddressForm({
+        label: '',
+        line1: '',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincode: '',
+      });
+    },
+    onError: (error) => {
+      setAddressError('root', {
+        type: 'server',
+        message: getApiErrorMessage(error, 'Failed to create address. Please try again.'),
+      });
+    },
   });
 
   const createRfqMutation = useMutation({
@@ -72,6 +153,20 @@ export default function BuyerNewRfqPage() {
     },
   });
 
+  const onCreateAddress = handleAddressSubmit(async (values) => {
+    clearAddressErrors('root');
+
+    await createAddressMutation.mutateAsync({
+      line1: values.line1.trim(),
+      area: values.line1.trim(),
+      city: values.city.trim(),
+      state: values.state.trim(),
+      pincode: values.pincode.trim(),
+      ...(values.label?.trim() ? { label: values.label.trim() } : {}),
+      isDefault: true,
+    });
+  });
+
   const onSubmit = handleSubmit(async (values) => {
     clearErrors('root');
 
@@ -81,7 +176,7 @@ export default function BuyerNewRfqPage() {
       : validUntilDate.toISOString();
 
     await createRfqMutation.mutateAsync({
-      addressId: TODO_ADDRESS_ID,
+      addressId: values.addressId,
       city: values.city,
       validUntil,
       ...(values.notes?.trim() ? { notes: values.notes.trim() } : {}),
@@ -94,6 +189,12 @@ export default function BuyerNewRfqPage() {
     });
   });
 
+  const isSubmitDisabled =
+    createRfqMutation.isPending ||
+    createAddressMutation.isPending ||
+    addressesQuery.isLoading ||
+    !selectedAddressId;
+
   return (
     <div className="space-y-6">
       <div className="space-y-2">
@@ -103,17 +204,145 @@ export default function BuyerNewRfqPage() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <p className="font-medium">Address selection coming soon</p>
-        <p className="mt-1">
-          This form uses a temporary placeholder address ID for now:
-          <span className="ml-1 rounded bg-amber-100 px-2 py-0.5 font-mono text-xs">
-            {TODO_ADDRESS_ID}
-          </span>
-        </p>
-      </div>
-
       <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Delivery Address</h2>
+            <p className="mt-1 text-xs text-slate-600">
+              Select a saved address before submitting your RFQ.
+            </p>
+          </div>
+
+          {addressesQuery.isLoading ? (
+            <div className="flex items-center gap-3 text-sm text-slate-700">
+              <Spinner size="sm" />
+              Loading addresses...
+            </div>
+          ) : null}
+
+          <ErrorMessage
+            message={
+              addressesQuery.isError
+                ? getApiErrorMessage(
+                    addressesQuery.error,
+                    'Failed to load addresses. Please refresh and try again.',
+                  )
+                : null
+            }
+          />
+
+          {!addressesQuery.isLoading && !addressesQuery.isError && addresses.length > 0 ? (
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-700" htmlFor="addressId">
+                Select Address
+              </label>
+              <select
+                id="addressId"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                {...register('addressId')}
+              >
+                <option value="">Choose an address</option>
+                {addresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {address.label?.trim()
+                      ? `${address.label} — ${address.line1}, ${address.city} ${address.pincode}`
+                      : `${address.line1}, ${address.city} ${address.pincode}`}
+                  </option>
+                ))}
+              </select>
+              <ErrorMessage message={errors.addressId?.message} />
+            </div>
+          ) : null}
+
+          {!addressesQuery.isLoading && !addressesQuery.isError && addresses.length === 0 ? (
+            <div className="space-y-4 rounded-xl border border-dashed border-slate-300 bg-white p-4">
+              <p className="text-sm text-slate-700">
+                No saved addresses found. Add one to continue.
+              </p>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressLabel">
+                    Label (optional)
+                  </label>
+                  <input
+                    id="addressLabel"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    placeholder="Home / Site Office"
+                    {...registerAddress('label')}
+                  />
+                  <ErrorMessage message={addressErrors.label?.message} />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressLine1">
+                    Address Line
+                  </label>
+                  <input
+                    id="addressLine1"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    placeholder="House/Plot, Street"
+                    {...registerAddress('line1')}
+                  />
+                  <ErrorMessage message={addressErrors.line1?.message} />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressCity">
+                    City
+                  </label>
+                  <input
+                    id="addressCity"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    {...registerAddress('city')}
+                  />
+                  <ErrorMessage message={addressErrors.city?.message} />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressState">
+                    State
+                  </label>
+                  <input
+                    id="addressState"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    {...registerAddress('state')}
+                  />
+                  <ErrorMessage message={addressErrors.state?.message} />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressPincode">
+                    Pincode
+                  </label>
+                  <input
+                    id="addressPincode"
+                    inputMode="numeric"
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+                    placeholder="500001"
+                    {...registerAddress('pincode')}
+                  />
+                  <ErrorMessage message={addressErrors.pincode?.message} />
+                </div>
+              </div>
+
+              <ErrorMessage message={addressErrors.root?.message} />
+
+              <button
+                type="button"
+                onClick={() => void onCreateAddress()}
+                disabled={createAddressMutation.isPending}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {createAddressMutation.isPending ? (
+                  <Spinner size="sm" />
+                ) : null}
+                {createAddressMutation.isPending ? 'Saving address...' : 'Save Address'}
+              </button>
+            </div>
+          ) : null}
+        </section>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-slate-700" htmlFor="city">
@@ -287,7 +516,7 @@ export default function BuyerNewRfqPage() {
 
         <button
           type="submit"
-          disabled={createRfqMutation.isPending}
+          disabled={isSubmitDisabled}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {createRfqMutation.isPending ? <Spinner size="sm" className="border-white/30 border-t-white" /> : null}

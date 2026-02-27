@@ -305,3 +305,15 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Next task: Fix TODO_ADDRESS_ID in buyer RFQ form
 - Verify: cat PROJECT_TASKS.md | grep -c '\[x\]'
 - Context: tracker now accurately reflects real build state
+
+## Session End: 2026-02-27T09:04:27Z
+- Completed: Address API + TODO_ADDRESS_ID fix
+- Branch: feature/fix-address → develop → main
+- Address model found in schema: YES
+- TODO_ADDRESS_ID removed: YES
+- Next task: Fix localhost:3001 hardcode + MSG91 OTP send
+- Verify:
+  1. grep -r "TODO_ADDRESS_ID" apps/frontend/
+  2. cd apps/backend && pnpm build
+  3. cd apps/frontend && pnpm build
+- Context: Added BUYER-scoped `/api/v1/addresses` CRUD endpoints with ownership checks and wired RFQ creation form to real address fetch/create selection flow.

@@ -16,6 +16,21 @@ export type Product = {
   createdAt: string;
 };
 
+export type Address = {
+  id: string;
+  userId: string;
+  label?: string | null;
+  line1: string;
+  line2?: string | null;
+  area: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type RfqItem = {
   id: string;
   productId: string;
@@ -112,12 +127,36 @@ export type CreateRfqPayload = {
   }>;
 };
 
+export type CreateAddressPayload = {
+  label?: string;
+  line1: string;
+  line2?: string;
+  area?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault?: boolean;
+};
+
 export async function fetchProducts(limit = 200, offset = 0) {
   const response = await api.get('/api/v1/products', {
     params: { limit, offset },
   });
 
   return unwrapApiData<PaginatedResponse<Product>>(response.data);
+}
+
+export async function getAddresses(limit = 20, offset = 0) {
+  const response = await api.get('/api/v1/addresses', {
+    params: { limit, offset },
+  });
+
+  return unwrapApiData<PaginatedResponse<Address>>(response.data);
+}
+
+export async function createAddress(payload: CreateAddressPayload) {
+  const response = await api.post('/api/v1/addresses', payload);
+  return unwrapApiData<Address>(response.data);
 }
 
 export async function fetchBuyerRfqs(limit = 20, offset = 0) {
@@ -176,4 +215,3 @@ export async function cancelBuyerOrder(id: string, cancelReason?: string) {
 
   return unwrapApiData<Order>(response.data);
 }
-
