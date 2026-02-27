@@ -1,8 +1,6 @@
-version: "3.9"
 services:
   db:
     image: postgres:16-alpine
-    restart: unless-stopped
     environment:
       POSTGRES_USER: buildmart
       POSTGRES_PASSWORD: buildmart
@@ -11,13 +9,24 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildmart"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
-    build: ./apps/backend
-    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
     ports:
       - "3001:3001"
+    env_file:
+      - apps/backend/.env
     depends_on:
-      - db
-    env_file: ./apps/backend/.env
+      db:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && node dist/main"
+
 volumes:
   pgdata:
