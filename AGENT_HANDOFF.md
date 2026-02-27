@@ -317,3 +317,17 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   2. cd apps/backend && pnpm build
   3. cd apps/frontend && pnpm build
 - Context: Added BUYER-scoped `/api/v1/addresses` CRUD endpoints with ownership checks and wired RFQ creation form to real address fetch/create selection flow.
+
+## Session End: 2026-02-27T09:09:50Z
+- Completed: localhost fix, Cloudinary adapter, audit log
+- Branch: feature/fix-infra → develop → main
+- AuditLog model in schema: YES
+- Cloudinary wired to vendor onboarding: partially
+- Next task: MSG91 OTP send + notification wiring
+- Verify:
+  1. grep "localhost:3001" apps/frontend/lib/api.ts
+  2. ls apps/backend/src/files/cloudinary.adapter.ts
+  3. rg -n "auditLog.create|VENDOR_APPROVED" apps/backend/src/vendors/vendor.service.ts
+  4. cd apps/backend && pnpm build
+  5. cd apps/frontend && pnpm build
+- Context: Frontend API client now logs missing NEXT_PUBLIC_API_URL in production, FilesModule + CloudinaryAdapter added, and vendor approval writes non-blocking AuditLog entries using schema-compatible fields.
