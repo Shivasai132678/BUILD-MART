@@ -42,7 +42,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly msg91Adapter: Msg91Adapter,
-  ) {}
+  ) { }
 
   async sendOtp({ phone }: SendOtpDto): Promise<SendOtpResponse> {
     const user = await this.prisma.user.upsert({
@@ -71,6 +71,11 @@ export class AuthService {
     }
 
     const otp = randomInt(100_000, 1_000_000).toString();
+
+    if (process.env.NODE_ENV !== 'production') {
+      this.logger.warn(`[DEV] OTP for ${phone}: ${otp}`);
+    }
+
     const otpHash = this.hashOtp(otp);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 

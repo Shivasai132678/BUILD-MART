@@ -5,6 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { UserRole } from '@prisma/client';
 import type { Prisma, VendorProfile } from '@prisma/client';
 import { CloudinaryAdapter } from '../files/cloudinary.adapter';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,7 +19,7 @@ export class VendorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinaryAdapter: CloudinaryAdapter,
-  ) {}
+  ) { }
 
   async onboard(userId: string, dto: OnboardVendorDto): Promise<VendorProfile> {
     const existingProfile = await this.prisma.vendorProfile.findUnique({
@@ -29,13 +30,19 @@ export class VendorService {
       throw new ConflictException('Vendor profile already exists for this user');
     }
 
-    const createdProfile = await this.prisma.vendorProfile.create({
-      data: await this.buildCreateData(userId, dto),
-    });
+    const [vendorProfile, _user] = await this.prisma.$transaction([
+      this.prisma.vendorProfile.create({
+        data: await this.buildCreateData(userId, dto),
+      }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { role: UserRole.VENDOR },
+      }),
+    ]);
 
-    this.logger.log(`Vendor profile created for userId=${userId}`);
+    this.logger.log(`Vendor profile created and role upgraded to VENDOR for userId=${userId}`);
 
-    return createdProfile;
+    return vendorProfile;
   }
 
   async getProfile(userId: string): Promise<VendorProfile> {

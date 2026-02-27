@@ -397,3 +397,21 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   2. cd apps/backend && pnpm build
   3. cd apps/frontend && pnpm build
 - Context: Updated docker-compose for health-gated backend startup with `prisma migrate deploy`, refreshed README with current built scope/limitations, and completed final TODO/placeholder audit.
+
+## Session End: 2026-02-27T10:00:00Z
+- Completed: Week 1 critical fixes from local run report
+- Branch: feature/local-run-fixes
+- Fixes applied:
+  1. Cloudinary: now optional in dev mode (`isConfigured` flag), throws only in production
+  2. OTP dev logging: added `[DEV] OTP for ${phone}: ${otp}` to auth.service.ts (dev mode only, before hash)
+  3. City bug: fixed (Option A — frontend was sending `city` field in CreateRfqDto; backend derives `deliveryCity` from address; deduplicated in DTO and form)
+  4. Vendor role upgrade: `$transaction` now atomically creates VendorProfile + updates User.role to VENDOR; frontend re-fetches `/auth/me` and updates Zustand store after onboarding
+  5. Landing page: replaced Next.js boilerplate with BuildMart home (3 role cards: Buyer/Vendor/Admin, Tailwind styled, responsive)
+  6. Docker port: changed db service from 5432:5432 to 5433:5432; updated .env.example + README
+  7. Notification loop: replaced sequential `for...await` with `Promise.allSettled` in RFQ vendor notifications
+  8. Dev scripts: added dev:backend, dev:frontend, db:reset, db:seed, lint:all, test:backend, build:all to root package.json
+  9. README: added Quick Start section with prerequisites, steps, demo accounts, and OTP dev instructions
+- Self-audit: all checks pass
+- Build: backend ✅, frontend ✅
+- Tests: 21/21 ✅
+- Next task: Week 2 — test coverage (QuotesService, PaymentsService, VendorService, AdminService)

@@ -11,6 +11,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage';
 import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage } from '@/lib/api';
 import { getVendorProfile, onboardVendor } from '@/lib/vendor-profile-api';
+import { useUserStore } from '@/store/user.store';
 
 const gstNumberRegex =
   /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -82,8 +83,16 @@ export default function VendorOnboardingPage() {
 
   const onboardingMutation = useMutation({
     mutationFn: onboardVendor,
-    onSuccess: () => {
-      router.replace('/vendor/dashboard');
+    onSuccess: async () => {
+      try {
+        const { api, unwrapApiData } = await import('@/lib/api');
+        const meResponse = await api.get('/api/v1/auth/me');
+        const me = unwrapApiData<{ id: string; phone: string; role: string }>(meResponse.data);
+        useUserStore.getState().setUser(me);
+      } catch {
+        // Even if re-fetch fails, onboarding succeeded — redirect anyway
+      }
+      router.push('/vendor/dashboard');
     },
     onError: (error) => {
       setError('root', {
