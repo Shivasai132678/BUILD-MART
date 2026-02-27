@@ -6,8 +6,8 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ErrorMessage } from '@/components/ui/ErrorMessage';
@@ -48,7 +48,9 @@ type AddressFormValues = z.infer<typeof addressFormSchema>;
 
 export default function BuyerNewRfqPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const hasAppliedPrefill = useRef(false);
 
   const productsQuery = useQuery({
     queryKey: ['products', 'rfq-form'],
@@ -104,7 +106,9 @@ export default function BuyerNewRfqPage() {
   });
 
   const selectedAddressId = watch('addressId');
+  const firstItemProductId = watch('items.0.productId');
   const addresses = addressesQuery.data?.items ?? [];
+  const prefillProductId = searchParams.get('productId')?.trim() ?? '';
 
   useEffect(() => {
     if (selectedAddressId || addresses.length === 0) {
@@ -117,6 +121,33 @@ export default function BuyerNewRfqPage() {
       setValue('addressId', defaultAddressId, { shouldValidate: true });
     }
   }, [addresses, selectedAddressId, setValue]);
+
+  useEffect(() => {
+    if (hasAppliedPrefill.current) {
+      return;
+    }
+
+    if (!prefillProductId || !productsQuery.data?.items) {
+      return;
+    }
+
+    if (firstItemProductId && firstItemProductId.length > 0) {
+      hasAppliedPrefill.current = true;
+      return;
+    }
+
+    const matchedProduct = productsQuery.data.items.find(
+      (product) => product.id === prefillProductId,
+    );
+
+    if (!matchedProduct) {
+      return;
+    }
+
+    setValue('items.0.productId', matchedProduct.id, { shouldValidate: true });
+    setValue('items.0.unit', matchedProduct.unit, { shouldValidate: true });
+    hasAppliedPrefill.current = true;
+  }, [firstItemProductId, prefillProductId, productsQuery.data, setValue]);
 
   const createAddressMutation = useMutation({
     mutationFn: createAddress,
