@@ -104,12 +104,14 @@ export default function VendorOrderDetailPage() {
     statusMutation.mutate(nextStatus);
   };
 
-  const buyerDisplay =
-    'buyer' in order && order.buyer && typeof order.buyer === 'object'
-      ? ((order.buyer as { name?: string | null; phone?: string | null }).name ??
-        (order.buyer as { name?: string | null; phone?: string | null }).phone ??
-        order.buyerId)
-      : order.buyerId;
+  const orderWithOptionalBuyer = order as OrderDetail & {
+    buyer?: {
+      name?: string | null;
+    } | null;
+  };
+
+  const buyerName = orderWithOptionalBuyer.buyer?.name?.trim();
+  const buyerDisplay = buyerName ? buyerName : `Buyer #${order.buyerId.slice(0, 8)}`;
 
   return (
     <div className="space-y-6">
@@ -232,4 +234,3 @@ export default function VendorOrderDetailPage() {
     </div>
   );
 }
-

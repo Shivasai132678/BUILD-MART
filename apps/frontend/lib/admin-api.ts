@@ -7,9 +7,17 @@ type PaginatedResponse<T> = {
   offset: number;
 };
 
+type PendingVendorsResponse<T> = {
+  data: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type AdminMetrics = {
   totalUsers?: number;
-  totalApprovedVendors?: number;
+  totalVendors?: number;
+  pendingVendors?: number;
   totalRfqs?: number;
   totalOrders?: number;
   gmv?: string | number;
@@ -22,6 +30,11 @@ export type PendingVendorProfile = {
   city: string;
   isApproved: boolean;
   createdAt: string;
+  user?: {
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  };
 };
 
 export type AdminUser = {
@@ -38,15 +51,14 @@ export async function getMetrics() {
 }
 
 export async function getPendingVendors() {
-  const response = await api.get('/api/v1/vendors', {
+  const response = await api.get('/api/v1/admin/vendors/pending', {
     params: {
-      isApproved: false,
       limit: 50,
       offset: 0,
     },
   });
 
-  return unwrapApiData<PaginatedResponse<PendingVendorProfile>>(response.data);
+  return unwrapApiData<PendingVendorsResponse<PendingVendorProfile>>(response.data);
 }
 
 export async function approveVendor(id: string) {
