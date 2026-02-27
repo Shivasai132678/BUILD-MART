@@ -7,6 +7,7 @@ import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OrdersModule } from './orders/orders.module';
@@ -29,6 +30,7 @@ import { VendorModule } from './vendors/vendor.module';
     ]),
     AdminModule,
     AddressesModule,
+    FilesModule,
     NotificationsModule,
     PrismaModule,
     AuthModule,

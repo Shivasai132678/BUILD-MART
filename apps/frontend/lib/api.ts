@@ -7,8 +7,14 @@ export type ApiSuccessEnvelope<T> = {
   path?: string;
 };
 
+const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+
+if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
+  console.error('[api] NEXT_PUBLIC_API_URL is not set in production!');
+}
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
+  baseURL,
   withCredentials: true,
 });
 
@@ -54,4 +60,3 @@ export function getApiErrorMessage(
 
   return fallback;
 }
-
