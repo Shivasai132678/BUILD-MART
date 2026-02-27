@@ -116,7 +116,6 @@ export type OrderDetail = Order & {
 
 export type CreateRfqPayload = {
   addressId: string;
-  city: string;
   notes?: string;
   validUntil: string;
   items: Array<{

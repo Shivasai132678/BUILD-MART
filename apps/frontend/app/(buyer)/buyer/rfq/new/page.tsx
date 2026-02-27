@@ -29,7 +29,6 @@ const rfqItemSchema = z.object({
 
 const rfqFormSchema = z.object({
   addressId: z.string().min(1, 'Select an address'),
-  city: z.string().min(1, 'City is required'),
   validUntil: z.string().min(1, 'Valid until date is required'),
   notes: z.string().optional(),
   items: z.array(rfqItemSchema).min(1, 'Add at least one item'),
@@ -75,7 +74,6 @@ export default function BuyerNewRfqPage() {
     resolver: zodResolver(rfqFormSchema),
     defaultValues: {
       addressId: '',
-      city: 'Hyderabad',
       validUntil: '',
       notes: '',
       items: [{ productId: '', quantity: 1, unit: '', notes: '' }],
@@ -154,7 +152,6 @@ export default function BuyerNewRfqPage() {
     onSuccess: async (address) => {
       await queryClient.invalidateQueries({ queryKey: ['buyer-addresses'] });
       setValue('addressId', address.id, { shouldValidate: true });
-      setValue('city', address.city, { shouldValidate: true });
       resetAddressForm({
         label: '',
         line1: '',
@@ -208,7 +205,6 @@ export default function BuyerNewRfqPage() {
 
     await createRfqMutation.mutateAsync({
       addressId: values.addressId,
-      city: values.city,
       validUntil,
       ...(values.notes?.trim() ? { notes: values.notes.trim() } : {}),
       items: values.items.map((item) => ({
@@ -255,9 +251,9 @@ export default function BuyerNewRfqPage() {
             message={
               addressesQuery.isError
                 ? getApiErrorMessage(
-                    addressesQuery.error,
-                    'Failed to load addresses. Please refresh and try again.',
-                  )
+                  addressesQuery.error,
+                  'Failed to load addresses. Please refresh and try again.',
+                )
                 : null
             }
           />
@@ -374,34 +370,20 @@ export default function BuyerNewRfqPage() {
           ) : null}
         </section>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="city">
-              City
-            </label>
-            <input
-              id="city"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('city')}
-            />
-            <ErrorMessage message={errors.city?.message} />
-          </div>
-
-          <div className="space-y-2">
-            <label
-              className="block text-sm font-medium text-slate-700"
-              htmlFor="validUntil"
-            >
-              Valid Until
-            </label>
-            <input
-              id="validUntil"
-              type="date"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('validUntil')}
-            />
-            <ErrorMessage message={errors.validUntil?.message} />
-          </div>
+        <div className="space-y-2">
+          <label
+            className="block text-sm font-medium text-slate-700"
+            htmlFor="validUntil"
+          >
+            Valid Until
+          </label>
+          <input
+            id="validUntil"
+            type="date"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+            {...register('validUntil')}
+          />
+          <ErrorMessage message={errors.validUntil?.message} />
         </div>
 
         <div className="space-y-2">
@@ -535,9 +517,9 @@ export default function BuyerNewRfqPage() {
             message={
               productsQuery.isError
                 ? getApiErrorMessage(
-                    productsQuery.error,
-                    'Failed to load products. Please refresh the page.',
-                  )
+                  productsQuery.error,
+                  'Failed to load products. Please refresh the page.',
+                )
                 : null
             }
           />

@@ -134,4 +134,15 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - Microservices (Phase 3)
 - Contractor credit line (Phase 3)
 
+## WEEK 1 — Critical Fixes from Local Run Report
+- [x] Cloudinary optional in dev mode (BUG-1)
+- [x] Dev-mode OTP console logging (DX 12a)
+- [x] Duplicate city in RFQ title fixed (BUG-2)
+- [x] Vendor onboarding role upgrade BUYER → VENDOR (BUG-8a)
+- [x] Landing page replaced with BuildMart home (BUG-3)
+- [x] Docker port conflict resolved — 5433 (BUG-4)
+- [x] Dev scripts added to root package.json (DX)
+- [x] README quick-start updated (DX)
+- [x] Notification loop: sequential → parallel with Promise.allSettled (Perf 11f)
+
 STATUS: APPROVED

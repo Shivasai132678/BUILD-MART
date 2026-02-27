@@ -16,11 +16,6 @@ export class CreateRfqDto {
   @IsNotEmpty()
   addressId!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  city!: string;
-
   @IsOptional()
   @IsString()
   @MaxLength(1000)
