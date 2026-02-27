@@ -25,10 +25,23 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+function isAuthEndpointRequest(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) {
+    return false;
+  }
+
+  const requestUrl = error.config?.url;
+  return typeof requestUrl === 'string' && requestUrl.includes('/api/v1/auth/');
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401 && typeof window !== 'undefined') {
+    if (
+      error?.response?.status === 401 &&
+      typeof window !== 'undefined' &&
+      !isAuthEndpointRequest(error)
+    ) {
       window.location.assign('/login');
     }
 

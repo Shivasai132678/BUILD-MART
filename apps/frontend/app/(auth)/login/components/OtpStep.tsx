@@ -38,6 +38,10 @@ function Spinner() {
 
 function getApiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    if (error.response?.status === 401) {
+      return 'Invalid or expired OTP. Please request a new OTP and try again.';
+    }
+
     const message = error.response?.data?.message;
 
     if (Array.isArray(message)) {
@@ -137,6 +141,17 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
       const user = extractVerifiedUser(response.data);
       if (!user) {
         throw new Error('Missing user in verify response');
+      }
+
+      try {
+        await api.get('/api/v1/auth/me');
+      } catch {
+        setError('root', {
+          type: 'server',
+          message:
+            'OTP verified, but session cookie was blocked. Enable third-party cookies and retry.',
+        });
+        return;
       }
 
       setUser(user);
