@@ -568,3 +568,38 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   - Role-based access enforced at controller level (buyer vs vendor endpoints)
 - Week 2 test summary: 67 new tests across 6 files (QuotesService: 12, PaymentsService: 14, VendorService: 17, AdminService: 10, NotificationsService: 14, E2E: 18)
 - Next task: Frontend smoke tests or Week 3 priorities
+
+## Session End: 2026-02-27T21:25:00Z
+- Completed: Production deployment config — switch from local dev to env-var-driven deployment
+- Branch: feature/local-run-fixes (on main)
+- Files changed:
+  1. `ENV.md` — Rewritten with exact 19 backend + 2 frontend variable table, required/optional annotations, deployment notes. Removed localhost example values.
+  2. `apps/backend/.env.example` — Added section comments (Database/Auth/Server/Cloudinary/Razorpay/MSG91/WhatsApp/Monitoring), Docker Compose vs native Postgres vs Neon guidance, all 19 variables with empty placeholders.
+  3. `apps/backend/Dockerfile` — Added `npx prisma generate` step between install and build (required for TypeScript compilation). Added `ENV NODE_ENV=production` to runner stage. Removed unnecessary `pnpm` install in runner stage.
+  4. `apps/frontend/vercel.json` — Removed `rewrites` block with stale `YOUR_RENDER_BACKEND_URL` placeholder. Frontend talks to backend directly via `NEXT_PUBLIC_API_URL` with CORS, so the Vercel proxy rewrite was unused.
+- Verified unchanged (no modifications needed):
+  - `apps/backend/prisma/schema.prisma` — Already has `url = env("DATABASE_URL")` + `directUrl = env("DIRECT_URL")`
+  - `apps/backend/src/prisma/prisma.service.ts` — Uses `process.env.DATABASE_URL`, no hardcoded connection string
+  - `apps/backend/src/main.ts` — CORS uses `process.env.FRONTEND_URL`, Swagger disabled in production
+  - `apps/backend/src/files/cloudinary.adapter.ts` — Reads CLOUDINARY_* from ConfigService, throws in production if missing, graceful skip in dev
+  - `apps/backend/src/payments/payments.service.ts` — Reads RAZORPAY_* from ConfigService
+  - `apps/frontend/lib/api.ts` — Uses `NEXT_PUBLIC_API_URL` with localhost fallback and production console.error warning
+  - `apps/frontend/.env.example` — Already had both NEXT_PUBLIC vars
+- Backend hardcoded URL audit: Only third-party API endpoints found (Interakt WhatsApp, MSG91 SMS/OTP) — these are stable service URLs, not deployment-configurable values. All credentials are env-driven.
+- Build: backend ✅ (nest build clean), frontend ✅ (16 routes, 0 errors)
+- Tests: 88/88 ✅
+- Key decisions:
+  1. Removed Vercel rewrites — the frontend uses `NEXT_PUBLIC_API_URL` directly, CORS is configured via `FRONTEND_URL` on backend, so a reverse proxy is unnecessary
+  2. Did NOT externalize MSG91/Interakt API base URLs — they are stable third-party endpoints, not per-deployment config
+  3. Added `NODE_ENV=production` in Dockerfile runner stage so GlobalExceptionFilter, Swagger, and Cloudinary behave correctly in production
+  4. Added `prisma generate` to Dockerfile builder stage — without it, TypeScript compilation fails due to missing @prisma/client types
+- Render deployment checklist:
+  1. Set all 19 backend env vars in Render dashboard (DATABASE_URL with Neon pooled URL, DIRECT_URL with Neon unpooled URL)
+  2. Build command: Docker (Dockerfile at `apps/backend/Dockerfile`, context is repo root)
+  3. Start command: handled by Dockerfile CMD (`prisma migrate deploy && node dist/main`)
+- Vercel deployment checklist:
+  1. Set `NEXT_PUBLIC_API_URL` = Render backend URL (e.g. `https://buildmart-api.onrender.com`)
+  2. Set `NEXT_PUBLIC_RAZORPAY_KEY_ID` = same as backend `RAZORPAY_KEY_ID`
+  3. Root directory: `apps/frontend`
+  4. Framework preset: Next.js
+- Next task: Deploy to Render/Vercel with real env vars, run seed, verify end-to-end

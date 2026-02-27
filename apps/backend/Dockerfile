@@ -13,12 +13,15 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 COPY apps/backend ./apps/backend
 
+# Generate Prisma client (required before TypeScript compilation)
+RUN cd apps/backend && npx prisma generate
+
 RUN cd apps/backend && pnpm build
 
 FROM node:20-alpine AS runner
 WORKDIR /app/apps/backend
 
-RUN npm install -g pnpm
+ENV NODE_ENV=production
 
 COPY --from=builder /app/apps/backend/dist ./dist
 COPY --from=builder /app/apps/backend/package.json ./package.json

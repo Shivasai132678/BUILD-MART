@@ -2,11 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "pnpm build",
   "outputDirectory": ".next",
-  "installCommand": "pnpm install",
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://YOUR_RENDER_BACKEND_URL/api/:path*"
-    }
-  ]
+  "installCommand": "pnpm install"
 }
