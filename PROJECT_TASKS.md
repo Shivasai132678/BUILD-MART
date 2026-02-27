@@ -90,9 +90,9 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] GitHub Actions CI pipeline (lint/test/build/migrate) | Files: `.github/workflows/ci.yml` | Expected outcome: CI runs on `develop` pushes and PRs to `main`, using `prisma migrate deploy` (not `migrate dev`).
 
 ## TESTING
-- [ ] Auth module unit tests (OTP expiry/hash/cookie flows) | Files: `apps/backend/src/auth/*.spec.ts`, `apps/backend/test/auth.e2e-spec.ts` | Expected outcome: OTP edge cases and login/logout behavior are covered.
-- [ ] Order state machine + cancellation tests | Files: `apps/backend/src/orders/orders.service.spec.ts` | Expected outcome: Valid and invalid order transitions are enforced by tests.
-- [ ] RFQ/quote integration tests for vendor matching and sorting | Files: `apps/backend/test/rfq-quotes.e2e-spec.ts` | Expected outcome: Product-level vendor matching and quote sorting behavior are verified.
+- [x] Auth module unit tests (OTP expiry/hash/cookie flows) | Files: `apps/backend/src/auth/*.spec.ts`, `apps/backend/test/auth.e2e-spec.ts` | Expected outcome: OTP edge cases and login/logout behavior are covered.
+- [x] Order state machine + cancellation tests | Files: `apps/backend/src/orders/orders.service.spec.ts` | Expected outcome: Valid and invalid order transitions are enforced by tests.
+- [x] RFQ/quote integration tests for vendor matching and sorting | Files: `apps/backend/test/rfq-quotes.e2e-spec.ts` | Expected outcome: Product-level vendor matching and quote sorting behavior are verified.
 - [ ] Frontend smoke tests for key buyer/vendor/admin flows | Files: `apps/frontend/tests/*` | Expected outcome: Critical page rendering and API interaction regressions are caught early.
 
 ## DEPLOYMENT
