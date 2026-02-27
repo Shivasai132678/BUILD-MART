@@ -124,7 +124,12 @@ export class QuotesService {
     }
   }
 
-  async getQuotesForRFQ(rfqId: string, buyerId: string): Promise<QuoteWithItems[]> {
+  async getQuotesForRFQ(
+    rfqId: string,
+    buyerId: string,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ data: QuoteWithItems[]; total: number; limit: number; offset: number }> {
     const rfq = await this.prisma.rFQ.findUnique({
       where: { id: rfqId },
       select: {
@@ -141,13 +146,22 @@ export class QuotesService {
       throw new ForbiddenException('You are not allowed to view quotes for this RFQ');
     }
 
-    return this.prisma.quote.findMany({
-      where: { rfqId },
-      include: { items: true },
-      orderBy: {
-        totalAmount: 'asc',
-      },
-    });
+    const where = { rfqId };
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.quote.findMany({
+        where,
+        include: { items: true },
+        orderBy: {
+          totalAmount: 'asc',
+        },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.quote.count({ where }),
+    ]);
+
+    return { data, total, limit, offset };
   }
 
   async updateQuote(

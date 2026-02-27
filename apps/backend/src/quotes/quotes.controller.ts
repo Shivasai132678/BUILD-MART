@@ -1,11 +1,14 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -54,9 +57,14 @@ export class QuotesController {
 
   @Get('rfq/:rfqId')
   @Roles(UserRole.BUYER)
-  getQuotesForRFQ(@Param('rfqId') rfqId: string, @Req() request: AuthenticatedRequest) {
+  getQuotesForRFQ(
+    @Param('rfqId') rfqId: string,
+    @Req() request: AuthenticatedRequest,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+  ) {
     const { userId } = getRequestUser(request);
-    return this.quotesService.getQuotesForRFQ(rfqId, userId);
+    return this.quotesService.getQuotesForRFQ(rfqId, userId, limit, offset);
   }
 
   @Patch(':id')

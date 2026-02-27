@@ -21,7 +21,7 @@ export class Msg91Adapter {
 
     if (!authKey) {
       this.logger.warn('MSG91_AUTH_KEY not set — OTP not sent (dev mode)');
-      this.logger.debug(`OTP for ${phone}: ${otp}`);
+      this.logger.debug(`OTP sent for phone ending: ${phone.slice(-4)}`);
       return;
     }
 

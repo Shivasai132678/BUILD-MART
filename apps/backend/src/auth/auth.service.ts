@@ -83,7 +83,7 @@ export class AuthService {
       },
     });
 
-    this.logger.log(`OTP for ${phone}: ${otp}`);
+    this.logger.debug(`OTP sent for phone ending: ${phone.slice(-4)}`);
     await this.msg91Adapter.sendOtp(phone, otp);
 
     return { message: 'OTP sent' };

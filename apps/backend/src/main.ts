@@ -1,4 +1,4 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import express from 'express';
 import helmet from 'helmet';
@@ -8,6 +8,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  const logger = new Logger('Bootstrap');
 
   app.setGlobalPrefix('api');
   app.enableVersioning({
@@ -29,6 +30,19 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+
+  if (process.env.NODE_ENV !== 'production') {
+    const { SwaggerModule, DocumentBuilder } = await import('@nestjs/swagger');
+    const config = new DocumentBuilder()
+      .setTitle('BuildMart API')
+      .setDescription('BuildMart construction procurement platform API')
+      .setVersion('1.0')
+      .addCookieAuth('access_token')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+    logger.log('Swagger docs available at /api/docs (non-production only)');
+  }
 
   await app.listen(process.env.PORT ?? 3001);
 }

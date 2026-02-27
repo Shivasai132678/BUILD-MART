@@ -14,6 +14,7 @@ import {
   RFQStatus,
   UserRole,
 } from '@prisma/client';
+import { isValidOrderStatusTransition } from '../common/constants/status-transitions';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -28,13 +29,6 @@ type PaginatedOrders = {
   total: number;
   limit: number;
   offset: number;
-};
-
-const ALLOWED_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  [OrderStatus.CONFIRMED]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],
-  [OrderStatus.OUT_FOR_DELIVERY]: [OrderStatus.DELIVERED],
-  [OrderStatus.DELIVERED]: [],
-  [OrderStatus.CANCELLED]: [],
 };
 
 @Injectable()
@@ -371,7 +365,7 @@ export class OrdersService {
     current: OrderStatus,
     requested: OrderStatus,
   ): void {
-    if (!ALLOWED_ORDER_TRANSITIONS[current].includes(requested)) {
+    if (!isValidOrderStatusTransition(current, requested)) {
       throw new BadRequestException(
         `Invalid transition from ${current} to ${requested}`,
       );

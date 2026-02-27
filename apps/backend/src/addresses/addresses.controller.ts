@@ -24,13 +24,12 @@ import { UpdateAddressDto } from './dto/update-address.dto';
 
 type AuthenticatedRequest = Request & {
   user?: {
-    id?: string;
     sub?: string;
   };
 };
 
 function getAuthenticatedUserId(request: AuthenticatedRequest): string {
-  const userId = request.user?.id ?? request.user?.sub;
+  const userId = request.user?.sub;
 
   if (!userId) {
     throw new UnauthorizedException('Authenticated user context is missing');
