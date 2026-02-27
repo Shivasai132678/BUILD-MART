@@ -130,13 +130,21 @@ export class ProductsService {
     limit: number,
     offset: number,
     categoryId?: string,
+    search?: string,
   ): Promise<PaginatedProducts> {
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
+      isActive: true,
     };
 
     if (categoryId) {
       where.categoryId = categoryId;
+    }
+    if (search && search.trim().length > 0) {
+      where.name = {
+        contains: search.trim(),
+        mode: 'insensitive',
+      };
     }
 
     const [items, total] = await this.prisma.$transaction([
@@ -157,6 +165,7 @@ export class ProductsService {
       where: {
         id,
         deletedAt: null,
+        isActive: true,
       },
     });
 
