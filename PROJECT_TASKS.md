@@ -145,4 +145,13 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] README quick-start updated (DX)
 - [x] Notification loop: sequential → parallel with Promise.allSettled (Perf 11f)
 
+## WEEK 2 — Test Coverage
+- [x] QuotesService unit tests (12 tests: createQuote, getQuotesForRFQ, deleteQuote)
+- [x] PaymentsService unit tests (14 tests: createPaymentOrder, handleWebhook + idempotency)
+- [x] VendorService unit tests (17 tests: onboard, getProfile, updateProfile, approveVendor + SSRF)
+- [x] AdminService unit tests (10 tests: getMetrics, getPendingVendors + pagination)
+- [x] NotificationsService unit tests (14 tests: create, safeDispatch, listNotifications, markAsRead, markAllAsRead)
+- [x] E2E RFQ→Quote→Order flow (18 tests: 14 happy path + 4 error paths against test DB)
+- [x] Test infrastructure: jest-e2e.json timeout, test:e2e script with env vars + runInBand
+
 STATUS: APPROVED

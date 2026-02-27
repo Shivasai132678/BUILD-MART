@@ -535,3 +535,36 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   - GMV returns '0.00' string on empty DB (not null/undefined)
   - Pending vendors pagination with safe limit/offset bounds
 - Next task: NotificationsService + E2E flow test
+
+## Session End: 2026-02-27T14:30:00Z
+- Completed: NotificationsService unit tests + full E2E RFQ→Quote→Order flow
+- Branch: feature/tests-week2-e2e (merged to develop, develop merged to main)
+- PR: #6 (merged)
+- New test files:
+  1. `apps/backend/src/notifications/notifications.service.spec.ts` — 14 tests (create: 4, safeDispatch: 2, listNotifications: 3, markAsRead: 3, markAllAsRead: 1)
+  2. `apps/backend/test/rfq-flow.e2e-spec.ts` — 18 E2E tests (happy path: 14, error paths: 4)
+- New tests added: 32 (14 unit + 18 E2E)
+- Total passing: 88/88 unit + 19/19 E2E (107 total)
+- Test suites: 9 unit passed, 2 e2e passed
+- Build: backend ✅
+- E2E test highlights:
+  - Full happy path: OTP auth → address → RFQ → vendor onboard → re-auth → vendor product seed → available RFQs → quote → buyer view quotes → order → OUT_FOR_DELIVERY → DELIVERED → verify CLOSED
+  - Deterministic OTP: injects known SHA-256 hash via Prisma after send-otp, verifies with known OTP
+  - Self-contained: pushes schema via `prisma db push`, seeds Category+Product, cleans up after
+  - Guarded by TEST_DATABASE_URL / RUN_E2E_TESTS env vars (skips gracefully when unavailable)
+  - Error paths: 401 unauth, 403 buyer→quotes, 404 non-existent quote, 400 invalid order transition
+- Config changes:
+  - `apps/backend/test/jest-e2e.json`: added testTimeout: 30000
+  - `apps/backend/package.json`: updated test:e2e script with env vars, --runInBand, --forceExit
+- Key behaviors verified:
+  - NotificationsService create persists to DB and fires safeDispatch
+  - safeDispatch is non-blocking (external dispatch failure doesn't throw)
+  - sendWhatsApp/sendSms skip when env keys missing
+  - listNotifications returns paginated results (unread first)
+  - markAsRead enforces ownership (ForbiddenException)
+  - markAllAsRead updates only unread for the requesting user
+  - Full RFQ lifecycle: OPEN → QUOTED (after vendor quote) → CLOSED (after order creation)
+  - Order lifecycle: CONFIRMED → OUT_FOR_DELIVERY → DELIVERED
+  - Role-based access enforced at controller level (buyer vs vendor endpoints)
+- Week 2 test summary: 67 new tests across 6 files (QuotesService: 12, PaymentsService: 14, VendorService: 17, AdminService: 10, NotificationsService: 14, E2E: 18)
+- Next task: Frontend smoke tests or Week 3 priorities
