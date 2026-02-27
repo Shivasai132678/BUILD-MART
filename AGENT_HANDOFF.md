@@ -282,3 +282,16 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   2. apps/frontend/.env.example was force-added (frontend .gitignore blocks .env* files) — team must set NEXT_PUBLIC_* vars in Vercel dashboard, not via committed file
 - Verify: git log --oneline main | head -3
 - Context: BuildMart MVP v1.0 is code-complete on main. Codebase is ready for Render + Vercel deployment. No further code changes needed before first staging deploy.
+
+## Session End: 2026-02-27T08:23:49Z
+- Completed: Fix — Admin frontend/backend API alignment
+- Branch: feature/fix-admin-alignment → develop → main
+- Last commit: def62a9 fix(release): admin API alignment patch
+- Mismatches found:
+  1. Frontend getPendingVendors() called GET /api/v1/vendors?isApproved=false...; backend exposes GET /api/v1/admin/vendors/pending
+  2. Frontend expected pending vendors shape { items, total, limit, offset }; backend returns { data, total, limit, offset }
+  3. Admin dashboard read totalApprovedVendors; backend metrics response key is totalVendors
+  4. Vendor order detail displayed raw buyer ID; backend order detail does not include buyer relation/name, so fallback now renders Buyer #[buyerId truncated]
+- Next task: Manual — Render + Vercel deployment
+- Verify: cd apps/frontend && pnpm build
+- Context: admin dashboard now reads real data from backend; only remaining work is infra setup in Render/Vercel dashboards
