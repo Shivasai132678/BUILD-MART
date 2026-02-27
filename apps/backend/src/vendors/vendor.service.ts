@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   Logger,
@@ -158,6 +159,8 @@ export class VendorService {
       return undefined;
     }
 
+    this.validateDocumentUrl(documentUrl);
+
     if (
       documentUrl.startsWith('http://') ||
       documentUrl.startsWith('https://')
@@ -177,6 +180,35 @@ export class VendorService {
       documentUrl,
       this.cloudinaryAdapter.getPrivateFolder(),
     );
+  }
+
+  private validateDocumentUrl(url: string): void {
+    if (!url) return;
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new BadRequestException('Invalid document URL format');
+    }
+    // Only allow HTTPS URLs (no file://, data://, localhost)
+    if (parsed.protocol !== 'https:') {
+      throw new BadRequestException('Document URL must use HTTPS');
+    }
+    // Block localhost/private IPs (SSRF prevention)
+    const blocked = ['localhost', '127.0.0.1', '0.0.0.0', '::1'];
+    if (blocked.some(b => parsed.hostname.includes(b))) {
+      throw new BadRequestException('Document URL hostname is not allowed');
+    }
+    // Allow only common document file extensions
+    const allowedExt = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+    const hasAllowedExt = allowedExt.some(ext =>
+      parsed.pathname.toLowerCase().endsWith(ext),
+    );
+    if (!hasAllowedExt) {
+      throw new BadRequestException(
+        'Document URL must point to a PDF or image file',
+      );
+    }
   }
 
   private async recordVendorApprovalAudit(

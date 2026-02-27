@@ -8,7 +8,6 @@ import { VendorService } from './vendor.service';
 
 type AuthenticatedRequest = Request & {
   user?: {
-    id?: string;
     sub?: string;
   };
 };
@@ -27,7 +26,7 @@ export class AdminVendorController {
     @Param('id') vendorId: string,
     @Req() request: AuthenticatedRequest,
   ) {
-    const adminUserId = request.user?.id ?? request.user?.sub;
+    const adminUserId = request.user?.sub;
     return this.vendorService.approveVendor(vendorId, adminUserId);
   }
 }

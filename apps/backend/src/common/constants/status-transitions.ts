@@ -1,4 +1,4 @@
-import { OrderStatus } from './status.enums';
+import { OrderStatus } from '@prisma/client';
 
 export const ORDER_STATUS_TRANSITIONS: Readonly<Record<OrderStatus, readonly OrderStatus[]>> = {
   [OrderStatus.CONFIRMED]: [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED],

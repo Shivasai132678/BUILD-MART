@@ -20,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { CancelOrderDto } from './dto/cancel-order.dto';
 import { OrdersService } from './orders.service';
 
 type AuthenticatedRequest = Request & {
@@ -27,10 +28,6 @@ type AuthenticatedRequest = Request & {
     sub?: string;
     role?: UserRole;
   };
-};
-
-type CancelOrderBody = {
-  cancelReason?: string;
 };
 
 function getRequestUser(request: AuthenticatedRequest): {
@@ -98,9 +95,9 @@ export class OrdersController {
   cancelOrder(
     @Param('id') id: string,
     @Req() request: AuthenticatedRequest,
-    @Body() body: CancelOrderBody,
+    @Body() body: CancelOrderDto,
   ) {
     const { userId, role } = getRequestUser(request);
-    return this.ordersService.cancelOrder(id, userId, role, body?.cancelReason);
+    return this.ordersService.cancelOrder(id, userId, role, body.cancelReason);
   }
 }

@@ -30,7 +30,6 @@ const RFQ_CREATE_RATE_LIMIT = {
 
 type AuthenticatedRequest = Request & {
   user?: {
-    id?: string;
     sub?: string;
     role?: UserRole;
   };
@@ -40,7 +39,7 @@ function getRequestUser(request: AuthenticatedRequest): {
   userId: string;
   role: UserRole;
 } {
-  const userId = request.user?.id ?? request.user?.sub;
+  const userId = request.user?.sub;
   const role = request.user?.role;
 
   if (!userId || !role) {
