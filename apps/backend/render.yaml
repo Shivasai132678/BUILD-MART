@@ -3,7 +3,7 @@ services:
     name: buildmart-backend
     runtime: docker
     dockerfilePath: ./apps/backend/Dockerfile
-    dockerContext: ./apps/backend
+    dockerContext: .
     envVars:
       - key: NODE_ENV
         value: production
