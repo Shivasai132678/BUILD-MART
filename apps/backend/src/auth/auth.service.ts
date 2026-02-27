@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { JwtSignOptions } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import type { CookieOptions, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendOtpDto } from './dto/send-otp.dto';
@@ -98,30 +98,27 @@ export class AuthService {
     { phone, otp }: VerifyOtpDto,
     response: Response,
   ): Promise<VerifyOtpResponse> {
-    const user = await this.prisma.user.findUnique({
-      where: { phone },
-      select: {
-        id: true,
-        phone: true,
-        role: true,
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException('Invalid OTP');
-    }
-
-    const now = new Date();
     const latestOtpRecord = await this.prisma.oTPRecord.findFirst({
       where: {
-        userId: user.id,
+        user: {
+          phone,
+        },
         isUsed: false,
         expiresAt: {
-          gt: now,
+          gt: new Date(),
         },
       },
       orderBy: {
         createdAt: 'desc',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            phone: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -129,8 +126,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid OTP');
     }
 
-    const incomingOtpHash = this.hashOtp(otp);
-    if (!this.hashesMatch(latestOtpRecord.otpHash, incomingOtpHash)) {
+    const incomingOtpHash = createHash('sha256').update(otp).digest('hex');
+    if (incomingOtpHash !== latestOtpRecord.otpHash) {
       throw new UnauthorizedException('Invalid OTP');
     }
 
@@ -151,6 +148,7 @@ export class AuthService {
       throw new UnauthorizedException('OTP expired or already used');
     }
 
+    const user = latestOtpRecord.user;
     const payload: JwtTokenPayload = {
       sub: user.id,
       phone: user.phone,
@@ -177,17 +175,6 @@ export class AuthService {
 
   private hashOtp(otp: string): string {
     return createHash('sha256').update(otp).digest('hex');
-  }
-
-  private hashesMatch(expectedHash: string, incomingHash: string): boolean {
-    const expected = Buffer.from(expectedHash, 'utf8');
-    const incoming = Buffer.from(incomingHash, 'utf8');
-
-    if (expected.length !== incoming.length) {
-      return false;
-    }
-
-    return timingSafeEqual(expected, incoming);
   }
 
   private getJwtSecret(): string {
