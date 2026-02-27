@@ -118,6 +118,10 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] M-1: Remove duplicate order transitions from OrdersService | Expected outcome: `orders.service.ts` imports `isValidOrderStatusTransition` from `common/constants/status-transitions.ts`.
 - [x] M-4: Address soft delete — TODO comment added (schema lacks deletedAt) | Expected outcome: TODO comment documenting Phase 2 migration need.
 - [x] M-6: Confirm zero request.user.id references remain | Expected outcome: `grep -rn 'request\.user\.id' apps/backend/src/` returns zero results.
+- [x] M-2: Dead code removal (status.enums.ts) | Expected outcome: `apps/backend/src/common/constants/status.enums.ts` deleted; zero imports confirmed; `status-transitions.ts` confirmed active.
+- [x] M-5: Notifications controller RBAC | Expected outcome: `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles(BUYER, VENDOR, ADMIN)` at controller level.
+- [x] M-7: External notification dispatch failure logging | Expected outcome: `safeDispatch()` wraps dispatch with structured error logging; void call eliminated.
+- [x] L-3: Frontend API URL production warning | Expected outcome: Client-side `console.error` when `NEXT_PUBLIC_API_URL` is missing in production.
 
 ## STRICT NON-GOALS (do not build these in this phase)
 - WebSockets (use polling instead)

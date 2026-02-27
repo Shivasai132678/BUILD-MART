@@ -449,3 +449,25 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Remaining known issues from audit: M-2 dead code, M-3 e2e tests, M-5 notifications RBAC, M-7 retry queue
 - Next task: Medium severity fixes or deployment
 - Verify: cd apps/backend && pnpm build && pnpm test && cd ../frontend && pnpm build
+
+## Session End: 2026-02-27T10:45:00Z
+- Completed: Medium severity fixes (M-2, M-5, M-7, L-3)
+- Branch: feature/fix-medium → develop → main
+- Last commit: 198b8ca (feature), 11112bd (develop merge), 7a63556 (main merge)
+- Fixes applied:
+  - M-2: Deleted `status.enums.ts` (zero imports confirmed). `status-transitions.ts` confirmed active (imported by orders.service.ts from M-1 fix).
+  - M-5: Added `@UseGuards(JwtAuthGuard, RolesGuard)` + `@Roles(UserRole.BUYER, UserRole.VENDOR, UserRole.ADMIN)` at controller level on NotificationsController. Imports from `auth/guards/` and `auth/decorators/`.
+  - M-7: Added `safeDispatch()` method wrapping `dispatchExternalNotifications()` with structured error logging. Replaced `void this.dispatchExternalNotifications(...)` with `.catch()` pattern. Updated notification creation log to structured format.
+  - L-3: Updated frontend API URL warning to check `typeof window !== 'undefined'` (client-side only) with descriptive `[BuildMart]` prefix.
+- Files changed: 4 files, 39 insertions, 44 deletions (1 file deleted)
+- status.enums.ts deleted: YES
+- status-transitions.ts confirmed active: YES
+- Notifications RBAC: applied with all 3 roles allowed
+- safeDispatch: replaces void call with structured error logging
+- Build: backend ✅, frontend ✅ (16 routes)
+- Tests: 21/21 ✅
+- CLAUDE.md rule compliance: 22/22 PASS
+- Remaining open: M-3 (vercel.json URL placeholder — manual), L-1 notification metadata typing, L-2 toPaise Decimal note, L-4 HttpModule for external calls, L-5 more test coverage
+- Status: READY FOR COMPANY REVIEW
+- Next task: Replace YOUR_RENDER_BACKEND_URL in vercel.json after Render deploy, then end-to-end staging smoke test
+- Verify: cd apps/backend && pnpm build && pnpm test && cd ../frontend && pnpm build
