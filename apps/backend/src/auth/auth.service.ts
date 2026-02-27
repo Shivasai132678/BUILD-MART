@@ -12,6 +12,7 @@ import type { CookieOptions, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { Msg91Adapter } from './providers/msg91.adapter';
 import type { JwtTokenPayload } from './strategies/jwt.strategy';
 
 type SendOtpResponse = {
@@ -38,6 +39,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly msg91Adapter: Msg91Adapter,
   ) {}
 
   async sendOtp({ phone }: SendOtpDto): Promise<SendOtpResponse> {
@@ -64,7 +66,7 @@ export class AuthService {
     });
 
     this.logger.log(`OTP for ${phone}: ${otp}`);
-    // TODO: integrate MSG91 — see ENV.md for credentials
+    await this.msg91Adapter.sendOtp(phone, otp);
 
     return { message: 'OTP sent' };
   }

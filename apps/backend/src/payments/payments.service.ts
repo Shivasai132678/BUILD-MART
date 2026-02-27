@@ -9,10 +9,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PaymentStatus } from '@prisma/client';
+import { NotificationType, PaymentStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import Razorpay from 'razorpay';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
 
@@ -68,6 +69,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createPaymentOrder(
@@ -183,7 +185,7 @@ export class PaymentsService {
       }
 
       if (event.event === 'payment.captured') {
-        await this.prisma.payment.update({
+        const updatedPayment = await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
             status: PaymentStatus.SUCCESS,
@@ -193,12 +195,14 @@ export class PaymentsService {
           },
         });
 
+        await this.notifyBuyerForPaymentSuccess(payment.orderId, updatedPayment.id);
+
         this.logger.log(`Payment marked SUCCESS for orderId=${payment.orderId}`);
         return ack;
       }
 
       if (event.event === 'payment.failed') {
-        await this.prisma.payment.update({
+        const updatedPayment = await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
             status: PaymentStatus.FAILED,
@@ -206,6 +210,8 @@ export class PaymentsService {
             failureReason: this.extractFailureReason(paymentEntity),
           },
         });
+
+        await this.notifyBuyerForPaymentFailure(payment.orderId, updatedPayment.id);
 
         this.logger.warn(`Payment marked FAILED for orderId=${payment.orderId}`);
         return ack;
@@ -238,7 +244,6 @@ export class PaymentsService {
     const keySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET');
 
     if (!keySecret) {
-      // TODO: verify Razorpay sandbox credentials — see ENV.md
       throw new ServiceUnavailableException('Razorpay credentials are not configured');
     }
 
@@ -254,7 +259,6 @@ export class PaymentsService {
     const keyId = this.configService.get<string>('RAZORPAY_KEY_ID');
 
     if (!keyId) {
-      // TODO: verify Razorpay sandbox credentials — see ENV.md
       throw new ServiceUnavailableException('Razorpay credentials are not configured');
     }
 
@@ -317,5 +321,77 @@ export class PaymentsService {
       paymentEntity?.error?.reason ??
       'Payment failed'
     );
+  }
+
+  private async notifyBuyerForPaymentSuccess(
+    orderId: string,
+    paymentId: string,
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        buyerId: true,
+      },
+    });
+
+    if (!order) {
+      this.logger.warn(
+        `Order not found while sending payment success notification orderId=${orderId}`,
+      );
+      return;
+    }
+
+    try {
+      await this.notificationsService.create({
+        userId: order.buyerId,
+        type: NotificationType.PAYMENT_SUCCESS,
+        title: 'Payment confirmed',
+        message: `Your payment for order #${order.id.slice(0, 8)} was successful.`,
+        metadata: { orderId: order.id, paymentId },
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown notification error';
+      this.logger.error(
+        `Failed to send payment success notification for orderId=${order.id}: ${message}`,
+      );
+    }
+  }
+
+  private async notifyBuyerForPaymentFailure(
+    orderId: string,
+    paymentId: string,
+  ): Promise<void> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        buyerId: true,
+      },
+    });
+
+    if (!order) {
+      this.logger.warn(
+        `Order not found while sending payment failure notification orderId=${orderId}`,
+      );
+      return;
+    }
+
+    try {
+      await this.notificationsService.create({
+        userId: order.buyerId,
+        type: NotificationType.PAYMENT_FAILED,
+        title: 'Payment failed',
+        message: `Your payment for order #${order.id.slice(0, 8)} failed. Please retry.`,
+        metadata: { orderId: order.id, paymentId },
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown notification error';
+      this.logger.error(
+        `Failed to send payment failure notification for orderId=${order.id}: ${message}`,
+      );
+    }
   }
 }
