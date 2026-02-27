@@ -1,0 +1,20 @@
+# Root-level noise
+.git
+.github
+*.md
+docker-compose.yml
+
+# Frontend — not needed in backend image
+apps/frontend
+
+# Backend build artifacts
+apps/backend/dist
+apps/backend/node_modules
+
+# Root package artifacts
+node_modules
+
+# Never include secrets
+apps/backend/.env
+apps/backend/.env.*
+!apps/backend/.env.example
