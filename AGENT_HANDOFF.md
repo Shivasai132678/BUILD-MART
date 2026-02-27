@@ -415,3 +415,25 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Build: backend ✅, frontend ✅
 - Tests: 21/21 ✅
 - Next task: Week 2 — test coverage (QuotesService, PaymentsService, VendorService, AdminService)
+
+## Session End: 2026-02-27T13:50:00Z
+- Completed: QuotesService + PaymentsService unit tests
+- Branch: feature/tests-week2-payments
+- New test files:
+  1. `apps/backend/src/quotes/quotes.service.spec.ts` — 12 tests (createQuote: 6, getQuotesForRFQ: 4, deleteQuote: 3 — 1 shared test reduction from NotFoundException reuse)
+  2. `apps/backend/src/payments/payments.service.spec.ts` — 14 tests (createPaymentOrder: 5, handleWebhook: 9)
+- New tests added: 26
+- Total passing: 47/47 (21 existing + 26 new)
+- Test suites: 6 passed, 6 total
+- Build: backend ✅
+- Key behaviors verified:
+  - Quote duplicate prevention (ConflictException + P2002 race condition)
+  - Quote pagination returns { data, total, limit, offset }
+  - Quote buyer ownership check on getQuotesForRFQ
+  - Payment Razorpay order creation + upsert persistence
+  - Payment webhook HMAC signature validation (crypto.createHmac)
+  - Payment webhook idempotency — duplicate SUCCESS silently skipped (Rule 14)
+  - Payment webhook failure handling with error reason extraction
+  - NotificationsService called on both SUCCESS and FAILED events
+  - ServiceUnavailableException when Razorpay credentials missing
+- Next task: VendorService + AdminService tests
