@@ -35,6 +35,9 @@ importers:
       '@prisma/client':
         specifier: ^6.19.2
         version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
+      axios:
+        specifier: ^1.13.5
+        version: 1.13.5
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
