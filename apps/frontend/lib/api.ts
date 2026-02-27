@@ -9,8 +9,15 @@ export type ApiSuccessEnvelope<T> = {
 
 const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
-  console.error('[api] NEXT_PUBLIC_API_URL is not set in production!');
+if (
+  typeof window !== 'undefined' &&
+  process.env.NODE_ENV === 'production' &&
+  !process.env.NEXT_PUBLIC_API_URL
+) {
+  console.error(
+    '[BuildMart] NEXT_PUBLIC_API_URL is not set. ' +
+    'All API calls will fail in production.',
+  );
 }
 
 export const api = axios.create({

@@ -42,9 +42,13 @@ export class NotificationsService {
       },
     });
 
-    this.logger.log(`Notification created id=${notification.id} userId=${userId} type=${type}`);
+    this.logger.log(
+      `Notification created — id: ${notification.id}, ` +
+      `type: ${type}, userId: ${userId}`,
+    );
 
-    void this.dispatchExternalNotifications(userId, type, message);
+    this.safeDispatch(userId, notification.id, type, message)
+      .catch(() => {/* already logged inside safeDispatch */});
 
     return notification;
   }
@@ -118,6 +122,26 @@ export class NotificationsService {
     this.logger.log(`Notifications marked read count=${result.count} userId=${userId}`);
 
     return { count: result.count };
+  }
+
+  private async safeDispatch(
+    userId: string,
+    notificationId: string,
+    type: NotificationType,
+    message: string,
+  ): Promise<void> {
+    try {
+      await this.dispatchExternalNotifications(userId, type, message);
+    } catch (err) {
+      this.logger.error(
+        `External notification dispatch failed — ` +
+        `notificationId: ${notificationId}, ` +
+        `userId: ${userId}, ` +
+        `error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
+      // Do NOT re-throw — notification failure must never
+      // block the main operation (Rule 15)
+    }
   }
 
   private async dispatchExternalNotifications(
