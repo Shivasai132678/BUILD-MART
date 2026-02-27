@@ -81,6 +81,7 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] Admin dashboard layout + navigation shell | Files: `apps/frontend/app/(admin)/layout.tsx`, `apps/frontend/app/(admin)/page.tsx`, `apps/frontend/components/admin/nav.tsx` | Expected outcome: Admin area has protected layout and navigable dashboard shell.
 - [x] Vendor approval queue UI (approve/reject actions) | Files: `apps/frontend/app/(admin)/vendors/page.tsx`, `apps/frontend/components/admin/vendor-queue.tsx`, `apps/frontend/lib/api/admin.ts` | Expected outcome: Admin can review pending vendors and approve/reject from UI.
 - [x] Metrics cards for users/vendors/RFQs/orders/GMV | Files: `apps/frontend/components/admin/metric-cards.tsx`, `apps/frontend/app/(admin)/page.tsx` | Expected outcome: Admin dashboard renders live metric summaries from backend endpoint.
+- [x] Admin frontend/backend API alignment fix (metrics keys + pending vendors path + response shape parity) | Files: `apps/frontend/lib/admin-api.ts`, `apps/frontend/app/(admin)/admin/dashboard/page.tsx`, `apps/frontend/app/(admin)/admin/vendors/page.tsx` | Expected outcome: Admin dashboard and approvals queue consume real backend routes and payload keys without fallback mismatch assumptions.
 
 ## DEVOPS — Docker & CI/CD
 - [x] Backend Dockerfile for NestJS production build | Files: `apps/backend/Dockerfile`, `apps/backend/.dockerignore` | Expected outcome: Backend can be containerized and run in production mode for Render/Railway.
@@ -100,8 +101,8 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 
 ## DOCUMENTATION POLISH
 - [x] README setup guide + local development instructions + demo credentials | Files: `README.md`, `ENV.md`, `SEED.md` | Expected outcome: New developers can bootstrap locally and run the demo flow without ambiguity.
-- [ ] API usage and Swagger access policy documentation | Files: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md` | Expected outcome: API versioning, staging-only Swagger, and route conventions are clearly documented.
-- [ ] Cross-document consistency review (architecture/decisions/env/seed/handoff/tasks) | Files: `ARCHITECTURE.md`, `DECISIONS.md`, `ENV.md`, `SEED.md`, `AGENT_HANDOFF.md`, `PROJECT_TASKS.md` | Expected outcome: Terminology, status names, and lifecycle rules are consistent across docs.
+- [x] API usage and Swagger access policy documentation | Files: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md` | Expected outcome: API versioning, staging-only Swagger, and route conventions are clearly documented.
+- [x] Cross-document consistency review (architecture/decisions/env/seed/handoff/tasks) | Files: `ARCHITECTURE.md`, `DECISIONS.md`, `ENV.md`, `SEED.md`, `AGENT_HANDOFF.md`, `PROJECT_TASKS.md` | Expected outcome: Terminology, status names, and lifecycle rules are consistent across docs.
 
 ## STRICT NON-GOALS (do not build these in this phase)
 - WebSockets (use polling instead)

@@ -36,7 +36,7 @@ function formatMetricValue(key: MetricCardConfig['key'], metrics?: AdminMetrics)
     return String(metrics.totalUsers ?? 'N/A');
   }
   if (key === 'vendors') {
-    return String(metrics.totalApprovedVendors ?? 'N/A');
+    return String(metrics.totalVendors ?? 'N/A');
   }
   if (key === 'rfqs') {
     return String(metrics.totalRfqs ?? 'N/A');
