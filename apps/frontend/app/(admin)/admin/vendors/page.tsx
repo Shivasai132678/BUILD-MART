@@ -45,7 +45,7 @@ export default function AdminVendorsPage() {
   }
 
   const vendorsEndpointMissing = pendingVendorsQuery.isError;
-  const vendors: PendingVendorProfile[] = pendingVendorsQuery.data?.items ?? [];
+  const vendors: PendingVendorProfile[] = pendingVendorsQuery.data?.data ?? [];
 
   const handleApprove = (id: string, businessName: string) => {
     const confirmed = window.confirm(`Approve ${businessName}?`);
