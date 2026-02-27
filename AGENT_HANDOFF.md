@@ -603,3 +603,64 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   3. Root directory: `apps/frontend`
   4. Framework preset: Next.js
 - Next task: Deploy to Render/Vercel with real env vars, run seed, verify end-to-end
+- Git: committed as `55088b5` on main, pushed to `origin/main`
+
+## Deployment Instructions (Manual Steps)
+
+### Step 1 — Render Backend Redeploy
+
+1. Open the **Render dashboard** → select the **buildmart-backend** service.
+2. Confirm all **19 environment variables** are set (see `ENV.md` for the full list).
+   Critical ones for first boot:
+   - `DATABASE_URL` = Neon **pooled** connection string (append `?connection_limit=5&pool_timeout=10`)
+   - `DIRECT_URL` = Neon **unpooled** connection string
+   - `JWT_SECRET` = any strong 32+ character string
+   - `FRONTEND_URL` = your Vercel frontend URL (e.g. `https://<VERCEL_FRONTEND_URL>`)
+   - `NODE_ENV` = `production`
+3. Click **"Manual Deploy" → "Clear build cache & deploy"**.
+4. Watch the deploy logs. Wait for these log lines:
+   - `Applying Prisma migrations...` (from `prisma migrate deploy` in Dockerfile CMD)
+   - `Connecting to database…` / `Database connection established`
+   - `Nest application successfully started`
+5. Verify backend health:
+   - Open: `https://<RENDER_BACKEND_URL>/api/health`
+   - Expected response: `{ "status": "ok", "timestamp": "..." }`
+6. Verify Swagger is NOT accessible in production:
+   - Open: `https://<RENDER_BACKEND_URL>/api/docs`
+   - Expected: 404 or empty page (Swagger is disabled when `NODE_ENV=production`)
+
+### Step 2 — Vercel Frontend Redeploy
+
+1. Open the **Vercel dashboard** → select the **BuildMart** project.
+2. Confirm these **environment variables** are set in Project Settings → Environment Variables:
+   - `NEXT_PUBLIC_API_URL` = `https://<RENDER_BACKEND_URL>` (the full Render service URL, no trailing slash)
+   - `NEXT_PUBLIC_RAZORPAY_KEY_ID` = your Razorpay test key ID (`rzp_test_...`)
+3. Vercel auto-deploys on push to main. Since commit `55088b5` was just pushed,
+   a new deployment should already be building. Check the **Deployments** tab.
+   - If already building/deployed: wait for it to succeed.
+   - If not triggered: click **"Redeploy"** on the latest commit.
+4. Once deployed, open `https://<VERCEL_FRONTEND_URL>` — the BuildMart landing page should load.
+
+### Step 3 — Seed the Database (one-time, after first backend deploy)
+
+1. In the Render dashboard, open the **buildmart-backend** service → **Shell** tab.
+2. Run: `npx prisma db seed`
+3. This creates demo users, vendor profiles, categories, products, and vendor-product mappings.
+4. Demo accounts (see `SEED.md` for full list):
+   - Buyer: `+919000000001`
+   - Vendor: `+919000000002` / `+919000000003`
+   - Admin: `+919000000099`
+
+### Post-Deploy Verification Checklist
+
+- [ ] Backend health: `https://<RENDER_BACKEND_URL>/api/health` → `{ "status": "ok" }`
+- [ ] Swagger blocked: `https://<RENDER_BACKEND_URL>/api/docs` → 404
+- [ ] Frontend landing: `https://<VERCEL_FRONTEND_URL>` → BuildMart home page loads
+- [ ] Login flow: enter a seeded phone → receive OTP in Render shell logs (`[DEV] OTP for ...`) → verify → authenticated
+- [ ] Buyer flow: create address → create RFQ → verify it appears
+- [ ] Vendor flow: login as vendor → see available RFQs → submit quote
+- [ ] Admin flow: login as admin → see dashboard metrics → see pending vendors
+
+> **Note:** In production with `NODE_ENV=production`, OTP is sent via MSG91 (if `MSG91_AUTH_KEY` is set).
+> If MSG91 is not configured, OTP delivery will silently fail — check Render logs for the dev OTP fallback.
+> For initial testing, you may want to keep `NODE_ENV=development` temporarily to see OTPs in logs.
