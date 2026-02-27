@@ -437,3 +437,27 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   - NotificationsService called on both SUCCESS and FAILED events
   - ServiceUnavailableException when Razorpay credentials missing
 - Next task: VendorService + AdminService tests
+
+## Session End: 2026-02-27T14:05:00Z
+- Completed: VendorService + AdminService unit tests
+- Branch: feature/tests-week2-vendor-admin
+- New test files:
+  1. `apps/backend/src/vendors/vendor.service.spec.ts` — 17 tests (onboard: 8, getProfile: 2, updateProfile: 3, approveVendor: 5)
+  2. `apps/backend/src/admin/admin.service.spec.ts` — 10 tests (getMetrics: 4, getPendingVendors: 6)
+- Note: task description listed `getAvailableRFQs` on VendorService and `approveVendor` on AdminService, but actual code has: `approveVendor` in VendorService (tested there), and AdminService has only `getMetrics`+`getPendingVendors` (both tested)
+- New tests added: 28
+- Total passing: 75/75 (47 previous + 28 new)
+- Test suites: 8 passed, 8 total
+- Build: backend ✅
+- Key behaviors verified:
+  - Vendor onboard $transaction creates profile + upgrades User.role atomically
+  - ConflictException on duplicate vendor profile
+  - SSRF protection: non-HTTPS, localhost, 127.0.0.1, disallowed extensions all rejected
+  - Valid HTTPS document URL with .pdf extension accepted
+  - Profile update excludes isApproved/userId from update data
+  - approveVendor idempotent (already-approved vendor does not throw)
+  - AuditLog write is non-blocking (failure logged, not thrown)
+  - Admin metrics filters deletedAt: null for users and vendors
+  - GMV returns '0.00' string on empty DB (not null/undefined)
+  - Pending vendors pagination with safe limit/offset bounds
+- Next task: NotificationsService + E2E flow test
