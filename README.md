@@ -1,5 +1,41 @@
 # BuildMart — Construction Procurement Platform
 
+## Quick Start (Local Dev)
+
+### Prerequisites
+- Node v20+, pnpm v8+, Docker Desktop
+
+### Steps
+1. `pnpm install`
+2. `cp apps/backend/.env.example apps/backend/.env`
+   Edit `.env` and set required values (see ENV.md)
+   For Cloudinary/MSG91/Razorpay: leave blank — app works without them in dev
+3. `cp apps/frontend/.env.example apps/frontend/.env.local`
+   Set `NEXT_PUBLIC_API_URL=http://localhost:3001`
+4. `docker compose up -d db`  ← starts Postgres on port **5433**
+   Update DATABASE_URL to use port 5433 if needed
+5. `cd apps/backend && npx prisma migrate deploy && npx prisma db seed`
+6. Terminal 1: `pnpm dev:backend`
+7. Terminal 2: `pnpm dev:frontend`
+8. Open http://localhost:3000
+
+### Demo Accounts (from seed)
+| Phone | Role | Business |
+|-------|------|----------|
+| +919000000001 | Admin | Platform Admin |
+| +919000000002 | Buyer | Demo Buyer |
+| +919000000003 | Buyer | Demo Buyer 2 |
+| +919000000004 | Vendor | Lakshmi Cement Stores |
+| +919000000005 | Vendor | Hyderabad Paints Hub |
+| +919000000006 | Vendor | Telangana Steel Works |
+
+### Getting Your OTP in Dev Mode
+OTPs are printed to the backend console:
+`[DEV] OTP for +91XXXXXXXXXX: 123456`
+(Never logged in production)
+
+---
+
 ## Overview
 BuildMart is a construction procurement platform for Hyderabad contractors and homeowners that streamlines material sourcing through a quote-driven workflow: buyers create RFQs, matched vendors submit quotes, buyers place orders from selected quotes, and both sides track delivery and payment progress in one system.
 
@@ -16,36 +52,16 @@ BuildMart is a construction procurement platform for Hyderabad contractors and h
 - Frontend: Next.js (App Router), TailwindCSS, React Query, Zustand
 - Infra: Docker, GitHub Actions CI, Render (backend), Vercel (frontend)
 
-## Local Development
-
-### Prerequisites
-- Node.js v20.x
-- pnpm v8+
-- Docker + Docker Compose
-
-### Setup
-```bash
-git clone https://github.com/Shivasai132678/BUILD-MART.git
-cd BUILD-MART
-pnpm install
-cp apps/backend/.env.example apps/backend/.env
-# Fill in apps/backend/.env values (see ENV.md)
-docker-compose up -d db
-cd apps/backend && npx prisma migrate deploy && npx prisma db seed
-pnpm --filter backend start:dev
-pnpm --filter frontend dev
-```
-
-Run the backend and frontend dev commands in separate terminals after migrations/seed complete.
-
-## Demo Credentials (Seed Data)
-Use OTP login with these seeded phone numbers (OTP is logged by the backend in local/dev mode):
-
-- Admin: `+919000000001`
-- Buyer: `+919000000002`, `+919000000003`
-- Vendor: `+919000000004`, `+919000000005`, `+919000000006`
-
-See `SEED.md` for complete seeded products, vendor mappings, and demo assumptions.
+## Dev Scripts (Root)
+| Script | Description |
+|--------|-------------|
+| `pnpm dev:backend` | Start backend in watch mode |
+| `pnpm dev:frontend` | Start Next.js dev server |
+| `pnpm db:reset` | Reset DB + run migrations + seed |
+| `pnpm db:seed` | Run seed script only |
+| `pnpm lint:all` | Lint backend + frontend |
+| `pnpm test:backend` | Run backend tests |
+| `pnpm build:all` | Build backend + frontend |
 
 ## Deployment
 
@@ -91,7 +107,7 @@ After deploying backend (Render) and frontend (Vercel), run this minimum staging
 
 ## Known Limitations
 - WhatsApp/SMS delivery requires real provider credentials (`WHATSAPP_API_KEY`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`) in `apps/backend/.env`.
-- Cloudinary uploads require valid `CLOUDINARY_*` keys in `apps/backend/.env`.
+- Cloudinary uploads require valid `CLOUDINARY_*` keys in `apps/backend/.env`. In dev mode, missing keys are handled gracefully.
 - Vendor document file upload UI (multipart upload from frontend) is Phase 2; current onboarding uses URL fields.
 
 ## API Usage & Swagger Policy

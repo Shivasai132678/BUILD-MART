@@ -12,7 +12,8 @@ export class ConfigurationError extends Error {
 @Injectable()
 export class CloudinaryAdapter {
   private readonly logger = new Logger(CloudinaryAdapter.name);
-  private readonly privateFolder: string;
+  private readonly privateFolder: string = 'buildmart-vendor-docs';
+  private isConfigured = false;
 
   constructor(private readonly configService: ConfigService) {
     const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
@@ -20,8 +21,16 @@ export class CloudinaryAdapter {
     const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
 
     if (!cloudName || !apiKey || !apiSecret) {
-      throw new ConfigurationError(
-        'Cloudinary configuration is missing. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.',
+      if (process.env.NODE_ENV !== 'production') {
+        this.logger.warn(
+          'Cloudinary not configured — file uploads will be skipped in dev mode',
+        );
+        this.isConfigured = false;
+        return;
+      }
+      throw new Error(
+        'Cloudinary credentials are required in production. ' +
+        'Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET.',
       );
     }
 
@@ -35,9 +44,17 @@ export class CloudinaryAdapter {
       api_secret: apiSecret,
       secure: true,
     });
+    this.isConfigured = true;
   }
 
   async uploadFile(filePath: string, folder?: string): Promise<string> {
+    if (!this.isConfigured) {
+      this.logger.warn(
+        `[DEV] Cloudinary not configured — skipping upload for: ${filePath}`,
+      );
+      return 'https://placeholder.dev/cloudinary-not-configured';
+    }
+
     try {
       const uploadResult = await cloudinary.uploader.upload(filePath, {
         folder: folder ?? this.privateFolder,

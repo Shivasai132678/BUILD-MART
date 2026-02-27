@@ -25,7 +25,7 @@ export class RfqService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   async createRFQ(userId: string, dto: CreateRfqDto): Promise<RFQ> {
     const createdRfq = await this.prisma.$transaction(async (tx) => {
@@ -34,18 +34,20 @@ export class RfqService {
           id: dto.addressId,
           userId,
         },
-        select: { id: true },
+        select: { id: true, city: true },
       });
 
       if (!address) {
         throw new BadRequestException('Address does not belong to the buyer');
       }
 
+      const deliveryCity = address.city;
+
       const rfq = await tx.rFQ.create({
         data: {
           buyerId: userId,
           addressId: dto.addressId,
-          city: dto.city,
+          city: deliveryCity,
           status: RFQStatus.OPEN,
           validUntil: new Date(dto.validUntil),
           ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
@@ -98,27 +100,30 @@ export class RfqService {
 
       const matchedUserIds = matchedVendors.map((vendor) => vendor.userId);
 
-      for (const vendorUserId of matchedUserIds) {
-        try {
-          await this.notificationsService.create({
-            userId: vendorUserId,
-            type: NotificationType.RFQ_CREATED,
-            title: 'New RFQ available',
-            message: `A new RFQ matching your products is available in ${createdRfq.city}.`,
-            metadata: { rfqId: createdRfq.id },
-          });
-
-          this.logger.log(
-            `Vendor notification sent for RFQ id=${createdRfq.id} userId=${vendorUserId}`,
-          );
-        } catch (error: unknown) {
-          const message =
-            error instanceof Error ? error.message : 'Unknown notification error';
-          this.logger.error(
-            `Vendor notification failed for RFQ id=${createdRfq.id} userId=${vendorUserId}: ${message}`,
-          );
-        }
-      }
+      await Promise.allSettled(
+        matchedUserIds.map((vendorUserId) =>
+          this.notificationsService
+            .create({
+              userId: vendorUserId,
+              type: NotificationType.RFQ_CREATED,
+              title: 'New RFQ available',
+              message: `A new RFQ matching your products is available in ${createdRfq.city}.`,
+              metadata: { rfqId: createdRfq.id },
+            })
+            .then(() => {
+              this.logger.log(
+                `Vendor notification sent for RFQ id=${createdRfq.id} userId=${vendorUserId}`,
+              );
+            })
+            .catch((error: unknown) => {
+              const message =
+                error instanceof Error ? error.message : 'Unknown notification error';
+              this.logger.error(
+                `Vendor notification failed for RFQ id=${createdRfq.id} userId=${vendorUserId}: ${message}`,
+              );
+            }),
+        ),
+      );
     }
 
     return createdRfq;
