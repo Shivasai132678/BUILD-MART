@@ -1,11 +1,13 @@
 'use client';
 
+import axios from 'axios';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Spinner } from '@/components/ui/Spinner';
 import { api } from '@/lib/api';
+import { getVendorProfile } from '@/lib/vendor-profile-api';
 import { useUserStore } from '@/store/user.store';
 
 type VendorLayoutProps = {
@@ -14,6 +16,7 @@ type VendorLayoutProps = {
 
 const vendorNavLinks = [
   { href: '/vendor/dashboard', label: 'Dashboard' },
+  { href: '/vendor/profile', label: 'Profile' },
   { href: '/vendor/rfq', label: 'Available RFQs' },
   { href: '/vendor/orders', label: 'My Orders' },
 ] as const;
@@ -23,20 +26,65 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
   const router = useRouter();
   const user = useUserStore((state) => state.user);
   const clearUser = useUserStore((state) => state.clearUser);
+  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'VENDOR') {
-      router.replace('/login');
-    }
-  }, [router, user]);
+    let isActive = true;
 
-  if (!user || user.role !== 'VENDOR') {
+    const checkAccess = async () => {
+      if (!user || user.role !== 'VENDOR') {
+        router.replace('/login');
+        if (isActive) {
+          setIsCheckingProfile(false);
+        }
+        return;
+      }
+
+      const isOnboardingRoute = pathname.startsWith('/vendor/onboarding');
+
+      try {
+        await getVendorProfile();
+        if (isOnboardingRoute) {
+          router.replace('/vendor/dashboard');
+        }
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          if (!isOnboardingRoute) {
+            router.replace('/vendor/onboarding');
+          }
+          return;
+        }
+
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+          clearUser();
+          router.replace('/login');
+          return;
+        }
+      } finally {
+        if (isActive) {
+          setIsCheckingProfile(false);
+        }
+      }
+    };
+
+    void checkAccess();
+
+    return () => {
+      isActive = false;
+    };
+  }, [clearUser, pathname, router, user]);
+
+  if (!user || user.role !== 'VENDOR' || isCheckingProfile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
           <Spinner size="sm" />
-          Redirecting to login...
+          {isCheckingProfile ? 'Checking vendor profile...' : 'Redirecting to login...'}
         </div>
       </div>
     );
@@ -107,4 +155,3 @@ export default function VendorLayout({ children }: VendorLayoutProps) {
     </div>
   );
 }
-

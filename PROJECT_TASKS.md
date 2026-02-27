@@ -74,7 +74,7 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] Quote acceptance + buyer order timeline UI | Files: `apps/frontend/app/(buyer)/orders/[id]/page.tsx`, `apps/frontend/components/orders/order-timeline.tsx`, `apps/frontend/lib/api/orders.ts` | Expected outcome: Buyer can accept quote and view order status progression in a timeline. (verified on develop 2026-02-27)
 
 ## FRONTEND — Vendor Portal
-- [ ] Vendor onboarding/profile management UI | Files: `apps/frontend/app/(vendor)/onboarding/page.tsx`, `apps/frontend/app/(vendor)/profile/page.tsx`, `apps/frontend/components/vendor/*` | Expected outcome: Vendor can submit onboarding docs and manage profile details.
+- [x] Vendor onboarding/profile management UI | Files: `apps/frontend/app/(vendor)/onboarding/page.tsx`, `apps/frontend/app/(vendor)/profile/page.tsx`, `apps/frontend/components/vendor/*` | Expected outcome: Vendor can submit onboarding docs and manage profile details.
 - [x] Available RFQs list + quote submission form | Files: `apps/frontend/app/(vendor)/rfqs/page.tsx`, `apps/frontend/app/(vendor)/rfqs/[id]/quote/page.tsx`, `apps/frontend/components/vendor-quote/*` | Expected outcome: Vendor sees matching RFQs and can submit valid quotes with totals.
 - [x] Vendor orders list + status update controls | Files: `apps/frontend/app/(vendor)/orders/page.tsx`, `apps/frontend/app/(vendor)/orders/[id]/page.tsx` | Expected outcome: Vendor can filter orders and perform allowed status transitions only.
 
