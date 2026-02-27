@@ -15,12 +15,17 @@ async function bootstrap() {
     type: VersioningType.URI,
     defaultVersion: '1',
   });
-  app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }));
+  app.use(
+    '/api/v1/payments/webhook',
+    express.raw({ type: 'application/json' }),
+  );
   app.use(helmet());
 
   const frontendUrl = process.env.FRONTEND_URL;
   if (!frontendUrl) {
-    logger.error('FRONTEND_URL is not set — CORS will block all browser requests!');
+    logger.error(
+      'FRONTEND_URL is not set — CORS will block all browser requests!',
+    );
   } else {
     logger.log(`CORS origin: ${frontendUrl}`);
   }
@@ -53,4 +58,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3001);
 }
-bootstrap();
+void bootstrap();
