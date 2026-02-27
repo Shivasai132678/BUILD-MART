@@ -8,6 +8,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 
+// TODO: Address model lacks deletedAt — soft delete uses label prefix hack.
+// Phase 2: add deletedAt DateTime? to Address model with migration.
 const SOFT_DELETED_LABEL = '__SOFT_DELETED__';
 
 type PaginatedAddressesResponse = {

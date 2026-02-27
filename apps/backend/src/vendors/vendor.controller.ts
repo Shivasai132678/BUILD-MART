@@ -5,6 +5,7 @@ import {
   Patch,
   Post,
   Req,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
@@ -17,9 +18,9 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { VendorService } from './vendor.service';
 
 type AuthenticatedRequest = Request & {
-  user: {
-    id: string;
-    role: UserRole;
+  user?: {
+    sub?: string;
+    role?: UserRole;
   };
 };
 
@@ -37,13 +38,15 @@ export class VendorController {
     @Req() request: AuthenticatedRequest,
     @Body() dto: OnboardVendorDto,
   ) {
-    return this.vendorService.onboard(request.user.id, dto);
+    const userId = this.getAuthenticatedUserId(request);
+    return this.vendorService.onboard(userId, dto);
   }
 
   @Get('profile')
   @Roles(UserRole.VENDOR, UserRole.BUYER)
   getProfile(@Req() request: AuthenticatedRequest) {
-    return this.vendorService.getProfile(request.user.id);
+    const userId = this.getAuthenticatedUserId(request);
+    return this.vendorService.getProfile(userId);
   }
 
   @Patch('profile')
@@ -52,6 +55,15 @@ export class VendorController {
     @Req() request: AuthenticatedRequest,
     @Body() dto: UpdateVendorDto,
   ) {
-    return this.vendorService.updateProfile(request.user.id, dto);
+    const userId = this.getAuthenticatedUserId(request);
+    return this.vendorService.updateProfile(userId, dto);
+  }
+
+  private getAuthenticatedUserId(request: AuthenticatedRequest): string {
+    const userId = request.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Authenticated user context is missing');
+    }
+    return userId;
   }
 }

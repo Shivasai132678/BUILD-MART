@@ -52,10 +52,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     message: ErrorMessage;
   } {
     if (!(exception instanceof HttpException)) {
+      const isProduction = process.env.NODE_ENV === 'production';
       return {
         error: 'InternalServerError',
-        message:
-          exception instanceof Error && exception.message.length > 0
+        message: isProduction
+          ? 'Internal server error'
+          : exception instanceof Error && exception.message.length > 0
             ? exception.message
             : 'Internal server error',
       };
