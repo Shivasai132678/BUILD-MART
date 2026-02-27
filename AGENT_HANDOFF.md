@@ -421,3 +421,31 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   2. cd apps/backend && pnpm build
   3. cd apps/frontend && pnpm build
 - Context: Updated docker-compose for health-gated backend startup with `prisma migrate deploy`, refreshed README with current built scope/limitations, and completed final TODO/placeholder audit.
+
+## Session End: 2026-02-27T10:15:00Z
+- Completed: FIX — Critical and High severity issues from adversarial code review
+- Branch: feature/fix-critical → develop → main
+- Last commit: 49b3153 (feature), aa77d38 (develop merge), 2c2fcbe (main merge)
+- Fixes applied:
+  - C-1: OTP plaintext log removed from auth.service.ts AND msg91.adapter.ts (self-audit catch)
+  - C-2: Products controller/module guard imports fixed from common/auth/ → auth/guards/ + auth/decorators/
+  - C-3: request.user.id → request.user.sub in vendor.controller.ts, admin-vendor.controller.ts, rfq.controller.ts, addresses.controller.ts
+  - C-4: CancelOrderDto created (class-validator), inline type removed from orders.controller.ts
+  - H-1: common/auth/ directory deleted (jwt-auth.guard.ts, roles.decorator.ts, roles.guard.ts)
+  - H-2: @nestjs/swagger v11.2.6 installed, Swagger conditional setup in main.ts (NODE_ENV !== production)
+  - H-3/H-4: SSRF validation added to vendor.service.ts (HTTPS-only, blocked internal IPs, allowed extensions)
+  - H-5: Pagination added to getQuotesForRFQ (service + controller), returns { data, total, limit, offset }
+  - H-6: GlobalExceptionFilter returns generic "Internal server error" in production
+  - M-1: Duplicate ALLOWED_ORDER_TRANSITIONS removed from orders.service.ts → imports from common/constants/status-transitions.ts
+  - M-4: Address soft delete — TODO comment added (schema lacks deletedAt field)
+  - M-6: Confirmed zero request.user.id references remain (grep verified)
+- Self-audit extra find: msg91.adapter.ts line 24 also leaked OTP plaintext — fixed with same safe pattern
+- Files changed: 23 files, 180 insertions, 124 deletions
+- request.user.sub confirmed across all controllers: YES
+- common/auth/ deleted: YES
+- Address deletedAt: schema lacked field — TODO comment added for Phase 2 migration
+- Build: backend ✅, frontend ✅ (16 routes)
+- Tests: 21/21 ✅ (auth, app, orders, rfq suites)
+- Remaining known issues from audit: M-2 dead code, M-3 e2e tests, M-5 notifications RBAC, M-7 retry queue
+- Next task: Medium severity fixes or deployment
+- Verify: cd apps/backend && pnpm build && pnpm test && cd ../frontend && pnpm build

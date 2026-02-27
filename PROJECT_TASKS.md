@@ -13,7 +13,7 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] Auth module skeleton + DTO validation | Files: `apps/backend/src/auth/auth.module.ts`, `apps/backend/src/auth/auth.controller.ts`, `apps/backend/src/auth/dto/send-otp.dto.ts`, `apps/backend/src/auth/dto/verify-otp.dto.ts` | Expected outcome: Versioned auth endpoints exist with class-validator DTOs and request validation pipe support.
 - [x] OTP send flow with SHA-256 persistence and throttling | Files: `apps/backend/src/auth/auth.service.ts`, `apps/backend/src/auth/providers/msg91.adapter.ts`, `apps/backend/src/otp/*`, `apps/backend/prisma/schema.prisma` (read-only), `apps/backend/src/auth/auth.controller.ts` | Expected outcome: `/auth/send-otp` stores hashed OTP in `OTPRecord`, sets 5-minute expiry, and uses `@Throttle(5, 60)`.
 - [x] OTP verify flow + JWT HTTP-only cookie login/logout | Files: `apps/backend/src/auth/auth.service.ts`, `apps/backend/src/auth/jwt.strategy.ts`, `apps/backend/src/auth/guards/*`, `apps/backend/src/auth/auth.controller.ts` | Expected outcome: `/auth/verify-otp` validates hash/expiry/isUsed atomically and issues cookie-only JWT; `/auth/logout` clears cookie.
-- [x] Role guards/decorators for protected routes | Files: `apps/backend/src/common/auth/roles.decorator.ts`, `apps/backend/src/common/auth/roles.guard.ts`, `apps/backend/src/common/auth/jwt-auth.guard.ts` | Expected outcome: Reusable JWT + role authorization guards enforce BUYER/VENDOR/ADMIN access.
+- [x] Role guards/decorators for protected routes | Files: `apps/backend/src/auth/guards/jwt-auth.guard.ts`, `apps/backend/src/auth/guards/roles.guard.ts`, `apps/backend/src/auth/decorators/roles.decorator.ts` (originally `common/auth/*`, relocated — stale copies deleted in security audit H-1) | Expected outcome: Reusable JWT + role authorization guards enforce BUYER/VENDOR/ADMIN access.
 
 ## BACKEND — Vendor Onboarding
 - [x] Vendor onboarding DTOs + GST validation rules | Files: `apps/backend/src/vendors/dto/onboard-vendor.dto.ts`, `apps/backend/src/vendors/dto/update-vendor-profile.dto.ts`, `apps/backend/src/vendors/vendors.controller.ts` | Expected outcome: Vendor onboarding/update requests are validated (including GST regex) with clear error messages.
@@ -104,6 +104,20 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 - [x] README setup guide + local development instructions + demo credentials | Files: `README.md`, `ENV.md`, `SEED.md` | Expected outcome: New developers can bootstrap locally and run the demo flow without ambiguity.
 - [x] API usage and Swagger access policy documentation | Files: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md` | Expected outcome: API versioning, staging-only Swagger, and route conventions are clearly documented.
 - [x] Cross-document consistency review (architecture/decisions/env/seed/handoff/tasks) | Files: `ARCHITECTURE.md`, `DECISIONS.md`, `ENV.md`, `SEED.md`, `AGENT_HANDOFF.md`, `PROJECT_TASKS.md` | Expected outcome: Terminology, status names, and lifecycle rules are consistent across docs.
+
+## SECURITY AUDIT (adversarial code review fixes)
+- [x] C-1: Remove OTP plaintext logging (auth.service.ts + msg91.adapter.ts) | Expected outcome: OTP value never appears in any log; only last 4 digits of phone are logged.
+- [x] C-2: Fix guard imports in products controller to use auth/guards/ | Expected outcome: ProductsController and ProductsModule import from `src/auth/guards/*` and `src/auth/decorators/*`.
+- [x] C-3: Replace request.user.id with request.user.sub across all controllers | Expected outcome: All controllers use `request.user.sub` matching JWT payload shape.
+- [x] C-4: Add class-validated CancelOrderDto for order cancellation | Expected outcome: `orders/dto/cancel-order.dto.ts` with `@IsString() @IsNotEmpty() @MaxLength(500) cancelReason`.
+- [x] H-1: Delete stale common/auth/ directory (3 files) | Expected outcome: `src/common/auth/` no longer exists; all guards import from `src/auth/guards/`.
+- [x] H-2: Swagger conditional setup (NODE_ENV !== production only) | Expected outcome: `/api/docs` available in dev/staging, never in production (Rule 22).
+- [x] H-3/H-4: SSRF protection on vendor document URLs | Expected outcome: `validateDocumentUrl()` in VendorService blocks non-HTTPS, internal IPs, and dangerous extensions.
+- [x] H-5: Add pagination to getQuotesForRFQ endpoint | Expected outcome: `GET /api/v1/quotes/rfq/:rfqId` accepts `limit`/`offset` query params and returns `{ data, total, limit, offset }`.
+- [x] H-6: GlobalExceptionFilter production-safe error messages | Expected outcome: Non-HttpException errors return generic "Internal server error" in production, real message in dev only.
+- [x] M-1: Remove duplicate order transitions from OrdersService | Expected outcome: `orders.service.ts` imports `isValidOrderStatusTransition` from `common/constants/status-transitions.ts`.
+- [x] M-4: Address soft delete — TODO comment added (schema lacks deletedAt) | Expected outcome: TODO comment documenting Phase 2 migration need.
+- [x] M-6: Confirm zero request.user.id references remain | Expected outcome: `grep -rn 'request\.user\.id' apps/backend/src/` returns zero results.
 
 ## STRICT NON-GOALS (do not build these in this phase)
 - WebSockets (use polling instead)
