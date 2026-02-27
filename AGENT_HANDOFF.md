@@ -664,3 +664,20 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 > **Note:** In production with `NODE_ENV=production`, OTP is sent via MSG91 (if `MSG91_AUTH_KEY` is set).
 > If MSG91 is not configured, OTP delivery will silently fail — check Render logs for the dev OTP fallback.
 > For initial testing, you may want to keep `NODE_ENV=development` temporarily to see OTPs in logs.
+
+## Session End: 2026-02-27T22:30:00Z
+- Completed: Fix Render deploy failure — `Cannot find module '/app/apps/backend/dist/main'`
+- Branch: main
+- Last commit: 6f3499f fix(deploy): correct NestJS build path and CMD in backend Dockerfile
+- Root causes found and fixed:
+  1. **Missing rootDir in tsconfig.build.json**: Without `rootDir`, TypeScript inferred the common root from both `src/` and `prisma/` directories, causing output at `dist/src/main.js` instead of `dist/main.js`. Fixed by adding `"rootDir": "./src"` and `"prisma"` to exclude.
+  2. **Stale tsbuildinfo in Docker**: The local `tsconfig.build.tsbuildinfo` was copied into the container via `COPY apps/backend ./apps/backend`, causing `tsc` (with `incremental: true`) to skip JS emission — only `.d.ts` files were generated. Fixed by adding `RUN rm -f tsconfig.build.tsbuildinfo` before build, and `*.tsbuildinfo` to `.dockerignore`.
+  3. **pnpm strict hoisting in Docker**: pnpm's default strict mode stores packages in `.pnpm` virtual store with symlinks. Docker COPY doesn't preserve symlink resolution chains, so `express` (transitive dep of `@nestjs/platform-express`) was unreachable at runtime. Fixed by adding `--shamefully-hoist` to `pnpm install` in Dockerfile.
+  4. **CMD used wrong filename**: `node dist/main` → `node dist/main.js` (explicit extension).
+- Files changed:
+  1. `apps/backend/tsconfig.build.json` — Added `rootDir: ./src`, `prisma` to exclude
+  2. `apps/backend/Dockerfile` — WORKDIR switch, `--shamefully-hoist`, rm tsbuildinfo, `dist/main.js`
+  3. `apps/backend/.dockerignore` — Added `*.tsbuildinfo`
+- Docker build verified locally: NestJS starts, resolves all modules, fails only on missing JWT_SECRET (expected)
+- Next task: Redeploy on Render (clear cache & deploy)
+- Verify: docker build -f apps/backend/Dockerfile -t buildmart-backend:test . && docker run --rm -e DATABASE_URL=x buildmart-backend:test timeout 5 node dist/main.js
