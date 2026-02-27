@@ -17,8 +17,15 @@ async function bootstrap() {
   });
   app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }));
   app.use(helmet());
+
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl) {
+    logger.error('FRONTEND_URL is not set — CORS will block all browser requests!');
+  } else {
+    logger.log(`CORS origin: ${frontendUrl}`);
+  }
   app.enableCors({
-    origin: process.env.FRONTEND_URL,
+    origin: frontendUrl,
     credentials: true,
   });
   app.useGlobalFilters(new GlobalExceptionFilter());
