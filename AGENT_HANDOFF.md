@@ -364,3 +364,12 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   2. cd apps/frontend && pnpm build
 - Next task: Vendor onboarding/profile UI
 - Context: Catalog browsing now works without auth guards on GET endpoints, while admin write endpoints remain protected.
+
+## Session End: 2026-02-27T09:30:48Z
+- Completed: Vendor onboarding + profile UI
+- Branch: feature/vendor-onboarding-ui
+- Verify:
+  1. cd apps/frontend && pnpm build
+  2. cd apps/backend && pnpm build
+- Next task: Tests (auth, orders, RFQ)
+- Context: Added vendor onboarding and profile management pages, a dedicated vendor profile API helper, and vendor layout profile-link + onboarding redirect behavior when profile is missing.
