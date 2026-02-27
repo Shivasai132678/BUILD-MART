@@ -271,3 +271,14 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Known issues: No live Render/Vercel deployment was executed from this environment (no cloud credentials/URLs provided). The requested backend Dockerfile/render config uses dockerContext=apps/backend and copies pnpm-lock.yaml inside that context, but this repo currently keeps the workspace lockfile at the root; deployment may require either a backend-local lockfile or Docker/render config adjustment before first Render build. apps/frontend/.env.example is ignored by apps/frontend/.gitignore (.env*) and must be force-added if modified again.
 - Verify: ruby -e "require 'yaml'; YAML.load_file('apps/backend/render.yaml')" && node -e "JSON.parse(require('fs').readFileSync('apps/frontend/vercel.json','utf8'))" && cd apps/backend && pnpm build && cd ../frontend && pnpm build
 - Context: Added Render backend Dockerfile + render blueprint + backend env example, Vercel frontend config + env example, and a new root README with local setup, deployment steps, and staging smoke-test checklist.
+
+## FINAL Session End: 2026-02-26T17:05:00Z
+- Completed: Dockerfile context fix + develop → main merge
+- Branch: main
+- Last commit: 7f141a3 chore(release): BuildMart MVP v1.0 — full-stack monorepo, production-ready
+- Next task: MANUAL — set env vars in Render + Vercel dashboards, connect GitHub repo, trigger first deploy, run seed on staging, verify end-to-end demo flow
+- Known issues:
+  1. vercel.json contains YOUR_RENDER_BACKEND_URL placeholder — replace with real Render service URL after first backend deploy
+  2. apps/frontend/.env.example was force-added (frontend .gitignore blocks .env* files) — team must set NEXT_PUBLIC_* vars in Vercel dashboard, not via committed file
+- Verify: git log --oneline main | head -3
+- Context: BuildMart MVP v1.0 is code-complete on main. Codebase is ready for Render + Vercel deployment. No further code changes needed before first staging deploy.
