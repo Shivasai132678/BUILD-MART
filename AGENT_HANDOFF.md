@@ -295,3 +295,37 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Next task: Manual — Render + Vercel deployment
 - Verify: cd apps/frontend && pnpm build
 - Context: admin dashboard now reads real data from backend; only remaining work is infra setup in Render/Vercel dashboards
+
+## Session End: 2026-02-27T08:42:00Z
+- Session: Full project audit + tracker sync
+- Date: 2026-02-27T08:42:00Z
+- Completed: Tracker audit sync on feature/fix-tracker (no source code changes)
+- Branch: feature/fix-tracker
+- Checkboxes updated:
+  1. Env example files and workspace scripts alignment
+  2. Login page (phone + OTP steps)
+  3. Auth middleware + protected route groups
+  4. Zustand user store + Axios client with credentials
+  5. Multi-item RFQ creation form
+  6. RFQ detail page with quote polling every 15s
+  7. Quote acceptance + buyer order timeline UI
+- Genuine gaps confirmed open:
+  1. Buyer catalog page missing (`apps/frontend/app/(buyer)/catalog/page.tsx`)
+  2. Vendor onboarding/profile UI missing (`apps/frontend/app/(vendor)/onboarding/page.tsx`, `apps/frontend/app/(vendor)/profile/page.tsx`)
+  3. Notifications external adapters missing (`apps/backend/src/notifications/adapters/*`)
+  4. Admin metrics filter DTO coverage incomplete
+  5. Dedicated module testing tasks still open
+- Open bugs found:
+  1. Buyer RFQ form uses hardcoded `TODO_ADDRESS_ID` in `apps/frontend/app/(buyer)/buyer/rfq/new/page.tsx`
+  2. Frontend Axios fallback hardcodes `http://localhost:3001` in `apps/frontend/lib/api.ts`
+  3. Backend TODOs present:
+     - `apps/backend/src/auth/auth.service.ts` (MSG91 integration TODO)
+     - `apps/backend/src/payments/payments.service.ts` (Razorpay credential TODO x2)
+     - `apps/backend/src/notifications/notifications.service.ts` (MSG91/WhatsApp TODO x2)
+  4. Frontend `grep -rn "TODO" apps/frontend/` returns many third-party TODOs from `node_modules` and `.next` artifacts
+- Cloudinary status: missing (`apps/backend/src/files/` directory missing)
+- Audit log status: missing (no `AuditLog` references in `apps/backend/src/`)
+- Notification adapters: 2 TODOs found in notifications module
+- Next task: Fix TODO_ADDRESS_ID in buyer RFQ form
+- Verify: cat PROJECT_TASKS.md | grep -c '\[x\]'
+- Context: tracker now accurately reflects real build state
