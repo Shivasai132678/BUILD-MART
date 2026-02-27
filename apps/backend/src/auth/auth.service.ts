@@ -201,10 +201,12 @@ export class AuthService {
   }
 
   private buildBaseCookieOptions(): CookieOptions {
+    const isProd = process.env.NODE_ENV === 'production';
     return {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: isProd,
+      // cross-origin (Vercel → Render) requires sameSite: 'none' + secure: true
+      sameSite: isProd ? 'none' : 'lax',
       path: '/',
     };
   }
