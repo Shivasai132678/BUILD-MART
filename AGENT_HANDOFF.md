@@ -489,3 +489,49 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
 - Build: backend ✅, frontend ✅
 - Tests: 21/21 ✅
 - Next task: Week 2 — test coverage (QuotesService, PaymentsService, VendorService, AdminService)
+
+## Session End: 2026-02-27T13:50:00Z
+- Completed: QuotesService + PaymentsService unit tests
+- Branch: feature/tests-week2-payments
+- New test files:
+  1. `apps/backend/src/quotes/quotes.service.spec.ts` — 12 tests (createQuote: 6, getQuotesForRFQ: 4, deleteQuote: 3 — 1 shared test reduction from NotFoundException reuse)
+  2. `apps/backend/src/payments/payments.service.spec.ts` — 14 tests (createPaymentOrder: 5, handleWebhook: 9)
+- New tests added: 26
+- Total passing: 47/47 (21 existing + 26 new)
+- Test suites: 6 passed, 6 total
+- Build: backend ✅
+- Key behaviors verified:
+  - Quote duplicate prevention (ConflictException + P2002 race condition)
+  - Quote pagination returns { data, total, limit, offset }
+  - Quote buyer ownership check on getQuotesForRFQ
+  - Payment Razorpay order creation + upsert persistence
+  - Payment webhook HMAC signature validation (crypto.createHmac)
+  - Payment webhook idempotency — duplicate SUCCESS silently skipped (Rule 14)
+  - Payment webhook failure handling with error reason extraction
+  - NotificationsService called on both SUCCESS and FAILED events
+  - ServiceUnavailableException when Razorpay credentials missing
+- Next task: VendorService + AdminService tests
+
+## Session End: 2026-02-27T14:05:00Z
+- Completed: VendorService + AdminService unit tests
+- Branch: feature/tests-week2-vendor-admin
+- New test files:
+  1. `apps/backend/src/vendors/vendor.service.spec.ts` — 17 tests (onboard: 8, getProfile: 2, updateProfile: 3, approveVendor: 5)
+  2. `apps/backend/src/admin/admin.service.spec.ts` — 10 tests (getMetrics: 4, getPendingVendors: 6)
+- Note: task description listed `getAvailableRFQs` on VendorService and `approveVendor` on AdminService, but actual code has: `approveVendor` in VendorService (tested there), and AdminService has only `getMetrics`+`getPendingVendors` (both tested)
+- New tests added: 28
+- Total passing: 75/75 (47 previous + 28 new)
+- Test suites: 8 passed, 8 total
+- Build: backend ✅
+- Key behaviors verified:
+  - Vendor onboard $transaction creates profile + upgrades User.role atomically
+  - ConflictException on duplicate vendor profile
+  - SSRF protection: non-HTTPS, localhost, 127.0.0.1, disallowed extensions all rejected
+  - Valid HTTPS document URL with .pdf extension accepted
+  - Profile update excludes isApproved/userId from update data
+  - approveVendor idempotent (already-approved vendor does not throw)
+  - AuditLog write is non-blocking (failure logged, not thrown)
+  - Admin metrics filters deletedAt: null for users and vendors
+  - GMV returns '0.00' string on empty DB (not null/undefined)
+  - Pending vendors pagination with safe limit/offset bounds
+- Next task: NotificationsService + E2E flow test
