@@ -12,7 +12,9 @@ import {
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import type { Request } from 'express';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { NotificationsService } from './notifications.service';
 
 type AuthenticatedRequest = Request & {
@@ -36,7 +38,8 @@ function getRequestUserId(request: AuthenticatedRequest): string {
   path: 'notifications',
   version: '1',
 })
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.BUYER, UserRole.VENDOR, UserRole.ADMIN)
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
