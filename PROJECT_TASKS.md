@@ -86,7 +86,7 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 
 ## DEVOPS — Docker & CI/CD
 - [x] Backend Dockerfile for NestJS production build | Files: `apps/backend/Dockerfile`, `apps/backend/.dockerignore` | Expected outcome: Backend can be containerized and run in production mode for Render/Railway.
-- [ ] Docker Compose local workflow validation | Files: `docker-compose.yml`, `apps/backend/.env.example`, `README.md` | Expected outcome: Local DB + backend startup flow is documented and reproducible.
+- [x] Docker Compose local workflow validation | Files: `docker-compose.yml`, `apps/backend/.env.example`, `README.md` | Expected outcome: Local DB + backend startup flow is documented and reproducible.
 - [x] GitHub Actions CI pipeline (lint/test/build/migrate) | Files: `.github/workflows/ci.yml` | Expected outcome: CI runs on `develop` pushes and PRs to `main`, using `prisma migrate deploy` (not `migrate dev`).
 
 ## TESTING

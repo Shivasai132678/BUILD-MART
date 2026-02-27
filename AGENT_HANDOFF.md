@@ -383,3 +383,17 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   2. cd apps/backend && pnpm build
 - Next task: Final review — Docker Compose validation + README polish
 - Context: Added unit tests for auth OTP lifecycle, order state machine transitions, and RFQ vendor matching. Also patched service gaps for per-phone OTP rate limiting and approved-vendor-only RFQ matching.
+
+## Session End: 2026-02-27T09:44:01Z
+- Completed: Final polish
+- Branch: feature/final-polish
+- Remaining TODOs (legitimate Phase 2):
+  1. `apps/backend/src/vendors/vendor.service.ts` — file upload via multipart/form-data is a Phase 2 frontend task.
+- YOUR_RENDER_BACKEND_URL: still present (`apps/frontend/vercel.json` placeholder retained intentionally until real Render URL is available)
+- Status: READY FOR FIRST REVIEW
+- Next task: Set Render + Vercel env vars and deploy
+- Verify:
+  1. docker compose config
+  2. cd apps/backend && pnpm build
+  3. cd apps/frontend && pnpm build
+- Context: Updated docker-compose for health-gated backend startup with `prisma migrate deploy`, refreshed README with current built scope/limitations, and completed final TODO/placeholder audit.

@@ -3,6 +3,14 @@
 ## Overview
 BuildMart is a construction procurement platform for Hyderabad contractors and homeowners that streamlines material sourcing through a quote-driven workflow: buyers create RFQs, matched vendors submit quotes, buyers place orders from selected quotes, and both sides track delivery and payment progress in one system.
 
+## What's Built
+- Auth: OTP login (MSG91 adapter), JWT HTTP-only cookie sessions, role-protected buyer/vendor/admin portals.
+- Buyer flows: catalog browsing with category/search filters, address management API integration, multi-item RFQ creation, quote comparison, quote acceptance, and order tracking.
+- Vendor flows: onboarding form + profile management UI, available RFQ feed, quote submission, and order status management.
+- Admin flows: metrics + vendor approval queue backed by admin endpoints.
+- Backend integrations: notification event wiring across RFQ/quote/order/payment flows, Cloudinary adapter for vendor document URL upload handling, Razorpay payment order/webhook flow.
+- Testing: backend Jest coverage for auth OTP lifecycle, order state machine transitions, and RFQ vendor matching logic.
+
 ## Tech Stack
 - Backend: NestJS, Prisma 6, PostgreSQL, JWT (HTTP-only cookie)
 - Frontend: Next.js (App Router), TailwindCSS, React Query, Zustand
@@ -80,6 +88,11 @@ After deploying backend (Render) and frontend (Vercel), run this minimum staging
 ## CI/CD
 - GitHub Actions CI runs on pushes to `develop` and PRs targeting `main` via `.github/workflows/ci.yml`.
 - CI uses PostgreSQL service containers and `prisma migrate deploy` (not `migrate dev`).
+
+## Known Limitations
+- WhatsApp/SMS delivery requires real provider credentials (`WHATSAPP_API_KEY`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`) in `apps/backend/.env`.
+- Cloudinary uploads require valid `CLOUDINARY_*` keys in `apps/backend/.env`.
+- Vendor document file upload UI (multipart upload from frontend) is Phase 2; current onboarding uses URL fields.
 
 ## API Usage & Swagger Policy
 - Backend API routes are versioned under `/api/v1/*` with a health route at `/api/health`.
