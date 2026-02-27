@@ -1,4 +1,6 @@
 import {
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -51,6 +53,22 @@ export class AuthService {
         role: UserRole.BUYER,
       },
     });
+
+    const recentAttemptCount = await this.prisma.oTPRecord.count({
+      where: {
+        userId: user.id,
+        createdAt: {
+          gt: new Date(Date.now() - 60_000),
+        },
+      },
+    });
+
+    if (recentAttemptCount >= 5) {
+      throw new HttpException(
+        'Too many OTP attempts. Please try again after 60 seconds',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
     const otp = randomInt(100_000, 1_000_000).toString();
     const otpHash = this.hashOtp(otp);
