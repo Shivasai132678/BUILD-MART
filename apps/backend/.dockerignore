@@ -10,6 +10,7 @@ apps/frontend
 # Backend build artifacts
 apps/backend/dist
 apps/backend/node_modules
+apps/backend/*.tsbuildinfo
 
 # Root package artifacts
 node_modules
