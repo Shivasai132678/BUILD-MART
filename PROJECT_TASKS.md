@@ -100,8 +100,8 @@ Each task is scoped to ~1-3 hours. For every task: implement, verify, commit ato
 
 ## DOCUMENTATION POLISH
 - [x] README setup guide + local development instructions + demo credentials | Files: `README.md`, `ENV.md`, `SEED.md` | Expected outcome: New developers can bootstrap locally and run the demo flow without ambiguity.
-- [ ] API usage and Swagger access policy documentation | Files: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md` | Expected outcome: API versioning, staging-only Swagger, and route conventions are clearly documented.
-- [ ] Cross-document consistency review (architecture/decisions/env/seed/handoff/tasks) | Files: `ARCHITECTURE.md`, `DECISIONS.md`, `ENV.md`, `SEED.md`, `AGENT_HANDOFF.md`, `PROJECT_TASKS.md` | Expected outcome: Terminology, status names, and lifecycle rules are consistent across docs.
+- [x] API usage and Swagger access policy documentation | Files: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md` | Expected outcome: API versioning, staging-only Swagger, and route conventions are clearly documented.
+- [x] Cross-document consistency review (architecture/decisions/env/seed/handoff/tasks) | Files: `ARCHITECTURE.md`, `DECISIONS.md`, `ENV.md`, `SEED.md`, `AGENT_HANDOFF.md`, `PROJECT_TASKS.md` | Expected outcome: Terminology, status names, and lifecycle rules are consistent across docs.
 
 ## STRICT NON-GOALS (do not build these in this phase)
 - WebSockets (use polling instead)

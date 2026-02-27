@@ -81,6 +81,11 @@ After deploying backend (Render) and frontend (Vercel), run this minimum staging
 - GitHub Actions CI runs on pushes to `develop` and PRs targeting `main` via `.github/workflows/ci.yml`.
 - CI uses PostgreSQL service containers and `prisma migrate deploy` (not `migrate dev`).
 
+## API Usage & Swagger Policy
+- Backend API routes are versioned under `/api/v1/*` with a health route at `/api/health`.
+- Authentication is cookie-based (`access_token` HTTP-only cookie). Frontend requests must send credentials.
+- Swagger/OpenAPI should only be enabled in non-production environments (staging/dev), never in production.
+
 ## Notes
 - Frontend date rendering should use only `apps/frontend/lib/utils/date.ts#formatIST()` (Rule 18).
 - JWT auth is cookie-only (HTTP-only); never store tokens in localStorage.
