@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RolesGuard } from './guards/roles.guard';
+import { Msg91Adapter } from './providers/msg91.adapter';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 @Module({
@@ -14,7 +15,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.register({}),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RolesGuard],
+  providers: [AuthService, JwtStrategy, RolesGuard, Msg91Adapter],
   exports: [AuthService, PassportModule, JwtModule, RolesGuard],
 })
 export class AuthModule {}

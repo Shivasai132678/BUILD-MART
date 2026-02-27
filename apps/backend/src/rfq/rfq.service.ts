@@ -96,20 +96,29 @@ export class RfqService {
         },
       });
 
-      await Promise.all(
-        matchedVendors.map((vendor) =>
-          this.notificationsService.createNotification(
-            vendor.userId,
-            NotificationType.RFQ_CREATED,
-            'New RFQ available',
-            `A new RFQ is available in ${createdRfq.city}.`,
-            {
-              rfqId: createdRfq.id,
-              vendorProfileId: vendor.id,
-            },
-          ),
-        ),
-      );
+      const matchedUserIds = matchedVendors.map((vendor) => vendor.userId);
+
+      for (const vendorUserId of matchedUserIds) {
+        try {
+          await this.notificationsService.create({
+            userId: vendorUserId,
+            type: NotificationType.RFQ_CREATED,
+            title: 'New RFQ available',
+            message: `A new RFQ matching your products is available in ${createdRfq.city}.`,
+            metadata: { rfqId: createdRfq.id },
+          });
+
+          this.logger.log(
+            `Vendor notification sent for RFQ id=${createdRfq.id} userId=${vendorUserId}`,
+          );
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Unknown notification error';
+          this.logger.error(
+            `Vendor notification failed for RFQ id=${createdRfq.id} userId=${vendorUserId}: ${message}`,
+          );
+        }
+      }
     }
 
     return createdRfq;

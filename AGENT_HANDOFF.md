@@ -331,3 +331,19 @@ Fix locally: Add SHADOW_DATABASE_URL to .env pointing to a second DB (Phase 2 ta
   4. cd apps/backend && pnpm build
   5. cd apps/frontend && pnpm build
 - Context: Frontend API client now logs missing NEXT_PUBLIC_API_URL in production, FilesModule + CloudinaryAdapter added, and vendor approval writes non-blocking AuditLog entries using schema-compatible fields.
+
+## Session End: 2026-02-27T09:15:28Z
+- Completed: MSG91 OTP, RFQ vendor alerts, payment notifications, adapters
+- Branch: feature/fix-notifications → develop → main
+- TODOs removed:
+  1. `apps/backend/src/auth/auth.service.ts` (MSG91 integration TODO near sendOtp flow)
+  2. `apps/backend/src/payments/payments.service.ts` (Razorpay credential TODO comments near getRazorpayClientOrThrow/getRazorpayKeyIdOrThrow)
+  3. `apps/backend/src/notifications/notifications.service.ts` (SMS/WhatsApp TODO stubs after notification persistence)
+- Next task: Read-only catalog endpoints + buyer catalog browsing page
+- Verify:
+  1. grep -n "TODO" apps/backend/src/auth/auth.service.ts
+  2. grep -n "TODO" apps/backend/src/payments/payments.service.ts
+  3. grep -n "TODO" apps/backend/src/notifications/notifications.service.ts
+  4. cd apps/backend && pnpm build
+  5. cd apps/frontend && pnpm build
+- Context: Added `Msg91Adapter` for OTP delivery with safe dev fallback, updated RFQ vendor notifications with per-vendor try/catch logging, wired payment success/failure buyer notifications from Razorpay webhook events, and replaced notification adapter TODO stubs with best-effort WhatsApp/SMS calls that never block core flows.
