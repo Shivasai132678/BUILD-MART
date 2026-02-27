@@ -1,8 +1,6 @@
-import {
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { NotificationType } from '@prisma/client';
+import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from './notifications.service';
 
@@ -10,6 +8,8 @@ import { NotificationsService } from './notifications.service';
 jest.mock('axios', () => ({
   post: jest.fn().mockResolvedValue({ data: {} }),
 }));
+
+const mockedAxios = jest.mocked(axios);
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -32,7 +32,7 @@ describe('NotificationsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Default: user without phone so external dispatch is a no-op
-    prisma.user.findUnique.mockResolvedValue({ phone: null });
+    (prisma.user.findUnique as jest.Mock).mockResolvedValue({ phone: null });
     service = new NotificationsService(prisma);
   });
 
@@ -50,7 +50,9 @@ describe('NotificationsService', () => {
         updatedAt: new Date(),
       };
 
-      prisma.notification.create.mockResolvedValue(mockNotification);
+      (prisma.notification.create as jest.Mock).mockResolvedValue(
+        mockNotification,
+      );
 
       const result = await service.create({
         userId: 'user-1',
@@ -59,6 +61,7 @@ describe('NotificationsService', () => {
         message: 'An RFQ was created',
       });
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.notification.create).toHaveBeenCalledWith({
         data: {
           userId: 'user-1',
@@ -83,7 +86,9 @@ describe('NotificationsService', () => {
         updatedAt: new Date(),
       };
 
-      prisma.notification.create.mockResolvedValue(mockNotification);
+      (prisma.notification.create as jest.Mock).mockResolvedValue(
+        mockNotification,
+      );
 
       const result = await service.create({
         userId: 'user-2',
@@ -110,14 +115,17 @@ describe('NotificationsService', () => {
         updatedAt: new Date(),
       };
 
-      prisma.notification.create.mockResolvedValue(mockNotification);
+      (prisma.notification.create as jest.Mock).mockResolvedValue(
+        mockNotification,
+      );
       // User with phone so dispatch is attempted
-      prisma.user.findUnique.mockResolvedValue({ phone: '+919000000001' });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        phone: '+919000000001',
+      });
 
       // Mock axios.post to throw (simulating external API failure)
-      const axios = require('axios');
-      axios.post.mockRejectedValueOnce(new Error('WhatsApp API down'));
-      axios.post.mockRejectedValueOnce(new Error('SMS API down'));
+      mockedAxios.post.mockRejectedValueOnce(new Error('WhatsApp API down'));
+      mockedAxios.post.mockRejectedValueOnce(new Error('SMS API down'));
 
       // Should NOT throw despite dispatch failure
       const result = await service.create({
@@ -143,7 +151,9 @@ describe('NotificationsService', () => {
         updatedAt: new Date(),
       };
 
-      prisma.notification.create.mockResolvedValue(mockNotification);
+      (prisma.notification.create as jest.Mock).mockResolvedValue(
+        mockNotification,
+      );
 
       await service.create({
         userId: 'user-4',
@@ -153,7 +163,9 @@ describe('NotificationsService', () => {
         metadata: { orderId: 'order-1' },
       });
 
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.notification.create).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         data: expect.objectContaining({
           metadata: { orderId: 'order-1' },
         }),
@@ -163,13 +175,12 @@ describe('NotificationsService', () => {
 
   describe('safeDispatch (via create)', () => {
     it('skips sendWhatsApp when WHATSAPP_API_KEY is empty', async () => {
-      const axios = require('axios');
       const originalWhatsApp = process.env.WHATSAPP_API_KEY;
       const originalMsg91 = process.env.MSG91_AUTH_KEY;
       delete process.env.WHATSAPP_API_KEY;
       delete process.env.MSG91_AUTH_KEY;
 
-      prisma.notification.create.mockResolvedValue({
+      (prisma.notification.create as jest.Mock).mockResolvedValue({
         id: 'notif-5',
         userId: 'user-5',
         type: NotificationType.RFQ_CREATED,
@@ -181,7 +192,9 @@ describe('NotificationsService', () => {
         updatedAt: new Date(),
       });
 
-      prisma.user.findUnique.mockResolvedValue({ phone: '+919000000001' });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        phone: '+919000000001',
+      });
 
       await service.create({
         userId: 'user-5',
@@ -191,10 +204,11 @@ describe('NotificationsService', () => {
       });
 
       // Allow async dispatch to complete
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
       // axios.post should NOT have been called since env keys are missing
-      expect(axios.post).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockedAxios.post).not.toHaveBeenCalled();
 
       // Restore env
       if (originalWhatsApp) process.env.WHATSAPP_API_KEY = originalWhatsApp;
@@ -202,13 +216,12 @@ describe('NotificationsService', () => {
     });
 
     it('skips sendSms when MSG91_AUTH_KEY is empty', async () => {
-      const axios = require('axios');
       const originalMsg91 = process.env.MSG91_AUTH_KEY;
       const originalWhatsApp = process.env.WHATSAPP_API_KEY;
       delete process.env.MSG91_AUTH_KEY;
       delete process.env.WHATSAPP_API_KEY;
 
-      prisma.notification.create.mockResolvedValue({
+      (prisma.notification.create as jest.Mock).mockResolvedValue({
         id: 'notif-6',
         userId: 'user-6',
         type: NotificationType.QUOTE_RECEIVED,
@@ -220,7 +233,9 @@ describe('NotificationsService', () => {
         updatedAt: new Date(),
       });
 
-      prisma.user.findUnique.mockResolvedValue({ phone: '+919000000002' });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
+        phone: '+919000000002',
+      });
 
       await service.create({
         userId: 'user-6',
@@ -229,9 +244,10 @@ describe('NotificationsService', () => {
         message: 'Test',
       });
 
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(axios.post).not.toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(mockedAxios.post).not.toHaveBeenCalled();
 
       if (originalMsg91) process.env.MSG91_AUTH_KEY = originalMsg91;
       if (originalWhatsApp) process.env.WHATSAPP_API_KEY = originalWhatsApp;
@@ -272,16 +288,15 @@ describe('NotificationsService', () => {
 
       await service.listNotifications('user-1', 10, 5);
 
-      const transactionArg = (prisma.$transaction as jest.Mock).mock.calls[0][0];
-      // The first element of the transaction array is the findMany query
-      // We verify the transaction was called (query construction is internal to Prisma)
+      // Verify the transaction was called (query construction is internal to Prisma)
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('markAsRead', () => {
     it('sets isRead = true for a notification', async () => {
-      prisma.notification.findUnique.mockResolvedValue({
+      (prisma.notification.findUnique as jest.Mock).mockResolvedValue({
         id: 'notif-1',
         userId: 'user-1',
         isRead: false,
@@ -293,11 +308,12 @@ describe('NotificationsService', () => {
         isRead: true,
       };
 
-      prisma.notification.update.mockResolvedValue(updated);
+      (prisma.notification.update as jest.Mock).mockResolvedValue(updated);
 
       const result = await service.markAsRead('notif-1', 'user-1');
 
       expect(result.isRead).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.notification.update).toHaveBeenCalledWith({
         where: { id: 'notif-1' },
         data: { isRead: true },
@@ -305,7 +321,7 @@ describe('NotificationsService', () => {
     });
 
     it('throws ForbiddenException if notification belongs to a different user', async () => {
-      prisma.notification.findUnique.mockResolvedValue({
+      (prisma.notification.findUnique as jest.Mock).mockResolvedValue({
         id: 'notif-1',
         userId: 'user-1',
         isRead: false,
@@ -317,7 +333,7 @@ describe('NotificationsService', () => {
     });
 
     it('throws NotFoundException if notification does not exist', async () => {
-      prisma.notification.findUnique.mockResolvedValue(null);
+      (prisma.notification.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.markAsRead('notif-nonexistent', 'user-1'),
@@ -327,11 +343,14 @@ describe('NotificationsService', () => {
 
   describe('markAllAsRead', () => {
     it('sets isRead = true for all unread notifications of a user', async () => {
-      prisma.notification.updateMany.mockResolvedValue({ count: 5 });
+      (prisma.notification.updateMany as jest.Mock).mockResolvedValue({
+        count: 5,
+      });
 
       const result = await service.markAllAsRead('user-1');
 
       expect(result).toEqual({ count: 5 });
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(prisma.notification.updateMany).toHaveBeenCalledWith({
         where: {
           userId: 'user-1',
