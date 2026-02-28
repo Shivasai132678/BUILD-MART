@@ -1,108 +1,59 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { Spinner } from '@/components/ui/Spinner';
 import { api } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
-
-type AdminLayoutProps = {
-  children: ReactNode;
-};
+import { Navbar } from '@/components/ui/Navbar';
+import { Loader2 } from 'lucide-react';
 
 const adminNavLinks = [
   { href: '/admin/dashboard', label: 'Dashboard' },
   { href: '/admin/vendors', label: 'Vendor Approvals' },
-] as const;
+];
 
-export default function AdminLayout({ children }: AdminLayoutProps) {
-  const pathname = usePathname();
+export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
-  const clearUser = useUserStore((state) => state.clearUser);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'ADMIN') {
-      router.replace('/login');
-    }
-  }, [router, user]);
+    const timer = window.setTimeout(() => setHydrated(true), 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
-  if (!user || user.role !== 'ADMIN') {
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!user) {
+      api.get('/api/v1/auth/me')
+        .then((res) => {
+          const data = res.data?.data ?? res.data;
+          if (data?.role === 'ADMIN') setUser(data);
+          else router.replace('/login');
+        })
+        .catch(() => router.replace('/login'));
+      return;
+    }
+    if (user.role !== 'ADMIN') router.replace('/login');
+  }, [hydrated, router, user, setUser]);
+
+  if (!hydrated || !user || user.role !== 'ADMIN') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-          <Spinner size="sm" />
-          Redirecting to login...
+      <div className="flex min-h-screen items-center justify-center bg-base">
+        <div className="flex items-center gap-3 text-sm text-text-secondary">
+          <Loader2 className="h-5 w-5 animate-spin text-accent" />
+          Loading…
         </div>
       </div>
     );
   }
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-
-    try {
-      await api.post('/api/v1/auth/logout');
-    } catch {
-      // Ignore network/logout failures and clear UI state anyway.
-    } finally {
-      clearUser();
-      router.replace('/login');
-      setIsLoggingOut(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold tracking-[0.16em] text-slate-500 uppercase">
-              Admin Dashboard
-            </p>
-            <p className="truncate text-sm text-slate-800">
-              {user.name ?? user.phone}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isLoggingOut ? <Spinner size="sm" /> : null}
-            {isLoggingOut ? 'Logging out...' : 'Logout'}
-          </button>
-        </div>
-
-        <nav className="border-t border-slate-100">
-          <div className="mx-auto flex w-full max-w-6xl gap-2 overflow-x-auto px-4 py-2">
-            {adminNavLinks.map((link) => {
-              const isActive = pathname.startsWith(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-      </header>
-
-      <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
+    <div className="min-h-screen bg-base">
+      <Navbar links={adminNavLinks} portalLabel="Admin" portalColor="blue" />
+      <main className="mx-auto w-full max-w-7xl px-6 py-8">{children}</main>
     </div>
   );
 }
-

@@ -170,6 +170,11 @@ describe('AuthService', () => {
         otpHash,
         isUsed: false,
         expiresAt: new Date(Date.now() + 60_000),
+        user: {
+          id: 'user-10',
+          phone: '+919000000090',
+          role: UserRole.BUYER,
+        },
       });
       prisma.oTPRecord.updateMany.mockResolvedValue({ count: 1 });
       (jwtService.signAsync as jest.Mock).mockResolvedValue('jwt-token-value');
@@ -219,6 +224,11 @@ describe('AuthService', () => {
         otpHash: createHash('sha256').update('000000').digest('hex'),
         isUsed: false,
         expiresAt: new Date(Date.now() + 60_000),
+        user: {
+          id: 'user-11',
+          phone: '+919000000091',
+          role: UserRole.BUYER,
+        },
       });
 
       const response = buildResponse();
@@ -255,6 +265,11 @@ describe('AuthService', () => {
         otpHash: createHash('sha256').update('123456').digest('hex'),
         isUsed: false,
         expiresAt: new Date(Date.now() + 60_000),
+        user: {
+          id: 'user-13',
+          phone: '+919000000093',
+          role: UserRole.BUYER,
+        },
       });
       prisma.oTPRecord.updateMany.mockResolvedValue({ count: 0 });
 

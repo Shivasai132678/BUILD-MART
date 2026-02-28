@@ -1,236 +1,114 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
-import { getApiErrorMessage } from '@/lib/api';
-import { type Order, type OrderDetail } from '@/lib/buyer-api';
-import { formatIST } from '@/lib/utils/date';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
+import { Truck, Package } from 'lucide-react';
 import { getVendorOrderById, updateOrderStatus } from '@/lib/vendor-api';
+import type { OrderDetail } from '@/lib/buyer-api';
+import { getApiErrorMessage } from '@/lib/api';
+import { formatIST } from '@/lib/utils/date';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { SkeletonCard } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { cn } from '@/lib/utils';
 
-function getStatusBadgeClasses(status: Order['status']): string {
-  switch (status) {
-    case 'CONFIRMED':
-      return 'bg-blue-100 text-blue-800';
-    case 'OUT_FOR_DELIVERY':
-      return 'bg-amber-100 text-amber-800';
-    case 'DELIVERED':
-      return 'bg-emerald-100 text-emerald-800';
-    case 'CANCELLED':
-      return 'bg-rose-100 text-rose-800';
-    default:
-      return 'bg-slate-100 text-slate-700';
-  }
-}
+const pageV = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
 
-function TimelineRow({
-  label,
-  timestamp,
-}: {
-  label: string;
-  timestamp?: string | null;
-}) {
-  if (!timestamp) {
-    return null;
-  }
-
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-sm">
-      <span className="font-medium text-slate-800">{label}</span>
-      <span className="text-slate-600">{formatIST(timestamp)}</span>
-    </div>
-  );
+function buildTimeline(order: OrderDetail) {
+  const delivered = order.status === 'DELIVERED';
+  const outForDelivery = order.status === 'OUT_FOR_DELIVERY' || delivered;
+  return [
+    { key: 'CONFIRMED', label: 'Order Confirmed', timestamp: order.confirmedAt, complete: true },
+    { key: 'OUT_FOR_DELIVERY', label: 'Dispatched', timestamp: order.dispatchedAt, complete: outForDelivery },
+    { key: 'DELIVERED', label: 'Delivered', timestamp: order.deliveredAt, complete: delivered },
+  ];
 }
 
 export default function VendorOrderDetailPage() {
   const params = useParams<{ id: string | string[] }>();
-  const queryClient = useQueryClient();
   const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const queryClient = useQueryClient();
 
-  const orderQuery = useQuery({
-    queryKey: ['vendor-order', orderId],
-    queryFn: () => getVendorOrderById(orderId),
-    enabled: Boolean(orderId),
-  });
+  const orderQuery = useQuery({ queryKey: ['vendor-order', orderId], queryFn: () => getVendorOrderById(orderId), enabled: Boolean(orderId) });
 
   const statusMutation = useMutation({
-    mutationFn: (status: 'OUT_FOR_DELIVERY' | 'DELIVERED') =>
-      updateOrderStatus(orderId, { status }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['vendor-order', orderId] }),
-        queryClient.invalidateQueries({ queryKey: ['vendor-orders'] }),
-      ]);
-    },
+    mutationFn: (status: string) => updateOrderStatus(orderId, { status: status as 'OUT_FOR_DELIVERY' | 'DELIVERED' }),
+    onSuccess: async () => { toast.success('Status updated!'); await queryClient.invalidateQueries({ queryKey: ['vendor-order', orderId] }); },
+    onError: (error) => { toast.error(getApiErrorMessage(error)); },
   });
 
-  if (!orderId) {
-    return <ErrorMessage message="Invalid order ID" />;
-  }
+  if (!orderId) return <EmptyState title="Invalid order ID" />;
+  if (orderQuery.isLoading) return <div className="space-y-6"><SkeletonCard /><SkeletonCard /></div>;
+  if (orderQuery.isError || !orderQuery.data) return <EmptyState title="Failed to load order" subtitle={getApiErrorMessage(orderQuery.error)} actionLabel="Back" actionHref="/vendor/orders" />;
 
-  if (orderQuery.isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-700">
-          <Spinner size="sm" />
-          Loading order details...
-        </div>
-      </div>
-    );
-  }
-
-  if (orderQuery.isError || !orderQuery.data) {
-    return (
-      <ErrorMessage
-        message={getApiErrorMessage(orderQuery.error, 'Failed to load order details.')}
-      />
-    );
-  }
-
-  const order: OrderDetail = orderQuery.data;
-
-  const handleStatusUpdate = (nextStatus: 'OUT_FOR_DELIVERY' | 'DELIVERED') => {
-    const message =
-      nextStatus === 'OUT_FOR_DELIVERY'
-        ? 'Mark this order as Out for Delivery?'
-        : 'Mark this order as Delivered?';
-
-    if (!window.confirm(message)) {
-      return;
-    }
-
-    statusMutation.mutate(nextStatus);
-  };
-
-  const orderWithOptionalBuyer = order as OrderDetail & {
-    buyer?: {
-      name?: string | null;
-    } | null;
-  };
-
-  const buyerName = orderWithOptionalBuyer.buyer?.name?.trim();
-  const buyerDisplay = buyerName ? buyerName : `Buyer #${order.buyerId.slice(0, 8)}`;
+  const order = orderQuery.data;
+  const timeline = buildTimeline(order);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <motion.div className="space-y-6" variants={pageV} initial="hidden" animate="visible">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-500">Order #{order.id.slice(0, 10)}</p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">₹{order.totalAmount}</h1>
-          <p className="mt-1 text-sm text-slate-600">Created {formatIST(order.createdAt)}</p>
+          <span className="text-xs font-mono text-text-tertiary bg-elevated px-2 py-0.5 rounded">Order #{order.id.slice(0, 10)}</span>
+          <h1 className="mt-2 text-3xl font-bold text-text-primary">₹{Number(order.totalAmount).toLocaleString('en-IN')}</h1>
+          <p className="mt-1 text-sm text-text-secondary">Created {formatIST(order.createdAt)}</p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClasses(
-            order.status,
-          )}`}
-        >
-          {order.status}
-        </span>
+        <Badge status={order.status} />
       </div>
 
-      <ErrorMessage
-        message={
-          statusMutation.isError
-            ? getApiErrorMessage(statusMutation.error, 'Failed to update order status.')
-            : null
-        }
-      />
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Order Summary</h2>
-        <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 p-3">
-            <p className="text-slate-500">Buyer</p>
-            <p className="mt-1 font-medium text-slate-900">{buyerDisplay}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-3">
-            <p className="text-slate-500">Payment Method</p>
-            <p className="mt-1 font-medium text-slate-900">
-              {order.paymentMethod ?? 'N/A'}
-            </p>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-3">
-            <p className="text-slate-500">Quote ID</p>
-            <p className="mt-1 font-medium text-slate-900">{order.quoteId}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-3">
-            <p className="text-slate-500">RFQ ID</p>
-            <p className="mt-1 font-medium text-slate-900">{order.rfqId}</p>
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="card p-5">
+            <h2 className="text-lg font-semibold text-text-primary mb-4">Order Timeline</h2>
+            {order.status === 'CANCELLED' && (
+              <div className="mb-4 rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
+                Cancelled{order.cancelledAt ? ` on ${formatIST(order.cancelledAt)}` : ''}{order.cancelReason ? ` · ${order.cancelReason}` : ''}
+              </div>
+            )}
+            <ol className="space-y-0">
+              {timeline.map((step, i) => (
+                <li key={step.key} className="flex gap-3.5">
+                  <div className="flex flex-col items-center">
+                    <div className={cn('h-3 w-3 rounded-full mt-1', step.complete ? 'bg-success' : 'bg-border-strong')} />
+                    {i < timeline.length - 1 && <div className={cn('w-0.5 flex-1 my-1 min-h-[32px]', step.complete ? 'bg-success' : 'bg-border-subtle')} />}
+                  </div>
+                  <div className="pb-4">
+                    <p className={cn('text-sm font-medium', step.complete ? 'text-text-primary' : 'text-text-tertiary')}>{step.label}</p>
+                    <p className="text-xs text-text-tertiary">{step.timestamp ? formatIST(step.timestamp) : 'Pending'}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         </div>
-      </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Order Timeline</h2>
-        <div className="mt-4 space-y-3">
-          <TimelineRow label="Confirmed" timestamp={order.confirmedAt} />
-          <TimelineRow label="Out for Delivery" timestamp={order.dispatchedAt} />
-          <TimelineRow label="Delivered" timestamp={order.deliveredAt} />
-          <TimelineRow label="Cancelled" timestamp={order.cancelledAt} />
-          {!order.confirmedAt &&
-          !order.dispatchedAt &&
-          !order.deliveredAt &&
-          !order.cancelledAt ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-              No timeline timestamps available yet.
+        <div>
+          <div className="card p-5 sticky top-24 space-y-4">
+            <h3 className="text-sm font-semibold text-text-primary">Actions</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between"><span className="text-text-secondary">Total Amount</span><span className="font-semibold text-text-primary">₹{order.totalAmount}</span></div>
+              <div className="flex justify-between"><span className="text-text-secondary">Buyer</span><span className="text-xs font-mono text-text-tertiary">#{order.buyerId.slice(0, 8)}</span></div>
             </div>
-          ) : null}
+
+            {order.status === 'CONFIRMED' && (
+              <Button className="w-full" loading={statusMutation.isPending} onClick={() => statusMutation.mutate('OUT_FOR_DELIVERY')}>
+                <Truck className="h-4 w-4" />Mark Dispatched
+              </Button>
+            )}
+            {order.status === 'OUT_FOR_DELIVERY' && (
+              <Button className="w-full" loading={statusMutation.isPending} onClick={() => statusMutation.mutate('DELIVERED')}>
+                <Package className="h-4 w-4" />Mark Delivered
+              </Button>
+            )}
+            <Link href="/vendor/orders" className="block text-center text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+              ← Back to Orders
+            </Link>
+          </div>
         </div>
-      </section>
-
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Status Actions</h2>
-        <div className="mt-4">
-          {order.status === 'CONFIRMED' ? (
-            <button
-              type="button"
-              onClick={() => handleStatusUpdate('OUT_FOR_DELIVERY')}
-              disabled={statusMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {statusMutation.isPending ? (
-                <Spinner size="sm" className="border-white/30 border-t-white" />
-              ) : null}
-              Mark as Out for Delivery
-            </button>
-          ) : null}
-
-          {order.status === 'OUT_FOR_DELIVERY' ? (
-            <button
-              type="button"
-              onClick={() => handleStatusUpdate('DELIVERED')}
-              disabled={statusMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {statusMutation.isPending ? (
-                <Spinner size="sm" className="border-white/30 border-t-white" />
-              ) : null}
-              Mark as Delivered
-            </button>
-          ) : null}
-
-          {order.status === 'DELIVERED' ? (
-            <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-800">
-              Delivered (no further actions)
-            </div>
-          ) : null}
-
-          {order.status === 'CANCELLED' ? (
-            <div className="inline-flex rounded-full bg-rose-100 px-3 py-1.5 text-sm font-medium text-rose-800">
-              Cancelled (no further actions)
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      <Link
-        href="/vendor/orders"
-        className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-      >
-        Back to Orders
-      </Link>
-    </div>
+      </div>
+    </motion.div>
   );
 }

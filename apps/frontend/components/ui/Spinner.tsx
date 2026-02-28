@@ -1,20 +1,21 @@
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
 type SpinnerProps = {
   className?: string;
   size?: 'sm' | 'md' | 'lg';
 };
 
 const sizeClasses: Record<NonNullable<SpinnerProps['size']>, string> = {
-  sm: 'h-4 w-4 border-2',
-  md: 'h-6 w-6 border-2',
-  lg: 'h-8 w-8 border-[3px]',
+  sm: 'h-4 w-4',
+  md: 'h-5 w-5',
+  lg: 'h-6 w-6',
 };
 
 export function Spinner({ className = '', size = 'md' }: SpinnerProps) {
   return (
-    <span
-      aria-hidden="true"
-      className={`inline-block animate-spin rounded-full border-slate-300 border-t-slate-900 ${sizeClasses[size]} ${className}`.trim()}
+    <Loader2
+      className={cn('animate-spin text-accent', sizeClasses[size], className)}
     />
   );
 }
-

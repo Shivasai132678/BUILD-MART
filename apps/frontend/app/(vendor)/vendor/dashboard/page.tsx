@@ -1,147 +1,84 @@
 'use client';
 
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
-import { getApiErrorMessage } from '@/lib/api';
-import { getAvailableRfqs, getVendorOrders, getVendorProfile } from '@/lib/vendor-api';
+import { motion } from 'framer-motion';
+import { FileText, Package, DollarSign, AlertCircle, ArrowRight } from 'lucide-react';
+import { getAvailableRfqs, getVendorOrders } from '@/lib/vendor-api';
+import { getVendorProfile } from '@/lib/vendor-profile-api';
+import { formatIST } from '@/lib/utils/date';
+import { useUserStore } from '@/store/user.store';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonStatCard, SkeletonRow } from '@/components/ui/Skeleton';
 
-function StatCard({
-  label,
-  value,
-  href,
-  accent,
-}: {
-  label: string;
-  value: number;
-  href: string;
-  accent: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow"
-    >
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${accent}`}>{value}</p>
-    </Link>
-  );
-}
+const pageV = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
+const listV = { visible: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } } };
+const itemV = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
 
 export default function VendorDashboardPage() {
-  const vendorProfileQuery = useQuery({
-    queryKey: ['vendor-profile'],
-    queryFn: getVendorProfile,
-  });
+  const user = useUserStore((s) => s.user);
+  const profileQuery = useQuery({ queryKey: ['vendor-profile'], queryFn: getVendorProfile, retry: false });
+  const rfqsQuery = useQuery({ queryKey: ['vendor-available-rfqs-dash'], queryFn: () => getAvailableRfqs(5, 0) });
+  const ordersQuery = useQuery({ queryKey: ['vendor-orders-dash'], queryFn: () => getVendorOrders(1, 0) });
 
-  const countQueries = useQueries({
-    queries: [
-      {
-        queryKey: ['vendor-available-rfqs-count'],
-        queryFn: () => getAvailableRfqs(1, 0),
-      },
-      {
-        queryKey: ['vendor-orders-count', 'CONFIRMED'],
-        queryFn: () => getVendorOrders(1, 0, 'CONFIRMED'),
-      },
-      {
-        queryKey: ['vendor-orders-count', 'OUT_FOR_DELIVERY'],
-        queryFn: () => getVendorOrders(1, 0, 'OUT_FOR_DELIVERY'),
-      },
-      {
-        queryKey: ['vendor-orders-count', 'DELIVERED'],
-        queryFn: () => getVendorOrders(1, 0, 'DELIVERED'),
-      },
-    ],
-  });
-
-  const isLoading =
-    vendorProfileQuery.isLoading || countQueries.some((query) => query.isLoading);
-
-  const errorMessage =
-    (vendorProfileQuery.isError &&
-      getApiErrorMessage(vendorProfileQuery.error, 'Failed to load vendor profile.')) ||
-    (countQueries.find((query) => query.isError)?.error &&
-      getApiErrorMessage(
-        countQueries.find((query) => query.isError)?.error,
-        'Failed to load dashboard stats.',
-      )) ||
-    null;
-
-  const availableRfqsCount = countQueries[0]?.data?.total ?? 0;
-  const activeOrdersCount =
-    (countQueries[1]?.data?.total ?? 0) + (countQueries[2]?.data?.total ?? 0);
-  const deliveredOrdersCount = countQueries[3]?.data?.total ?? 0;
+  const isApproved = profileQuery.data?.isApproved ?? false;
+  const rfqTotal = rfqsQuery.data?.total ?? 0;
+  const orderTotal = ordersQuery.data?.total ?? 0;
+  const recentRfqs = rfqsQuery.data?.items ?? [];
+  const isLoadingStats = rfqsQuery.isLoading || ordersQuery.isLoading || profileQuery.isLoading;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        {vendorProfileQuery.isLoading ? (
-          <div className="flex items-center gap-3 text-sm text-slate-700">
-            <Spinner size="sm" />
-            Loading vendor profile...
-          </div>
-        ) : (
-          <>
-            <p className="text-sm text-slate-500">Welcome</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">
-              {vendorProfileQuery.data?.businessName ?? 'Vendor'}
-            </h1>
-            <p className="mt-2 text-sm text-slate-600">
-              Track new RFQs, submit quotes, and manage your delivery pipeline.
-            </p>
-          </>
-        )}
-      </section>
+    <motion.div className="space-y-8" variants={pageV} initial="hidden" animate="visible">
+      <PageHeader title={`Welcome, ${user?.name ?? 'Vendor'}`} subtitle="Manage your vendor business" />
 
-      {isLoading ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-700">
-          <Spinner size="sm" />
-          Loading dashboard stats...
+      {!isApproved && !profileQuery.isLoading && (
+        <div className="rounded-2xl bg-warning/10 border border-warning/20 px-5 py-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+          <div><p className="text-sm font-semibold text-text-primary">Pending Approval</p><p className="text-sm text-text-secondary mt-0.5">Your vendor profile is under review. RFQs will appear once approved.</p></div>
         </div>
-      ) : null}
+      )}
 
-      <ErrorMessage message={errorMessage} />
+      {isLoadingStats ? (
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">{Array.from({ length: 3 }).map((_, i) => <SkeletonStatCard key={i} />)}</div>
+      ) : (
+        <motion.div className="grid grid-cols-2 lg:grid-cols-3 gap-4" variants={listV} initial="hidden" animate="visible">
+          <motion.div variants={itemV}><StatCard icon={FileText} label="Available RFQs" value={rfqTotal} iconColorClass="bg-accent/10 text-accent" /></motion.div>
+          <motion.div variants={itemV}><StatCard icon={Package} label="Total Orders" value={orderTotal} iconColorClass="bg-purple/10 text-purple" /></motion.div>
+          <motion.div variants={itemV}><StatCard icon={DollarSign} label="Status" value={isApproved ? 'Approved' : 'Pending'} iconColorClass={isApproved ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'} /></motion.div>
+        </motion.div>
+      )}
 
-      {!isLoading ? (
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <StatCard
-            label="Available RFQs"
-            value={availableRfqsCount}
-            href="/vendor/rfq"
-            accent="text-emerald-700"
-          />
-          <StatCard
-            label="Active Orders"
-            value={activeOrdersCount}
-            href="/vendor/orders"
-            accent="text-amber-700"
-          />
-          <StatCard
-            label="Delivered Orders"
-            value={deliveredOrdersCount}
-            href="/vendor/orders"
-            accent="text-blue-700"
-          />
-        </section>
-      ) : null}
-
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Link
-          href="/vendor/rfq"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition hover:border-slate-300"
-        >
-          View Available RFQs
-        </Link>
-        <Link
-          href="/vendor/orders"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition hover:border-slate-300"
-        >
-          Manage Orders
-        </Link>
-      </section>
-    </div>
+      <div className="card p-5">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-text-primary">Recent RFQs</h2>
+          <Link href="/vendor/rfq" className="text-sm text-accent hover:text-accent-hover transition-colors font-medium">View all →</Link>
+        </div>
+        {rfqsQuery.isLoading ? (
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}</div>
+        ) : recentRfqs.length > 0 ? (
+          <motion.div className="space-y-2" variants={listV} initial="hidden" animate="visible">
+            {recentRfqs.map((rfq) => (
+              <motion.div key={rfq.id} variants={itemV}>
+                <Link href={`/vendor/rfq/${rfq.id}`} className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle px-4 py-3 transition-all hover:bg-elevated hover:border-border">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-text-tertiary bg-elevated px-2 py-0.5 rounded">#{rfq.id.slice(0, 8)}</span>
+                      <Badge status={rfq.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-text-tertiary">{rfq.city} · {rfq.items.length} item{rfq.items.length === 1 ? '' : 's'} · {formatIST(rfq.createdAt)}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-text-tertiary" />
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <EmptyState title="No available RFQs" subtitle="New RFQs matching your profile will appear here." />
+        )}
+      </div>
+    </motion.div>
   );
 }
-

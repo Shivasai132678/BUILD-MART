@@ -7,11 +7,11 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
+import { toast } from 'sonner';
+import { Plus, Trash2, MapPin, Package, FileText, Send, ChevronDown, Loader2 } from 'lucide-react';
 import {
   createAddress,
   createRfq,
@@ -19,6 +19,10 @@ import {
   getAddresses,
 } from '@/lib/buyer-api';
 import { getApiErrorMessage } from '@/lib/api';
+import { Button } from '@/components/ui/Button';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { MotionContainer } from '@/components/ui/Motion';
+import { cn } from '@/lib/utils';
 
 const rfqItemSchema = z.object({
   productId: z.string().min(1, 'Select a product'),
@@ -45,11 +49,15 @@ const addressFormSchema = z.object({
 type RfqFormValues = z.infer<typeof rfqFormSchema>;
 type AddressFormValues = z.infer<typeof addressFormSchema>;
 
+const inputClassName =
+  'w-full h-10 rounded-xl border border-border bg-elevated px-4 text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20';
+
 export default function BuyerNewRfqPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const hasAppliedPrefill = useRef(false);
+  const [showAddAddress, setShowAddAddress] = useState(false);
 
   const productsQuery = useQuery({
     queryKey: ['products', 'rfq-form'],
@@ -107,43 +115,26 @@ export default function BuyerNewRfqPage() {
   const firstItemProductId = watch('items.0.productId');
   const addresses = addressesQuery.data?.items ?? [];
   const prefillProductId = searchParams.get('productId')?.trim() ?? '';
+  const products = productsQuery.data?.items ?? [];
+  const productMap = new Map(products.map((p) => [p.id, p]));
 
   useEffect(() => {
-    if (selectedAddressId || addresses.length === 0) {
-      return;
-    }
-
-    const defaultAddressId = addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id;
-
-    if (defaultAddressId) {
-      setValue('addressId', defaultAddressId, { shouldValidate: true });
-    }
+    if (selectedAddressId || addresses.length === 0) return;
+    const defaultId = addresses.find((a) => a.isDefault)?.id ?? addresses[0]?.id;
+    if (defaultId) setValue('addressId', defaultId, { shouldValidate: true });
   }, [addresses, selectedAddressId, setValue]);
 
   useEffect(() => {
-    if (hasAppliedPrefill.current) {
-      return;
-    }
-
-    if (!prefillProductId || !productsQuery.data?.items) {
-      return;
-    }
-
+    if (hasAppliedPrefill.current) return;
+    if (!prefillProductId || !productsQuery.data?.items) return;
     if (firstItemProductId && firstItemProductId.length > 0) {
       hasAppliedPrefill.current = true;
       return;
     }
-
-    const matchedProduct = productsQuery.data.items.find(
-      (product) => product.id === prefillProductId,
-    );
-
-    if (!matchedProduct) {
-      return;
-    }
-
-    setValue('items.0.productId', matchedProduct.id, { shouldValidate: true });
-    setValue('items.0.unit', matchedProduct.unit, { shouldValidate: true });
+    const match = productsQuery.data.items.find((p) => p.id === prefillProductId);
+    if (!match) return;
+    setValue('items.0.productId', match.id, { shouldValidate: true });
+    setValue('items.0.unit', match.unit, { shouldValidate: true });
     hasAppliedPrefill.current = true;
   }, [firstItemProductId, prefillProductId, productsQuery.data, setValue]);
 
@@ -152,38 +143,28 @@ export default function BuyerNewRfqPage() {
     onSuccess: async (address) => {
       await queryClient.invalidateQueries({ queryKey: ['buyer-addresses'] });
       setValue('addressId', address.id, { shouldValidate: true });
-      resetAddressForm({
-        label: '',
-        line1: '',
-        city: 'Hyderabad',
-        state: 'Telangana',
-        pincode: '',
-      });
+      resetAddressForm({ label: '', line1: '', city: 'Hyderabad', state: 'Telangana', pincode: '' });
+      setShowAddAddress(false);
+      toast.success('Address added!');
     },
     onError: (error) => {
-      setAddressError('root', {
-        type: 'server',
-        message: getApiErrorMessage(error, 'Failed to create address. Please try again.'),
-      });
+      setAddressError('root', { type: 'server', message: getApiErrorMessage(error, 'Failed to create address.') });
     },
   });
 
   const createRfqMutation = useMutation({
     mutationFn: createRfq,
     onSuccess: (rfq) => {
+      toast.success('RFQ created successfully!');
       router.push(`/buyer/rfq/${rfq.id}`);
     },
     onError: (error) => {
-      setError('root', {
-        type: 'server',
-        message: getApiErrorMessage(error, 'Failed to create RFQ. Please try again.'),
-      });
+      setError('root', { type: 'server', message: getApiErrorMessage(error, 'Failed to create RFQ.') });
     },
   });
 
   const onCreateAddress = handleAddressSubmit(async (values) => {
     clearAddressErrors('root');
-
     await createAddressMutation.mutateAsync({
       line1: values.line1.trim(),
       area: values.line1.trim(),
@@ -197,12 +178,8 @@ export default function BuyerNewRfqPage() {
 
   const onSubmit = handleSubmit(async (values) => {
     clearErrors('root');
-
     const validUntilDate = new Date(values.validUntil);
-    const validUntil = Number.isNaN(validUntilDate.getTime())
-      ? values.validUntil
-      : validUntilDate.toISOString();
-
+    const validUntil = Number.isNaN(validUntilDate.getTime()) ? values.validUntil : validUntilDate.toISOString();
     await createRfqMutation.mutateAsync({
       addressId: values.addressId,
       validUntil,
@@ -224,318 +201,288 @@ export default function BuyerNewRfqPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-slate-900">Create RFQ</h1>
-        <p className="text-sm text-slate-600">
-          Add one or more products and request quotes from matching vendors.
-        </p>
-      </div>
+      <MotionContainer>
+        <PageHeader
+          title="Create RFQ"
+          subtitle="Add products and request quotes from matching vendors."
+        />
+      </MotionContainer>
 
-      <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-900">Delivery Address</h2>
-            <p className="mt-1 text-xs text-slate-600">
-              Select a saved address before submitting your RFQ.
-            </p>
-          </div>
-
-          {addressesQuery.isLoading ? (
-            <div className="flex items-center gap-3 text-sm text-slate-700">
-              <Spinner size="sm" />
-              Loading addresses...
-            </div>
-          ) : null}
-
-          <ErrorMessage
-            message={
-              addressesQuery.isError
-                ? getApiErrorMessage(
-                  addressesQuery.error,
-                  'Failed to load addresses. Please refresh and try again.',
-                )
-                : null
-            }
-          />
-
-          {!addressesQuery.isLoading && !addressesQuery.isError && addresses.length > 0 ? (
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-slate-700" htmlFor="addressId">
-                Select Address
-              </label>
-              <select
-                id="addressId"
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                {...register('addressId')}
-              >
-                <option value="">Choose an address</option>
-                {addresses.map((address) => (
-                  <option key={address.id} value={address.id}>
-                    {address.label?.trim()
-                      ? `${address.label} — ${address.line1}, ${address.city} ${address.pincode}`
-                      : `${address.line1}, ${address.city} ${address.pincode}`}
-                  </option>
-                ))}
-              </select>
-              <ErrorMessage message={errors.addressId?.message} />
-            </div>
-          ) : null}
-
-          {!addressesQuery.isLoading && !addressesQuery.isError && addresses.length === 0 ? (
-            <div className="space-y-4 rounded-xl border border-dashed border-slate-300 bg-white p-4">
-              <p className="text-sm text-slate-700">
-                No saved addresses found. Add one to continue.
-              </p>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressLabel">
-                    Label (optional)
-                  </label>
-                  <input
-                    id="addressLabel"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    placeholder="Home / Site Office"
-                    {...registerAddress('label')}
-                  />
-                  <ErrorMessage message={addressErrors.label?.message} />
+      <MotionContainer delay={0.1}>
+        <form onSubmit={onSubmit} className="space-y-6">
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Left: Form */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Delivery Address */}
+              <section className="card p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <MapPin className="h-4 w-4 text-accent" />
+                  <h2 className="text-sm font-semibold text-text-primary">Delivery Address</h2>
                 </div>
 
-                <div className="space-y-2 sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressLine1">
-                    Address Line
-                  </label>
-                  <input
-                    id="addressLine1"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    placeholder="House/Plot, Street"
-                    {...registerAddress('line1')}
-                  />
-                  <ErrorMessage message={addressErrors.line1?.message} />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressCity">
-                    City
-                  </label>
-                  <input
-                    id="addressCity"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    {...registerAddress('city')}
-                  />
-                  <ErrorMessage message={addressErrors.city?.message} />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressState">
-                    State
-                  </label>
-                  <input
-                    id="addressState"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    {...registerAddress('state')}
-                  />
-                  <ErrorMessage message={addressErrors.state?.message} />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700" htmlFor="addressPincode">
-                    Pincode
-                  </label>
-                  <input
-                    id="addressPincode"
-                    inputMode="numeric"
-                    className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    placeholder="500001"
-                    {...registerAddress('pincode')}
-                  />
-                  <ErrorMessage message={addressErrors.pincode?.message} />
-                </div>
-              </div>
-
-              <ErrorMessage message={addressErrors.root?.message} />
-
-              <button
-                type="button"
-                onClick={() => void onCreateAddress()}
-                disabled={createAddressMutation.isPending}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {createAddressMutation.isPending ? (
-                  <Spinner size="sm" />
+                {addressesQuery.isLoading ? (
+                  <div className="flex items-center gap-3 text-sm text-text-secondary">
+                    <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                    Loading addresses…
+                  </div>
+                ) : addresses.length > 0 ? (
+                  <div className="space-y-2">
+                    {addresses.map((addr) => (
+                      <label
+                        key={addr.id}
+                        className={cn(
+                          'flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all duration-200',
+                          selectedAddressId === addr.id
+                            ? 'border-accent bg-accent/5'
+                            : 'border-border-subtle hover:border-border',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          value={addr.id}
+                          {...register('addressId')}
+                          className="mt-1 accent-accent"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">
+                            {addr.label || addr.line1}
+                          </p>
+                          <p className="text-xs text-text-secondary">
+                            {addr.line1}, {addr.city}, {addr.state} – {addr.pincode}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 ) : null}
-                {createAddressMutation.isPending ? 'Saving address...' : 'Save Address'}
-              </button>
-            </div>
-          ) : null}
-        </section>
 
-        <div className="space-y-2">
-          <label
-            className="block text-sm font-medium text-slate-700"
-            htmlFor="validUntil"
-          >
-            Valid Until
-          </label>
-          <input
-            id="validUntil"
-            type="date"
-            className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-            {...register('validUntil')}
-          />
-          <ErrorMessage message={errors.validUntil?.message} />
-        </div>
+                {errors.addressId && (
+                  <p className="mt-2 text-xs text-accent-danger">{errors.addressId.message}</p>
+                )}
 
-        <div className="space-y-2">
-          <label className="block text-sm font-medium text-slate-700" htmlFor="notes">
-            Notes (optional)
-          </label>
-          <textarea
-            id="notes"
-            rows={3}
-            className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-            placeholder="Project details, preferred brands, delivery constraints..."
-            {...register('notes')}
-          />
-          <ErrorMessage message={errors.notes?.message} />
-        </div>
+                {!showAddAddress ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAddress(true)}
+                    className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add new address
+                  </button>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-border-subtle bg-elevated p-4 space-y-3">
+                    <p className="text-sm font-semibold text-text-primary">New Address</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-label">Label (optional)</label>
+                        <input id="addr-label" className={inputClassName} placeholder="Home, Office…" {...registerAddress('label')} />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-line1">Address Line</label>
+                        <input id="addr-line1" className={inputClassName} {...registerAddress('line1')} />
+                        {addressErrors.line1 && <p className="text-xs text-accent-danger">{addressErrors.line1.message}</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-city">City</label>
+                        <input id="addr-city" className={inputClassName} {...registerAddress('city')} />
+                        {addressErrors.city && <p className="text-xs text-accent-danger">{addressErrors.city.message}</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-state">State</label>
+                        <input id="addr-state" className={inputClassName} {...registerAddress('state')} />
+                        {addressErrors.state && <p className="text-xs text-accent-danger">{addressErrors.state.message}</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-pincode">Pincode</label>
+                        <input id="addr-pincode" inputMode="numeric" className={inputClassName} {...registerAddress('pincode')} />
+                        {addressErrors.pincode && <p className="text-xs text-accent-danger">{addressErrors.pincode.message}</p>}
+                      </div>
+                    </div>
+                    {addressErrors.root && (
+                      <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{addressErrors.root.message}</div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" loading={createAddressMutation.isPending} onClick={() => void onCreateAddress()}>
+                        Save Address
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddAddress(false)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
 
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">RFQ Items</h2>
-            <button
-              type="button"
-              onClick={() => append({ productId: '', quantity: 1, unit: '', notes: '' })}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
-            >
-              Add Item
-            </button>
-          </div>
+              {/* RFQ Items */}
+              <section className="card p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Package className="h-4 w-4 text-accent" />
+                  <h2 className="text-sm font-semibold text-text-primary">Request Items</h2>
+                </div>
 
-          {fields.map((field, index) => (
-            <div
-              key={field.id}
-              className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-slate-800">Item {index + 1}</p>
+                <div className="space-y-4">
+                  {fields.map((field, index) => (
+                    <div key={field.id} className="rounded-xl border border-border-subtle bg-elevated p-4 relative">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-semibold text-text-primary">Item {index + 1}</p>
+                        {fields.length > 1 && (
+                          <button type="button" onClick={() => remove(index)} className="text-text-tertiary hover:text-accent-danger transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="block text-xs font-medium text-text-primary">Product</label>
+                          <div className="relative">
+                            <select
+                              className={cn(inputClassName, 'pr-8 appearance-none')}
+                              {...register(`items.${index}.productId`, {
+                                onChange: (e) => {
+                                  const p = productMap.get(e.target.value);
+                                  if (p) setValue(`items.${index}.unit`, p.unit, { shouldValidate: true });
+                                },
+                              })}
+                            >
+                              <option value="">Select a product…</option>
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} (₹{p.basePrice}/{p.unit})
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
+                          </div>
+                          {errors.items?.[index]?.productId && (
+                            <p className="text-xs text-accent-danger">{errors.items[index].productId?.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-xs font-medium text-text-primary">Quantity</label>
+                          <input
+                            type="number"
+                            min={1}
+                            className={inputClassName}
+                            {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                          />
+                          {errors.items?.[index]?.quantity && (
+                            <p className="text-xs text-accent-danger">{errors.items[index].quantity?.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="block text-xs font-medium text-text-primary">Unit</label>
+                          <input
+                            className={cn(inputClassName, 'bg-surface opacity-50')}
+                            readOnly
+                            {...register(`items.${index}.unit`)}
+                          />
+                        </div>
+
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="block text-xs font-medium text-text-primary">Notes (optional)</label>
+                          <input className={inputClassName} placeholder="Brand preference, etc." {...register(`items.${index}.notes`)} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => remove(index)}
-                  disabled={fields.length === 1}
-                  className="text-sm font-medium text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => append({ productId: '', quantity: 1, unit: '', notes: '' })}
+                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors"
                 >
-                  Remove
+                  <Plus className="h-3.5 w-3.5" />
+                  Add another item
                 </button>
-              </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Product
-                  </label>
-                  <select
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    {...register(`items.${index}.productId`, {
-                      onChange: (event) => {
-                        const selectedProduct = productsQuery.data?.items.find(
-                          (product) => product.id === event.target.value,
-                        );
+                {errors.items?.root && (
+                  <p className="mt-2 text-xs text-accent-danger">{errors.items.root.message}</p>
+                )}
+              </section>
 
-                        if (selectedProduct) {
-                          setValue(`items.${index}.unit`, selectedProduct.unit, {
-                            shouldValidate: true,
-                          });
-                        }
-                      },
-                    })}
-                  >
-                    <option value="">Select a product</option>
-                    {productsQuery.data?.items.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} ({product.unit}) - ₹{product.basePrice}
-                      </option>
-                    ))}
-                  </select>
-                  <ErrorMessage message={errors.items?.[index]?.productId?.message} />
+              {/* RFQ Details */}
+              <section className="card p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="h-4 w-4 text-accent" />
+                  <h2 className="text-sm font-semibold text-text-primary">RFQ Details</h2>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                  />
-                  <ErrorMessage message={errors.items?.[index]?.quantity?.message} />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-medium text-text-primary" htmlFor="rfq-valid-until">
+                      Valid Until
+                    </label>
+                    <input
+                      id="rfq-valid-until"
+                      type="date"
+                      className={inputClassName}
+                      {...register('validUntil')}
+                    />
+                    {errors.validUntil && (
+                      <p className="text-xs text-accent-danger">{errors.validUntil.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-xs font-medium text-text-primary" htmlFor="rfq-notes">
+                      Notes (optional)
+                    </label>
+                    <textarea
+                      id="rfq-notes"
+                      rows={3}
+                      className={inputClassName}
+                      placeholder="Any special requirements…"
+                      {...register('notes')}
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* Right: Summary */}
+            <div className="lg:col-span-1">
+              <div className="card p-5 sticky top-24 space-y-4">
+                <h3 className="text-sm font-semibold text-text-primary">RFQ Summary</h3>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Items</span>
+                    <span className="font-medium text-text-primary">{fields.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Address</span>
+                    <span className="font-medium text-text-primary truncate ml-4 max-w-[150px]">
+                      {addresses.find((a) => a.id === selectedAddressId)?.label
+                        || addresses.find((a) => a.id === selectedAddressId)?.city
+                        || 'Not selected'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700">
-                    Unit
-                  </label>
-                  <input
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                    placeholder="bag / kg / sqft"
-                    {...register(`items.${index}.unit`)}
-                  />
-                  <ErrorMessage message={errors.items?.[index]?.unit?.message} />
-                </div>
-              </div>
+                {errors.root && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                    {errors.root.message}
+                  </div>
+                )}
 
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-slate-700">
-                  Item Notes (optional)
-                </label>
-                <textarea
-                  rows={2}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-                  placeholder="Brand preference / grade / finish..."
-                  {...register(`items.${index}.notes`)}
-                />
-                <ErrorMessage message={errors.items?.[index]?.notes?.message} />
+                <Button
+                  type="submit"
+                  disabled={isSubmitDisabled}
+                  loading={createRfqMutation.isPending}
+                  className="w-full"
+                >
+                  <Send className="h-4 w-4" />
+                  {createRfqMutation.isPending ? 'Creating RFQ…' : 'Submit RFQ'}
+                </Button>
               </div>
             </div>
-          ))}
-
-          <ErrorMessage
-            message={typeof errors.items?.message === 'string' ? errors.items.message : null}
-          />
-
-          {productsQuery.isLoading ? (
-            <div className="flex items-center gap-3 text-sm text-slate-700">
-              <Spinner size="sm" />
-              Loading products...
-            </div>
-          ) : null}
-
-          <ErrorMessage
-            message={
-              productsQuery.isError
-                ? getApiErrorMessage(
-                  productsQuery.error,
-                  'Failed to load products. Please refresh the page.',
-                )
-                : null
-            }
-          />
-        </div>
-
-        <ErrorMessage message={errors.root?.message} />
-
-        <button
-          type="submit"
-          disabled={isSubmitDisabled}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {createRfqMutation.isPending ? <Spinner size="sm" className="border-white/30 border-t-white" /> : null}
-          {createRfqMutation.isPending ? 'Creating RFQ...' : 'Submit RFQ'}
-        </button>
-      </form>
+          </div>
+        </form>
+      </MotionContainer>
     </div>
   );
 }

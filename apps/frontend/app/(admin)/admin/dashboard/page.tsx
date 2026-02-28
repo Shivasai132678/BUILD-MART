@@ -2,84 +2,32 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
-import { getApiErrorMessage } from '@/lib/api';
+import { Users, Store, FileText, ShoppingBag, IndianRupee, ArrowRight } from 'lucide-react';
 import { getMetrics, type AdminMetrics } from '@/lib/admin-api';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { SkeletonStatCard } from '@/components/ui/Skeleton';
+import { MotionContainer, StaggerContainer, StaggerItem } from '@/components/ui/Motion';
+import { Button } from '@/components/ui/Button';
 
-type MetricCardConfig = {
-  key: 'users' | 'vendors' | 'rfqs' | 'orders' | 'gmv';
-  label: string;
-  icon: string;
-  className: string;
-};
-
-const METRIC_CARD_CONFIGS: MetricCardConfig[] = [
-  { key: 'users', label: 'Total Users', icon: 'U', className: 'text-blue-700' },
-  {
-    key: 'vendors',
-    label: 'Total Approved Vendors',
-    icon: 'V',
-    className: 'text-emerald-700',
-  },
-  { key: 'rfqs', label: 'Total RFQs', icon: 'R', className: 'text-amber-700' },
-  { key: 'orders', label: 'Total Orders', icon: 'O', className: 'text-indigo-700' },
-  { key: 'gmv', label: 'GMV', icon: 'G', className: 'text-rose-700' },
+const metricConfigs = [
+  { key: 'users' as const, label: 'Total Users', icon: Users },
+  { key: 'vendors' as const, label: 'Approved Vendors', icon: Store },
+  { key: 'rfqs' as const, label: 'Total RFQs', icon: FileText },
+  { key: 'orders' as const, label: 'Total Orders', icon: ShoppingBag },
+  { key: 'gmv' as const, label: 'GMV', icon: IndianRupee },
 ];
 
-function formatMetricValue(key: MetricCardConfig['key'], metrics?: AdminMetrics): string {
-  if (!metrics) {
-    return 'N/A';
+function getMetricValue(key: string, metrics?: AdminMetrics): string | number {
+  if (!metrics) return 'N/A';
+  switch (key) {
+    case 'users': return metrics.totalUsers ?? 'N/A';
+    case 'vendors': return metrics.totalVendors ?? 'N/A';
+    case 'rfqs': return metrics.totalRfqs ?? 'N/A';
+    case 'orders': return metrics.totalOrders ?? 'N/A';
+    case 'gmv': return metrics.gmv != null ? `₹${Number(metrics.gmv).toLocaleString('en-IN')}` : 'N/A';
+    default: return 'N/A';
   }
-
-  if (key === 'users') {
-    return String(metrics.totalUsers ?? 'N/A');
-  }
-  if (key === 'vendors') {
-    return String(metrics.totalVendors ?? 'N/A');
-  }
-  if (key === 'rfqs') {
-    return String(metrics.totalRfqs ?? 'N/A');
-  }
-  if (key === 'orders') {
-    return String(metrics.totalOrders ?? 'N/A');
-  }
-  if (key === 'gmv') {
-    if (metrics.gmv === undefined || metrics.gmv === null) {
-      return 'N/A';
-    }
-    return `₹${metrics.gmv}`;
-  }
-
-  return 'N/A';
-}
-
-function MetricCard({
-  icon,
-  label,
-  value,
-  accentClass,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  accentClass: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold ${accentClass}`}
-        >
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm text-slate-600">{label}</p>
-          <p className={`mt-1 text-xl font-semibold ${accentClass}`}>{value}</p>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function AdminDashboardPage() {
@@ -89,57 +37,50 @@ export default function AdminDashboardPage() {
     retry: false,
   });
 
-  const metricsUnavailable =
-    metricsQuery.isError || (metricsQuery.isFetched && !metricsQuery.data);
-
-  const metricsErrorMessage = metricsQuery.isError
-    ? getApiErrorMessage(metricsQuery.error, 'Admin metrics endpoint pending')
-    : null;
+  const metricsUnavailable = metricsQuery.isError || (metricsQuery.isFetched && !metricsQuery.data);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Admin Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Metrics overview and vendor approvals queue.
-          </p>
-        </div>
+    <div className="space-y-8">
+      <MotionContainer>
+        <PageHeader
+          title="Admin Dashboard"
+          subtitle="Platform metrics overview and management"
+          action={
+            <Link href="/admin/vendors">
+              <Button variant="primary" size="sm">
+                Vendor Approvals
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          }
+        />
+      </MotionContainer>
 
-        <Link
-          href="/admin/vendors"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
-        >
-          Vendor Approvals
-        </Link>
-      </div>
+      {metricsUnavailable && (
+        <MotionContainer delay={0.05}>
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 px-5 py-4 text-sm text-amber-800">
+            Admin metrics endpoint is not available or returned an error. Some data may be incomplete.
+          </div>
+        </MotionContainer>
+      )}
 
       {metricsQuery.isLoading ? (
-        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm text-sm text-slate-700">
-          <Spinner size="sm" />
-          Loading admin metrics...
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => <SkeletonStatCard key={i} />)}
         </div>
-      ) : null}
-
-      {metricsUnavailable ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Admin metrics endpoint pending
-        </div>
-      ) : null}
-
-      <ErrorMessage message={metricsErrorMessage} />
-
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {METRIC_CARD_CONFIGS.map((card) => (
-          <MetricCard
-            key={card.key}
-            icon={card.icon}
-            label={card.label}
-            value={formatMetricValue(card.key, metricsQuery.data)}
-            accentClass={card.className}
-          />
-        ))}
-      </section>
+      ) : (
+        <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {metricConfigs.map((config) => (
+            <StaggerItem key={config.key}>
+              <StatCard
+                icon={config.icon}
+                label={config.label}
+                value={getMetricValue(config.key, metricsQuery.data)}
+              />
+            </StaggerItem>
+          ))}
+        </StaggerContainer>
+      )}
     </div>
   );
 }

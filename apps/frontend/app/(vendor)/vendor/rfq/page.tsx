@@ -2,136 +2,55 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
-import { formatIST } from '@/lib/utils/date';
-import { getApiErrorMessage } from '@/lib/api';
+import { motion } from 'framer-motion';
+import { RefreshCw, ArrowRight } from 'lucide-react';
 import { getAvailableRfqs } from '@/lib/vendor-api';
+import { formatIST } from '@/lib/utils/date';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonRow } from '@/components/ui/Skeleton';
 
-const PAGE_LIMIT = 10;
+const pageV = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
+const listV = { visible: { transition: { staggerChildren: 0.07 } } };
+const itemV = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
 
-function getStatusBadgeClasses(status: 'OPEN' | 'QUOTED' | 'CLOSED' | 'EXPIRED') {
-  if (status === 'OPEN') {
-    return 'bg-emerald-100 text-emerald-800';
-  }
-
-  if (status === 'QUOTED') {
-    return 'bg-amber-100 text-amber-800';
-  }
-
-  return 'bg-slate-100 text-slate-700';
-}
+const PAGE_SIZE = 20;
 
 export default function VendorRfqListPage() {
-  const [offset, setOffset] = useState(0);
-
-  const rfqsQuery = useQuery({
-    queryKey: ['vendor-available-rfqs', PAGE_LIMIT, offset],
-    queryFn: () => getAvailableRfqs(PAGE_LIMIT, offset),
-    refetchInterval: 15_000,
-  });
-
-  if (rfqsQuery.isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-700">
-          <Spinner size="sm" />
-          Loading available RFQs...
-        </div>
-      </div>
-    );
-  }
-
-  if (rfqsQuery.isError || !rfqsQuery.data) {
-    return (
-      <ErrorMessage
-        message={getApiErrorMessage(rfqsQuery.error, 'Failed to load available RFQs.')}
-      />
-    );
-  }
-
-  const { items, total, limit } = rfqsQuery.data;
-  const hasPrev = offset > 0;
-  const hasNext = offset + limit < total;
+  const rfqsQuery = useQuery({ queryKey: ['vendor-available-rfqs'], queryFn: () => getAvailableRfqs(PAGE_SIZE, 0), refetchInterval: 30_000 });
+  const items = rfqsQuery.data?.items ?? [];
+  const total = rfqsQuery.data?.total ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Available RFQs</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Matching RFQs for your city and product catalog
-          </p>
-        </div>
-        {rfqsQuery.isFetching ? (
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <Spinner size="sm" />
-            Refreshing (15s)
-          </div>
-        ) : null}
-      </div>
+    <motion.div className="space-y-6" variants={pageV} initial="hidden" animate="visible">
+      <PageHeader title="Available RFQs" subtitle={`${total} open requests${rfqsQuery.isFetching ? ' · Refreshing…' : ''}`}
+        action={rfqsQuery.isFetching ? <span className="flex items-center gap-1.5 text-xs text-text-tertiary"><RefreshCw className="h-3 w-3 animate-spin" />Refreshing</span> : undefined}
+      />
 
-      {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-600">
-          No matching RFQs right now. This list refreshes automatically.
-        </div>
+      {rfqsQuery.isLoading ? (
+        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}</div>
+      ) : items.length === 0 ? (
+        <EmptyState title="No open RFQs" subtitle="New RFQs matching your profile will appear here automatically." />
       ) : (
-        <div className="space-y-3">
+        <motion.div className="space-y-3" variants={listV} initial="hidden" animate="visible">
           {items.map((rfq) => (
-            <Link
-              key={rfq.id}
-              href={`/vendor/rfq/${rfq.id}`}
-              className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-slate-900">
-                    RFQ #{rfq.id.slice(0, 8)}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {rfq.city} • {rfq.items.length} item{rfq.items.length === 1 ? '' : 's'}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Created: {formatIST(rfq.createdAt)} • Valid until: {formatIST(rfq.validUntil)}
-                  </p>
+            <motion.div key={rfq.id} variants={itemV}>
+              <Link href={`/vendor/rfq/${rfq.id}`} className="card flex items-center justify-between gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-text-tertiary bg-elevated px-2 py-0.5 rounded">#{rfq.id.slice(0, 8)}</span>
+                    <Badge status={rfq.status} />
+                  </div>
+                  <p className="mt-1 text-sm text-text-secondary">{rfq.city} · {rfq.items.length} item{rfq.items.length === 1 ? '' : 's'} · {formatIST(rfq.createdAt)}</p>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClasses(
-                    rfq.status,
-                  )}`}
-                >
-                  {rfq.status}
-                </span>
-              </div>
-            </Link>
+                <ArrowRight className="h-4 w-4 text-text-tertiary" />
+              </Link>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setOffset((current) => Math.max(0, current - PAGE_LIMIT))}
-          disabled={!hasPrev}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Prev
-        </button>
-        <p className="text-sm text-slate-600">
-          Showing {Math.min(total, offset + 1)}-{Math.min(total, offset + items.length)} of{' '}
-          {total}
-        </p>
-        <button
-          type="button"
-          onClick={() => setOffset((current) => current + PAGE_LIMIT)}
-          disabled={!hasNext}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
-    </div>
+    </motion.div>
   );
 }
-

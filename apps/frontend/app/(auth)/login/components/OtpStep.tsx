@@ -1,251 +1,150 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import axios from 'axios';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { api } from '@/lib/api';
+import { toast } from 'sonner';
+import { api, getApiErrorMessage } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
+import { Button } from '@/components/ui/Button';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
 const otpSchema = z.object({
-  otp: z
-    .string()
-    .length(6, 'OTP must be 6 digits')
-    .regex(/^[0-9]{6}$/, 'OTP must contain only digits'),
+  otp: z.string().length(6, 'OTP must be 6 digits').regex(/^[0-9]{6}$/, 'OTP must contain only digits'),
 });
 
 type OtpFormValues = z.infer<typeof otpSchema>;
 
-type LoginUser = {
-  id: string;
-  phone: string;
-  role: string;
-  name?: string;
-};
+type LoginUser = { id: string; phone: string; role: string; name?: string };
 
-type OtpStepProps = {
-  phone: string;
-  onBack: () => void;
-};
-
-function Spinner() {
-  return (
-    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-  );
-}
-
-function getApiErrorMessage(error: unknown): string {
-  if (axios.isAxiosError(error)) {
-    if (error.response?.status === 401) {
-      return 'Invalid or expired OTP. Please request a new OTP and try again.';
-    }
-
-    const message = error.response?.data?.message;
-
-    if (Array.isArray(message)) {
-      return message.join(', ');
-    }
-
-    if (typeof message === 'string') {
-      return message;
-    }
-  }
-
-  return 'Request failed. Please try again.';
-}
+type OtpStepProps = { phone: string; onBack: () => void };
 
 function extractVerifiedUser(payload: unknown): LoginUser | null {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
+  if (!payload || typeof payload !== 'object') return null;
   const root = payload as Record<string, unknown>;
   const directUser = root.user;
-  if (directUser && typeof directUser === 'object') {
-    return directUser as LoginUser;
-  }
-
+  if (directUser && typeof directUser === 'object') return directUser as LoginUser;
   const nestedData = root.data;
   if (nestedData && typeof nestedData === 'object') {
     const nestedUser = (nestedData as Record<string, unknown>).user;
-    if (nestedUser && typeof nestedUser === 'object') {
-      return nestedUser as LoginUser;
-    }
+    if (nestedUser && typeof nestedUser === 'object') return nestedUser as LoginUser;
   }
-
   return null;
 }
 
 function getRedirectPath(role: string): string {
   switch (role) {
-    case 'ADMIN':
-      return '/admin/dashboard';
-    case 'VENDOR':
-      return '/vendor/dashboard';
-    case 'BUYER':
-    default:
-      return '/buyer/dashboard';
+    case 'ADMIN': return '/admin/dashboard';
+    case 'VENDOR': return '/vendor/dashboard';
+    default: return '/buyer/dashboard';
   }
 }
 
 export function OtpStep({ phone, onBack }: OtpStepProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setUser = useUserStore((state) => state.setUser);
   const [secondsLeft, setSecondsLeft] = useState(30);
   const [isResending, setIsResending] = useState(false);
-  const [resendError, setResendError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
-    clearErrors,
   } = useForm<OtpFormValues>({
     resolver: zodResolver(otpSchema),
-    defaultValues: {
-      otp: '',
-    },
+    defaultValues: { otp: '' },
   });
 
+  useEffect(() => { setSecondsLeft(30); }, [phone]);
   useEffect(() => {
-    setSecondsLeft(30);
-  }, [phone]);
-
-  useEffect(() => {
-    if (secondsLeft <= 0) {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setSecondsLeft((current) => (current > 0 ? current - 1 : 0));
-    }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
+    if (secondsLeft <= 0) return;
+    const timer = window.setInterval(() => setSecondsLeft((c) => (c > 0 ? c - 1 : 0)), 1000);
+    return () => window.clearInterval(timer);
   }, [secondsLeft]);
 
   const onSubmit = handleSubmit(async (values) => {
-    clearErrors('root');
-    setResendError(null);
-
     try {
-      const response = await api.post('/api/v1/auth/verify-otp', {
-        phone,
-        otp: values.otp,
-      });
-
+      const response = await api.post('/api/v1/auth/verify-otp', { phone, otp: values.otp });
       const user = extractVerifiedUser(response.data);
-      if (!user) {
-        throw new Error('Missing user in verify response');
-      }
-
-      try {
-        await api.get('/api/v1/auth/me');
-      } catch {
-        setError('root', {
-          type: 'server',
-          message:
-            'OTP verified, but session cookie was blocked. Enable third-party cookies and retry.',
-        });
+      if (!user) throw new Error('Missing user in verify response');
+      try { await api.get('/api/v1/auth/me'); } catch {
+        toast.error('OTP verified, but session cookie was blocked. Enable third-party cookies and retry.');
         return;
       }
-
       setUser(user);
-      router.replace(getRedirectPath(user.role));
+      toast.success('Logged in successfully!');
+      const redirect = searchParams.get('redirect');
+      router.replace(redirect ?? getRedirectPath(user.role));
     } catch (error) {
-      setError('root', {
-        type: 'server',
-        message: getApiErrorMessage(error),
-      });
+      toast.error(getApiErrorMessage(error));
     }
   });
 
   const handleResend = async () => {
-    setResendError(null);
     setIsResending(true);
-
     try {
       await api.post('/api/v1/auth/send-otp', { phone });
       setSecondsLeft(30);
-    } catch (error) {
-      setResendError(getApiErrorMessage(error));
-    } finally {
-      setIsResending(false);
-    }
+      toast.success('OTP resent!');
+    } catch (error) { toast.error(getApiErrorMessage(error)); }
+    finally { setIsResending(false); }
   };
 
-  const countdownLabel = `${Math.floor(secondsLeft / 60)
-    .toString()
-    .padStart(2, '0')}:${(secondsLeft % 60).toString().padStart(2, '0')}`;
+  const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        OTP sent to <span className="font-medium text-slate-900">{phone}</span>
+      <div className="rounded-xl bg-accent/10 border border-accent/20 px-4 py-3 text-sm text-text-secondary">
+        OTP sent to <span className="font-medium text-text-primary">{phone}</span>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        <div className="space-y-2">
-          <label htmlFor="otp" className="block text-sm font-medium text-slate-700">
-            6-digit OTP
-          </label>
+        <div className="space-y-1.5">
+          <label htmlFor="otp" className="block text-sm font-medium text-text-primary">6-digit OTP</label>
           <input
             id="otp"
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={6}
-            placeholder="123456"
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-lg tracking-[0.35em] text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+            placeholder="000000"
+            className="w-full h-11 rounded-xl border border-border bg-elevated px-4 text-center text-xl tracking-[0.4em] font-bold text-text-primary placeholder:text-text-tertiary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20"
             {...register('otp')}
           />
-          {errors.otp ? <p className="text-sm text-red-600">{errors.otp.message}</p> : null}
+          {errors.otp && <p className="text-xs text-danger font-medium">{errors.otp.message}</p>}
         </div>
 
-        {errors.root?.message ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {errors.root.message}
-          </div>
-        ) : null}
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting ? <Spinner /> : null}
-          {isSubmitting ? 'Verifying...' : 'Verify OTP'}
-        </button>
+        <Button type="submit" loading={isSubmitting} className="w-full h-11 rounded-xl">
+          {isSubmitting ? 'Verifying…' : 'Verify OTP'}
+        </Button>
       </form>
 
-      <div className="space-y-3 border-t border-slate-200 pt-4">
+      <div className="flex items-center justify-between border-t border-border-subtle pt-4">
         <button
           type="button"
           onClick={onBack}
-          className="text-sm font-medium text-slate-700 underline-offset-4 hover:text-slate-900 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
         >
-          Change phone number
+          <ArrowLeft className="h-4 w-4" />
+          Change number
         </button>
 
         {secondsLeft > 0 ? (
-          <p className="text-sm text-slate-600">Resend OTP in {countdownLabel}</p>
+          <p className="text-sm text-text-tertiary">Resend in {countdown}</p>
         ) : (
           <button
             type="button"
             onClick={handleResend}
             disabled={isResending}
-            className="flex items-center gap-2 text-sm font-medium text-slate-900 underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
           >
-            {isResending ? <Spinner /> : null}
-            {isResending ? 'Resending...' : 'Resend OTP'}
+            {isResending && <Loader2 className="h-3 w-3 animate-spin" />}
+            {isResending ? 'Sending…' : 'Resend OTP'}
           </button>
         )}
-
-        {resendError ? <p className="text-sm text-red-600">{resendError}</p> : null}
       </div>
     </div>
   );

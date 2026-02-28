@@ -7,11 +7,14 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
+import { toast } from 'sonner';
+import { Building2, MapPin, FileText } from 'lucide-react';
 import { getApiErrorMessage } from '@/lib/api';
 import { getVendorProfile, onboardVendor } from '@/lib/vendor-profile-api';
 import { useUserStore } from '@/store/user.store';
+import { Button } from '@/components/ui/Button';
+import { MotionContainer } from '@/components/ui/Motion';
+import { Loader2 } from 'lucide-react';
 
 const gstNumberRegex =
   /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
@@ -50,6 +53,9 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 function isNotFoundError(error: unknown): boolean {
   return axios.isAxiosError(error) && error.response?.status === 404;
 }
+
+const inputClassName =
+  'w-full h-10 rounded-xl border border-border bg-elevated px-4 text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20';
 
 export default function VendorOnboardingPage() {
   const router = useRouter();
@@ -90,8 +96,9 @@ export default function VendorOnboardingPage() {
         const me = unwrapApiData<{ id: string; phone: string; role: string }>(meResponse.data);
         useUserStore.getState().setUser(me);
       } catch {
-        // Even if re-fetch fails, onboarding succeeded — redirect anyway
+        // Onboarding succeeded even if refetch fails
       }
+      toast.success('Onboarding completed successfully!');
       router.push('/vendor/dashboard');
     },
     onError: (error) => {
@@ -108,13 +115,18 @@ export default function VendorOnboardingPage() {
     }
   }, [profileQuery.isSuccess, router]);
 
+  // Bug #2 FIX: Include businessAddress, state, pincode, serviceRadius in payload
   const onSubmit = handleSubmit(async (values) => {
     clearErrors('root');
 
     const payload = {
       businessName: values.businessName.trim(),
       gstNumber: values.gstNumber.trim().toUpperCase(),
+      businessAddress: values.businessAddress.trim(),
       city: values.city.trim(),
+      state: values.state.trim(),
+      pincode: values.pincode.trim(),
+      serviceRadius: values.serviceRadius,
       serviceableAreas: [values.businessAddress.trim()],
       ...(values.gstDocumentUrl?.trim()
         ? { gstDocumentUrl: values.gstDocumentUrl.trim() }
@@ -130,9 +142,9 @@ export default function VendorOnboardingPage() {
   if (profileQuery.isLoading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-700">
-          <Spinner size="sm" />
-          Checking vendor profile...
+        <div className="flex items-center gap-3 text-sm text-text-secondary">
+          <Loader2 className="h-5 w-5 animate-spin text-accent" />
+          Checking vendor profile…
         </div>
       </div>
     );
@@ -140,160 +152,154 @@ export default function VendorOnboardingPage() {
 
   if (profileQuery.isError && !isNotFoundError(profileQuery.error)) {
     return (
-      <ErrorMessage
-        message={getApiErrorMessage(
-          profileQuery.error,
-          'Failed to verify vendor profile status.',
-        )}
-      />
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {getApiErrorMessage(profileQuery.error, 'Failed to verify vendor profile status.')}
+      </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Vendor Onboarding</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Complete your vendor details to start receiving RFQs.
-        </p>
-      </div>
-
-      <form
-        onSubmit={onSubmit}
-        className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="businessName">
-              Business Name
-            </label>
-            <input
-              id="businessName"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('businessName')}
-            />
-            <ErrorMessage message={errors.businessName?.message} />
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="gstNumber">
-              GST Number
-            </label>
-            <input
-              id="gstNumber"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm uppercase outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              placeholder="36AABCU9603R1ZX"
-              {...register('gstNumber')}
-            />
-            <ErrorMessage message={errors.gstNumber?.message} />
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="businessAddress">
-              Business Address
-            </label>
-            <input
-              id="businessAddress"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('businessAddress')}
-            />
-            <ErrorMessage message={errors.businessAddress?.message} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="city">
-              City
-            </label>
-            <input
-              id="city"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('city')}
-            />
-            <ErrorMessage message={errors.city?.message} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="state">
-              State
-            </label>
-            <input
-              id="state"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('state')}
-            />
-            <ErrorMessage message={errors.state?.message} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="pincode">
-              Pincode
-            </label>
-            <input
-              id="pincode"
-              inputMode="numeric"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('pincode')}
-            />
-            <ErrorMessage message={errors.pincode?.message} />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="serviceRadius">
-              Service Radius (km)
-            </label>
-            <input
-              id="serviceRadius"
-              type="number"
-              min={1}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              {...register('serviceRadius', { valueAsNumber: true })}
-            />
-            <ErrorMessage message={errors.serviceRadius?.message} />
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <label className="block text-sm font-medium text-slate-700" htmlFor="gstDocumentUrl">
-              GST Document URL (optional)
-            </label>
-            <input
-              id="gstDocumentUrl"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              placeholder="https://..."
-              {...register('gstDocumentUrl')}
-            />
-            <ErrorMessage message={errors.gstDocumentUrl?.message} />
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <label
-              className="block text-sm font-medium text-slate-700"
-              htmlFor="businessLicenseUrl"
-            >
-              Business License URL (optional)
-            </label>
-            <input
-              id="businessLicenseUrl"
-              className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
-              placeholder="https://..."
-              {...register('businessLicenseUrl')}
-            />
-            <ErrorMessage message={errors.businessLicenseUrl?.message} />
-          </div>
+      <MotionContainer>
+        <div>
+          <h1 className="text-2xl font-bold text-text-primary tracking-tight">Complete Your Profile</h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Fill out your business details to start receiving matching RFQs.
+          </p>
         </div>
+      </MotionContainer>
 
-        <ErrorMessage message={errors.root?.message} />
-
-        <button
-          type="submit"
-          disabled={onboardingMutation.isPending}
-          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+      <MotionContainer delay={0.1}>
+        <form
+          onSubmit={onSubmit}
+          className="card p-6 space-y-6"
         >
-          {onboardingMutation.isPending ? (
-            <Spinner size="sm" className="border-white/30 border-t-white" />
-          ) : null}
-          {onboardingMutation.isPending ? 'Submitting...' : 'Submit Onboarding'}
-        </button>
-      </form>
+          {/* Business info section */}
+          <div className="space-y-1 mb-1">
+            <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+              <Building2 className="h-4 w-4 text-accent" />
+              Business Information
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="businessName">
+                Business Name
+              </label>
+              <input id="businessName" className={inputClassName} {...register('businessName')} />
+              {errors.businessName && <p className="text-xs text-accent-danger">{errors.businessName.message}</p>}
+            </div>
+
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="gstNumber">
+                GST Number
+              </label>
+              <input
+                id="gstNumber"
+                className={`${inputClassName} uppercase`}
+                placeholder="36AABCU9603R1ZX"
+                {...register('gstNumber')}
+              />
+              {errors.gstNumber && <p className="text-xs text-accent-danger">{errors.gstNumber.message}</p>}
+            </div>
+          </div>
+
+          {/* Location section */}
+          <div className="border-t border-border pt-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-4">
+              <MapPin className="h-4 w-4 text-accent" />
+              Location & Service Area
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="businessAddress">
+                Business Address
+              </label>
+              <input id="businessAddress" className={inputClassName} {...register('businessAddress')} />
+              {errors.businessAddress && <p className="text-xs text-accent-danger">{errors.businessAddress.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="city">
+                City
+              </label>
+              <input id="city" className={inputClassName} {...register('city')} />
+              {errors.city && <p className="text-xs text-accent-danger">{errors.city.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="state">
+                State
+              </label>
+              <input id="state" className={inputClassName} {...register('state')} />
+              {errors.state && <p className="text-xs text-accent-danger">{errors.state.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="pincode">
+                Pincode
+              </label>
+              <input id="pincode" inputMode="numeric" className={inputClassName} {...register('pincode')} />
+              {errors.pincode && <p className="text-xs text-accent-danger">{errors.pincode.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="serviceRadius">
+                Service Radius (km)
+              </label>
+              <input
+                id="serviceRadius"
+                type="number"
+                min={1}
+                className={inputClassName}
+                {...register('serviceRadius', { valueAsNumber: true })}
+              />
+              {errors.serviceRadius && <p className="text-xs text-accent-danger">{errors.serviceRadius.message}</p>}
+            </div>
+          </div>
+
+          {/* Documents section */}
+          <div className="border-t border-border pt-5">
+            <div className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-4">
+              <FileText className="h-4 w-4 text-accent" />
+              Documents (Optional)
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="gstDocumentUrl">
+                GST Document URL
+              </label>
+              <input id="gstDocumentUrl" className={inputClassName} placeholder="https://…" {...register('gstDocumentUrl')} />
+              {errors.gstDocumentUrl && <p className="text-xs text-accent-danger">{errors.gstDocumentUrl.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-text-primary" htmlFor="businessLicenseUrl">
+                Business License URL
+              </label>
+              <input id="businessLicenseUrl" className={inputClassName} placeholder="https://…" {...register('businessLicenseUrl')} />
+              {errors.businessLicenseUrl && <p className="text-xs text-accent-danger">{errors.businessLicenseUrl.message}</p>}
+            </div>
+          </div>
+
+          {errors.root && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errors.root.message}
+            </div>
+          )}
+
+          <div className="pt-2">
+            <Button type="submit" loading={onboardingMutation.isPending} className="w-full sm:w-auto">
+              {onboardingMutation.isPending ? 'Submitting…' : 'Complete Onboarding'}
+            </Button>
+          </div>
+        </form>
+      </MotionContainer>
     </div>
   );
 }

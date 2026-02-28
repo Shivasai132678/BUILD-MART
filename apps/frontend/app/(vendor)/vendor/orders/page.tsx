@@ -2,127 +2,50 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
-import { getApiErrorMessage } from '@/lib/api';
-import { type Order } from '@/lib/buyer-api';
-import { formatIST } from '@/lib/utils/date';
+import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
 import { getVendorOrders } from '@/lib/vendor-api';
+import { formatIST } from '@/lib/utils/date';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonRow } from '@/components/ui/Skeleton';
 
-const PAGE_LIMIT = 10;
-
-function getStatusBadgeClasses(status: Order['status']): string {
-  switch (status) {
-    case 'CONFIRMED':
-      return 'bg-blue-100 text-blue-800';
-    case 'OUT_FOR_DELIVERY':
-      return 'bg-amber-100 text-amber-800';
-    case 'DELIVERED':
-      return 'bg-emerald-100 text-emerald-800';
-    case 'CANCELLED':
-      return 'bg-rose-100 text-rose-800';
-    default:
-      return 'bg-slate-100 text-slate-700';
-  }
-}
+const pageV = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
+const listV = { visible: { transition: { staggerChildren: 0.07 } } };
+const itemV = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
 
 export default function VendorOrdersPage() {
-  const [offset, setOffset] = useState(0);
-
-  const ordersQuery = useQuery({
-    queryKey: ['vendor-orders', PAGE_LIMIT, offset],
-    queryFn: () => getVendorOrders(PAGE_LIMIT, offset),
-  });
-
-  if (ordersQuery.isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-700">
-          <Spinner size="sm" />
-          Loading vendor orders...
-        </div>
-      </div>
-    );
-  }
-
-  if (ordersQuery.isError || !ordersQuery.data) {
-    return (
-      <ErrorMessage
-        message={getApiErrorMessage(ordersQuery.error, 'Failed to load vendor orders.')}
-      />
-    );
-  }
-
-  const { items, total, limit } = ordersQuery.data;
-  const hasPrev = offset > 0;
-  const hasNext = offset + limit < total;
+  const ordersQuery = useQuery({ queryKey: ['vendor-orders'], queryFn: () => getVendorOrders(20, 0) });
+  const items = ordersQuery.data?.items ?? [];
+  const total = ordersQuery.data?.total ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">My Orders</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Manage order status updates for accepted quotes.
-        </p>
-      </div>
+    <motion.div className="space-y-6" variants={pageV} initial="hidden" animate="visible">
+      <PageHeader title="My Orders" subtitle={`${total} orders total`} />
 
-      {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-600">
-          No orders found yet.
-        </div>
+      {ordersQuery.isLoading ? (
+        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}</div>
+      ) : items.length === 0 ? (
+        <EmptyState title="No orders yet" subtitle="Orders will appear here when buyers accept your quotes." />
       ) : (
-        <div className="space-y-3">
+        <motion.div className="space-y-3" variants={listV} initial="hidden" animate="visible">
           {items.map((order) => (
-            <Link
-              key={order.id}
-              href={`/vendor/orders/${order.id}`}
-              className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium text-slate-900">
-                  Order #{order.id.slice(0, 10)}
-                </p>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClasses(
-                    order.status,
-                  )}`}
-                >
-                  {order.status}
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-                <span>Total: ₹{order.totalAmount}</span>
-                <span>Created: {formatIST(order.createdAt)}</span>
-              </div>
-            </Link>
+            <motion.div key={order.id} variants={itemV}>
+              <Link href={`/vendor/orders/${order.id}`} className="card flex items-center justify-between gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-text-tertiary bg-elevated px-2 py-0.5 rounded">#{order.id.slice(0, 10)}</span>
+                    <Badge status={order.status} />
+                  </div>
+                  <p className="mt-1 text-sm text-text-secondary">{formatIST(order.createdAt)}</p>
+                </div>
+                <p className="text-lg font-bold text-text-primary">₹{order.totalAmount}</p>
+              </Link>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setOffset((current) => Math.max(0, current - PAGE_LIMIT))}
-          disabled={!hasPrev}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Prev
-        </button>
-        <p className="text-sm text-slate-600">
-          Showing {Math.min(total, offset + 1)}-{Math.min(total, offset + items.length)} of{' '}
-          {total}
-        </p>
-        <button
-          type="button"
-          onClick={() => setOffset((current) => current + PAGE_LIMIT)}
-          disabled={!hasNext}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
-    </div>
+    </motion.div>
   );
 }
-

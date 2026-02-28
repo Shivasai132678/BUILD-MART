@@ -2,104 +2,69 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Plus } from 'lucide-react';
 import { fetchBuyerOrders, type Order } from '@/lib/buyer-api';
-import { getApiErrorMessage } from '@/lib/api';
 import { formatIST } from '@/lib/utils/date';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonRow } from '@/components/ui/Skeleton';
+import { cn } from '@/lib/utils';
 
-function getStatusBadgeClasses(status: Order['status']): string {
-  switch (status) {
-    case 'CONFIRMED':
-      return 'bg-blue-100 text-blue-800';
-    case 'OUT_FOR_DELIVERY':
-      return 'bg-amber-100 text-amber-800';
-    case 'DELIVERED':
-      return 'bg-emerald-100 text-emerald-800';
-    case 'CANCELLED':
-      return 'bg-rose-100 text-rose-800';
-    default:
-      return 'bg-slate-100 text-slate-700';
-  }
-}
+const pageV = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
+const listV = { visible: { transition: { staggerChildren: 0.07 } } };
+const itemV = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
+
+const STATUS_FILTERS: Array<{ label: string; value: Order['status'] | '' }> = [
+  { label: 'All', value: '' }, { label: 'Confirmed', value: 'CONFIRMED' },
+  { label: 'In Transit', value: 'OUT_FOR_DELIVERY' }, { label: 'Delivered', value: 'DELIVERED' },
+  { label: 'Cancelled', value: 'CANCELLED' },
+];
 
 export default function BuyerOrdersPage() {
-  const ordersQuery = useQuery({
-    queryKey: ['buyer-orders', 'list', 10, 0],
-    queryFn: () => fetchBuyerOrders(10, 0),
-  });
-
-  if (ordersQuery.isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-700">
-          <Spinner size="sm" />
-          Loading orders...
-        </div>
-      </div>
-    );
-  }
-
-  if (ordersQuery.isError || !ordersQuery.data) {
-    return (
-      <ErrorMessage
-        message={getApiErrorMessage(ordersQuery.error, 'Failed to load orders.')}
-      />
-    );
-  }
-
-  const { items, total } = ordersQuery.data;
+  const [statusFilter, setStatusFilter] = useState<Order['status'] | ''>('');
+  const ordersQuery = useQuery({ queryKey: ['buyer-orders', 'list', statusFilter], queryFn: () => fetchBuyerOrders(20, 0, statusFilter || undefined) });
+  const items = ordersQuery.data?.items ?? [];
+  const total = ordersQuery.data?.total ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">My Orders</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Showing latest {items.length} of {total} orders
-          </p>
-        </div>
-        <Link
-          href="/buyer/rfq/new"
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Create New RFQ
-        </Link>
+    <motion.div className="space-y-6" variants={pageV} initial="hidden" animate="visible">
+      <PageHeader title="My Orders" subtitle={`${total} orders total`} action={<Link href="/buyer/rfq/new"><Button size="sm"><Plus className="h-4 w-4" />Create RFQ</Button></Link>} />
+
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {STATUS_FILTERS.map((f) => (
+          <button key={f.value} type="button" onClick={() => setStatusFilter(f.value)}
+            className={cn('shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all', statusFilter === f.value ? 'bg-accent/15 text-accent' : 'text-text-secondary hover:text-text-primary hover:bg-elevated border border-border-subtle')}>
+            {f.label}
+          </button>
+        ))}
       </div>
 
-      {items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-600">
-          No orders yet. Accept a quote to create your first order.
-        </div>
+      {ordersQuery.isLoading ? (
+        <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}</div>
+      ) : items.length === 0 ? (
+        <EmptyState title="No orders found" subtitle="Accept a vendor quote to create your first order." actionLabel="Create RFQ" actionHref="/buyer/rfq/new" />
       ) : (
-        <div className="space-y-3">
+        <motion.div className="space-y-3" variants={listV} initial="hidden" animate="visible">
           {items.map((order) => (
-            <Link
-              key={order.id}
-              href={`/buyer/orders/${order.id}`}
-              className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium text-slate-900">
-                  Order #{order.id.slice(0, 10)}
-                </p>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClasses(
-                    order.status,
-                  )}`}
-                >
-                  {order.status}
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600">
-                <span>Total: ₹{order.totalAmount}</span>
-                <span>Created: {formatIST(order.createdAt)}</span>
-              </div>
-            </Link>
+            <motion.div key={order.id} variants={itemV}>
+              <Link href={`/buyer/orders/${order.id}`} className="card flex items-center justify-between gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono text-text-tertiary bg-elevated px-2 py-0.5 rounded">#{order.id.slice(0, 10)}</span>
+                    <Badge status={order.status} />
+                  </div>
+                  <p className="mt-1 text-sm text-text-secondary">Vendor #{order.vendorId.slice(0, 8)} · {formatIST(order.createdAt)}</p>
+                </div>
+                <p className="text-lg font-bold text-text-primary">₹{order.totalAmount}</p>
+              </Link>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }
-

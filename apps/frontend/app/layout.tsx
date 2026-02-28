@@ -1,22 +1,12 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/Toaster';
 import { AppProviders } from './providers';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
-
 export const metadata: Metadata = {
-  title: 'BuildMart',
-  description: 'BuildMart Buyer Portal',
+  title: 'BuildMart — Construction Materials Procurement',
+  description:
+    'The smarter way to source construction materials. Create RFQs, compare vendor quotes, and track orders in real-time.',
 };
 
 export default function RootLayout({
@@ -26,9 +16,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        <link rel="preconnect" href="https://rsms.me/" />
+        <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+      </head>
+      <body className="antialiased">
         <AppProviders>{children}</AppProviders>
         <Toaster />
       </body>

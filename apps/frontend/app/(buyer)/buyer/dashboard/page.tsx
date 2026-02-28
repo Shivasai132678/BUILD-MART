@@ -2,36 +2,36 @@
 
 import { useQueries, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
+import { motion } from 'framer-motion';
+import { FileText, ShoppingBag, Truck, Package, Plus, BookOpen, ArrowRight } from 'lucide-react';
 import { fetchBuyerOrders, fetchBuyerRfqs } from '@/lib/buyer-api';
 import { formatIST } from '@/lib/utils/date';
 import { useUserStore } from '@/store/user.store';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { StatCard } from '@/components/ui/StatCard';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonStatCard, SkeletonRow } from '@/components/ui/Skeleton';
 
-function StatCard({
-  label,
-  value,
-  href,
-  accent,
-}: {
-  label: string;
-  value: number;
-  href: string;
-  accent: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-slate-300 hover:shadow"
-    >
-      <p className="text-sm text-slate-600">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${accent}`}>{value}</p>
-    </Link>
-  );
+const pageVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } },
+};
+const listVariants = { visible: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } } };
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } },
+};
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
 export default function BuyerDashboardPage() {
-  const user = useUserStore((state) => state.user);
+  const user = useUserStore((s) => s.user);
 
   const recentRfqsQuery = useQuery({
     queryKey: ['buyer-rfqs', 'recent'],
@@ -40,28 +40,13 @@ export default function BuyerDashboardPage() {
 
   const orderCountQueries = useQueries({
     queries: [
-      {
-        queryKey: ['buyer-orders', 'confirmed-count'],
-        queryFn: () => fetchBuyerOrders(1, 0, 'CONFIRMED'),
-      },
-      {
-        queryKey: ['buyer-orders', 'out-for-delivery-count'],
-        queryFn: () => fetchBuyerOrders(1, 0, 'OUT_FOR_DELIVERY'),
-      },
-      {
-        queryKey: ['buyer-orders', 'delivered-count'],
-        queryFn: () => fetchBuyerOrders(1, 0, 'DELIVERED'),
-      },
+      { queryKey: ['buyer-orders', 'confirmed-count'], queryFn: () => fetchBuyerOrders(1, 0, 'CONFIRMED') },
+      { queryKey: ['buyer-orders', 'ofd-count'], queryFn: () => fetchBuyerOrders(1, 0, 'OUT_FOR_DELIVERY') },
+      { queryKey: ['buyer-orders', 'delivered-count'], queryFn: () => fetchBuyerOrders(1, 0, 'DELIVERED') },
     ],
   });
 
-  const isLoadingStats =
-    recentRfqsQuery.isLoading || orderCountQueries.some((query) => query.isLoading);
-  const statsError =
-    (recentRfqsQuery.error as Error | null)?.message ??
-    (orderCountQueries.find((query) => query.error)?.error as Error | undefined)
-      ?.message;
-
+  const isLoadingStats = recentRfqsQuery.isLoading || orderCountQueries.some((q) => q.isLoading);
   const rfqTotal = recentRfqsQuery.data?.total ?? 0;
   const confirmedCount = orderCountQueries[0]?.data?.total ?? 0;
   const outForDeliveryCount = orderCountQueries[1]?.data?.total ?? 0;
@@ -69,120 +54,86 @@ export default function BuyerDashboardPage() {
   const activeOrders = confirmedCount + outForDeliveryCount;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-sm text-slate-500">Welcome back</p>
-        <h1 className="mt-1 text-2xl font-semibold text-slate-900">
-          {user?.name ?? 'Buyer'}
-        </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Track your RFQs, compare quotes, and follow your order progress.
-        </p>
-      </section>
+    <motion.div className="space-y-8" variants={pageVariants} initial="hidden" animate="visible">
+      <PageHeader
+        title={`${getGreeting()}, ${user?.name ?? 'there'}`}
+        subtitle="Here's what's happening with your orders"
+      />
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {isLoadingStats ? (
-          <div className="col-span-full flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-8">
-            <div className="flex items-center gap-3 text-sm text-slate-700">
-              <Spinner size="sm" />
-              Loading dashboard stats...
+      {isLoadingStats ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonStatCard key={i} />)}
+        </div>
+      ) : (
+        <motion.div className="grid grid-cols-2 lg:grid-cols-4 gap-4" variants={listVariants} initial="hidden" animate="visible">
+          <motion.div variants={itemVariants}><StatCard icon={FileText} label="Active RFQs" value={rfqTotal} iconColorClass="bg-accent/10 text-accent" /></motion.div>
+          <motion.div variants={itemVariants}><StatCard icon={ShoppingBag} label="Quotes Received" value={confirmedCount} iconColorClass="bg-success/10 text-success" /></motion.div>
+          <motion.div variants={itemVariants}><StatCard icon={Truck} label="Orders In Progress" value={activeOrders} iconColorClass="bg-purple/10 text-purple" /></motion.div>
+          <motion.div variants={itemVariants}><StatCard icon={Package} label="Delivered" value={deliveredCount} iconColorClass="bg-warning/10 text-warning" /></motion.div>
+        </motion.div>
+      )}
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[
+          { href: '/buyer/rfq/new', icon: Plus, label: 'New RFQ', subtitle: 'Request quotes from vendors', color: 'bg-accent/10 text-accent group-hover:bg-accent group-hover:text-white' },
+          { href: '/buyer/catalog', icon: BookOpen, label: 'Browse Catalog', subtitle: 'Explore available products', color: 'bg-purple/10 text-purple group-hover:bg-purple group-hover:text-white' },
+          { href: '/buyer/orders', icon: Package, label: 'View Orders', subtitle: 'Track your active orders', color: 'bg-success/10 text-success group-hover:bg-success group-hover:text-base' },
+        ].map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className="group card flex items-center gap-4 p-4"
+          >
+            <div className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${action.color}`}>
+              <action.icon className="h-5 w-5" />
             </div>
-          </div>
-        ) : (
-          <>
-            <StatCard
-              label="My RFQs"
-              value={rfqTotal}
-              href="/buyer/dashboard#my-rfqs"
-              accent="text-blue-700"
-            />
-            <StatCard
-              label="Active Orders"
-              value={activeOrders}
-              href="/buyer/orders"
-              accent="text-amber-700"
-            />
-            <StatCard
-              label="Delivered Orders"
-              value={deliveredCount}
-              href="/buyer/orders"
-              accent="text-emerald-700"
-            />
-          </>
-        )}
-      </section>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-text-primary">{action.label}</p>
+              <p className="text-xs text-text-tertiary">{action.subtitle}</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-text-tertiary group-hover:text-accent transition-colors" />
+          </Link>
+        ))}
+      </div>
 
-      <ErrorMessage message={statsError ?? null} />
-
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Link
-          href="/buyer/rfq/new"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition hover:border-slate-300"
-        >
-          Create RFQ
-        </Link>
-        <Link
-          href="/buyer/dashboard#my-rfqs"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition hover:border-slate-300"
-        >
-          My RFQs
-        </Link>
-        <Link
-          href="/buyer/orders"
-          className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 shadow-sm transition hover:border-slate-300"
-        >
-          My Orders
-        </Link>
-      </section>
-
-      <section
-        id="my-rfqs"
-        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-      >
+      {/* Recent RFQs */}
+      <section className="card p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Recent RFQs</h2>
-          <span className="text-sm text-slate-500">
-            {recentRfqsQuery.data?.total ?? 0} total
-          </span>
+          <h2 className="text-lg font-semibold text-text-primary">Recent RFQs</h2>
+          <span className="text-sm text-text-tertiary">{rfqTotal} total</span>
         </div>
 
         {recentRfqsQuery.isLoading ? (
-          <div className="flex items-center gap-3 text-sm text-slate-700">
-            <Spinner size="sm" />
-            Loading RFQs...
-          </div>
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}</div>
         ) : recentRfqsQuery.data && recentRfqsQuery.data.items.length > 0 ? (
-          <div className="space-y-3">
+          <motion.div className="space-y-2" variants={listVariants} initial="hidden" animate="visible">
             {recentRfqsQuery.data.items.map((rfq) => (
-              <Link
-                key={rfq.id}
-                href={`/buyer/rfq/${rfq.id}`}
-                className="block rounded-xl border border-slate-200 px-4 py-3 transition hover:border-slate-300"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-slate-900">
-                    RFQ #{rfq.id.slice(0, 8)}
-                  </p>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                    {rfq.status}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-slate-600">
-                  {rfq.city} • {rfq.items.length} item{rfq.items.length === 1 ? '' : 's'}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Created {formatIST(rfq.createdAt)} • Valid until {formatIST(rfq.validUntil)}
-                </p>
-              </Link>
+              <motion.div key={rfq.id} variants={itemVariants}>
+                <Link
+                  href={`/buyer/rfq/${rfq.id}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border-subtle px-4 py-3 transition-all duration-200 hover:bg-elevated hover:border-border"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-text-tertiary bg-elevated px-2 py-0.5 rounded">
+                        #{rfq.id.slice(0, 8)}
+                      </span>
+                      <Badge status={rfq.status} />
+                    </div>
+                    <p className="mt-1 text-xs text-text-tertiary truncate">
+                      {rfq.city} · {rfq.items.length} item{rfq.items.length === 1 ? '' : 's'} · {formatIST(rfq.createdAt)}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-text-tertiary flex-shrink-0" />
+                </Link>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         ) : (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600">
-            No RFQs yet. Create your first RFQ to start receiving quotes.
-          </div>
+          <EmptyState title="No RFQs yet" subtitle="Create your first RFQ to start receiving vendor quotes." actionLabel="Create RFQ" actionHref="/buyer/rfq/new" />
         )}
       </section>
-    </div>
+    </motion.div>
   );
 }
-

@@ -9,7 +9,11 @@
  *      psql -U buildmart -h localhost -p 5432 -c "CREATE DATABASE buildmart_test;"
  *   2) Run via: cd apps/backend && pnpm test:e2e
  */
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import {
+  INestApplication,
+  ValidationPipe,
+  VersioningType,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -64,7 +68,11 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     execSync('npx prisma db push --skip-generate --accept-data-loss', {
       cwd: backendDir,
       stdio: 'pipe',
-      env: { ...process.env, DATABASE_URL: TEST_DB_URL, DIRECT_URL: TEST_DB_URL },
+      env: {
+        ...process.env,
+        DATABASE_URL: TEST_DB_URL,
+        DIRECT_URL: TEST_DB_URL,
+      },
     });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({

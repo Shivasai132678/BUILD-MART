@@ -2,19 +2,20 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ErrorMessage } from '@/components/ui/ErrorMessage';
-import { Spinner } from '@/components/ui/Spinner';
+import { toast } from 'sonner';
+import { Check, MapPin, Calendar } from 'lucide-react';
 import { getApiErrorMessage } from '@/lib/api';
-import {
-  approveVendor,
-  getPendingVendors,
-  type PendingVendorProfile,
-} from '@/lib/admin-api';
+import { approveVendor, getPendingVendors, type PendingVendorProfile } from '@/lib/admin-api';
 import { formatIST } from '@/lib/utils/date';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { SkeletonRow } from '@/components/ui/Skeleton';
+import { MotionContainer, StaggerContainer, StaggerItem } from '@/components/ui/Motion';
 
 export default function AdminVendorsPage() {
   const queryClient = useQueryClient();
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const pendingVendorsQuery = useQuery({
     queryKey: ['admin-pending-vendors'],
@@ -25,106 +26,87 @@ export default function AdminVendorsPage() {
   const approveVendorMutation = useMutation({
     mutationFn: (id: string) => approveVendor(id),
     onSuccess: async () => {
-      setActionError(null);
+      toast.success('Vendor approved successfully!');
       await queryClient.invalidateQueries({ queryKey: ['admin-pending-vendors'] });
     },
     onError: (error) => {
-      setActionError(getApiErrorMessage(error, 'Failed to approve vendor.'));
+      toast.error(getApiErrorMessage(error, 'Failed to approve vendor.'));
     },
   });
 
-  if (pendingVendorsQuery.isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="flex items-center gap-3 text-sm text-slate-700">
-          <Spinner size="sm" />
-          Loading pending vendors...
-        </div>
-      </div>
-    );
-  }
-
   const vendorsEndpointMissing = pendingVendorsQuery.isError;
   const vendors: PendingVendorProfile[] = pendingVendorsQuery.data?.data ?? [];
+  const pendingVendors = vendors.filter((v) => v.isApproved === false);
 
   const handleApprove = (id: string, businessName: string) => {
-    const confirmed = window.confirm(`Approve ${businessName}?`);
-    if (!confirmed) {
-      return;
-    }
-
+    if (!window.confirm(`Approve ${businessName}?`)) return;
     approveVendorMutation.mutate(id);
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Vendor Approvals</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Review pending vendor onboarding applications and approve them.
-        </p>
-      </div>
+      <MotionContainer>
+        <PageHeader
+          title="Vendor Approvals"
+          subtitle="Review pending vendor onboarding applications."
+        />
+      </MotionContainer>
 
-      {vendorsEndpointMissing ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Pending vendor list endpoint is not available yet. Approval action is wired, but the
-          queue list depends on a backend list endpoint.
-        </div>
-      ) : null}
+      {vendorsEndpointMissing && (
+        <MotionContainer delay={0.05}>
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 px-5 py-4 text-sm text-amber-800">
+            The pending vendor list endpoint is not available. The approval action is wired, but the queue depends on a backend endpoint.
+          </div>
+        </MotionContainer>
+      )}
 
-      <ErrorMessage
-        message={
-          pendingVendorsQuery.isError
-            ? getApiErrorMessage(
-                pendingVendorsQuery.error,
-                'Failed to load pending vendors.',
-              )
-            : null
-        }
-      />
-      <ErrorMessage message={actionError} />
-
-      {!vendorsEndpointMissing && vendors.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-sm text-slate-600">
-          No pending vendor approvals
-        </div>
-      ) : null}
-
-      {!vendorsEndpointMissing && vendors.length > 0 ? (
+      {pendingVendorsQuery.isLoading ? (
         <div className="space-y-3">
-          {vendors
-            .filter((vendor) => vendor.isApproved === false)
-            .map((vendor) => (
-              <div
-                key={vendor.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-slate-900">{vendor.businessName}</p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      GST: {vendor.gstNumber} • {vendor.city}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Applied: {formatIST(vendor.createdAt)}
-                    </p>
+          {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}
+        </div>
+      ) : !vendorsEndpointMissing && pendingVendors.length === 0 ? (
+        <EmptyState
+          title="All caught up!"
+          subtitle="No pending vendor approvals at the moment."
+        />
+      ) : !vendorsEndpointMissing && pendingVendors.length > 0 ? (
+        <StaggerContainer className="space-y-3">
+          {pendingVendors.map((vendor) => (
+            <StaggerItem key={vendor.id}>
+              <div className="card p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-base font-semibold text-text-primary">{vendor.businessName}</p>
+                      <Badge status="PENDING" />
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-3 text-sm text-text-secondary">
+                      <span className="inline-flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {vendor.city}
+                      </span>
+                      <span>GST: {vendor.gstNumber}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatIST(vendor.createdAt)}
+                      </span>
+                    </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleApprove(vendor.id, vendor.businessName)}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    loading={approveVendorMutation.isPending && approveVendorMutation.variables === vendor.id}
                     disabled={approveVendorMutation.isPending}
-                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => handleApprove(vendor.id, vendor.businessName)}
                   >
-                    {approveVendorMutation.isPending ? (
-                      <Spinner size="sm" className="border-white/30 border-t-white" />
-                    ) : null}
+                    <Check className="h-4 w-4" />
                     Approve
-                  </button>
+                  </Button>
                 </div>
               </div>
-            ))}
-        </div>
+            </StaggerItem>
+          ))}
+        </StaggerContainer>
       ) : null}
     </div>
   );

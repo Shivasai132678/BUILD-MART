@@ -176,9 +176,28 @@ export async function createRfq(payload: CreateRfqPayload) {
   return unwrapApiData<Rfq>(response.data);
 }
 
+export type PaginatedQuotesResponse = {
+  data: Quote[];
+  total: number;
+  limit?: number;
+  offset?: number;
+};
+
 export async function fetchQuotesForRfq(rfqId: string) {
   const response = await api.get(`/api/v1/quotes/rfq/${rfqId}`);
-  return unwrapApiData<Quote[]>(response.data);
+  const raw = unwrapApiData<PaginatedQuotesResponse | Quote[]>(response.data);
+
+  // Handle paginated {data, total} response
+  if (raw && typeof raw === 'object' && 'data' in raw && Array.isArray((raw as PaginatedQuotesResponse).data)) {
+    return (raw as PaginatedQuotesResponse).data;
+  }
+
+  // Fallback: if it's already an array
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  return [];
 }
 
 export async function createOrderFromQuote(quoteId: string) {

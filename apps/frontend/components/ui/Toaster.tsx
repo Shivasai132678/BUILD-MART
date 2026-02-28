@@ -1,13 +1,23 @@
 'use client';
 
+import { Toaster as SonnerToaster } from 'sonner';
+
 export function Toaster() {
   return (
-    <div
-      id="toast-root"
-      aria-live="polite"
-      aria-atomic="false"
-      className="pointer-events-none fixed inset-x-0 top-3 z-50 mx-auto w-full max-w-md px-3"
+    <SonnerToaster
+      position="bottom-right"
+      richColors
+      closeButton
+      theme="dark"
+      toastOptions={{
+        style: {
+          fontFamily: "'Inter var', 'Inter', system-ui, sans-serif",
+          borderRadius: '12px',
+          background: '#0F1011',
+          border: '1px solid rgba(255,255,255,0.10)',
+          color: 'rgba(255,255,255,0.95)',
+        },
+      }}
     />
   );
 }
-
