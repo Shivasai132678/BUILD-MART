@@ -70,10 +70,11 @@ export class AuthService {
       );
     }
 
-    const otp = randomInt(100_000, 1_000_000).toString();
+    const e2eOtp = this.isE2ETestOtpEnabled() ? process.env.E2E_TEST_OTP : undefined;
+    const otp = e2eOtp ?? randomInt(100_000, 1_000_000).toString();
 
     if (process.env.NODE_ENV !== 'production') {
-      this.logger.warn(`[DEV] OTP for ${phone}: ${otp}`);
+      this.logger.warn(e2eOtp ? `[E2E] Fixed OTP for ${phone}: ${otp}` : `[DEV] OTP for ${phone}: ${otp}`);
     }
 
     const otpHash = this.hashOtp(otp);
@@ -177,6 +178,10 @@ export class AuthService {
     return createHash('sha256').update(otp).digest('hex');
   }
 
+  private isE2ETestOtpEnabled(): boolean {
+    return process.env.NODE_ENV !== 'production' && !!process.env.E2E_TEST_OTP;
+  }
+
   private getJwtSecret(): string {
     const secret = process.env.JWT_SECRET;
 
@@ -200,11 +205,41 @@ export class AuthService {
 
   private buildAccessTokenCookieOptions(): CookieOptions {
     const baseOptions = this.buildBaseCookieOptions();
-    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    const maxAgeMs = this.parseExpiresInToMs(process.env.JWT_EXPIRES_IN);
 
     return {
       ...baseOptions,
       maxAge: maxAgeMs,
     };
+  }
+
+  private parseExpiresInToMs(value: string | undefined): number {
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+    if (!value) {
+      return SEVEN_DAYS_MS;
+    }
+
+    const match = /^(\d+)(ms|s|m|h|d)?$/.exec(value.trim());
+
+    if (!match) {
+      this.logger.warn(
+        `Could not parse JWT_EXPIRES_IN="${value}", defaulting to 7d`,
+      );
+      return SEVEN_DAYS_MS;
+    }
+
+    const amount = parseInt(match[1], 10);
+    const unit = match[2] ?? 's';
+
+    const multipliers: Record<string, number> = {
+      ms: 1,
+      s: 1_000,
+      m: 60 * 1_000,
+      h: 60 * 60 * 1_000,
+      d: 24 * 60 * 60 * 1_000,
+    };
+
+    return amount * multipliers[unit];
   }
 }

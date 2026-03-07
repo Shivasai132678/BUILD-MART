@@ -18,8 +18,15 @@ function getAllowedRoles(pathname: string): readonly Role[] | null {
   return null;
 }
 
-function redirectToLogin(request: NextRequest): NextResponse {
-  return NextResponse.redirect(new URL('/login', request.url));
+function redirectToLogin(
+  request: NextRequest,
+  reason?: string,
+): NextResponse {
+  const url = new URL('/login', request.url);
+  if (reason) {
+    url.searchParams.set('reason', reason);
+  }
+  return NextResponse.redirect(url);
 }
 
 type MeResponsePayload = {
@@ -71,6 +78,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         cookie: `access_token=${encodeURIComponent(rawToken)}`,
       },
       cache: 'no-store',
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!response.ok) {
@@ -85,7 +93,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.next();
-  } catch {
+  } catch (error: unknown) {
+    if (
+      error instanceof DOMException &&
+      error.name === 'TimeoutError'
+    ) {
+      return redirectToLogin(request, 'timeout');
+    }
     return redirectToLogin(request);
   }
 }

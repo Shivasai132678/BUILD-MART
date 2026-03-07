@@ -1,4 +1,5 @@
-import { Prisma } from '@prisma/client';
+import { NotFoundException } from '@nestjs/common';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminService } from './admin.service';
 
@@ -19,8 +20,11 @@ describe('AdminService', () => {
     order: {
       count: jest.fn(),
       aggregate: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
-  } as unknown as PrismaService;
+    $transaction: jest.fn(),
+  } as unknown as jest.Mocked<PrismaService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -75,7 +79,7 @@ describe('AdminService', () => {
         where: { isApproved: true, deletedAt: null },
       });
       expect(vpCountCalls[1][0]).toEqual({
-        where: { isApproved: false, deletedAt: null },
+        where: { isApproved: false, deletedAt: null, rejectedAt: null },
       });
     });
 
@@ -143,6 +147,7 @@ describe('AdminService', () => {
       expect(findManyCall.where).toEqual({
         isApproved: false,
         deletedAt: null,
+        rejectedAt: null,
       });
     });
 
@@ -211,6 +216,82 @@ describe('AdminService', () => {
 
       const findManyCall = (prisma.vendorProfile.findMany as jest.Mock).mock.calls[0][0];
       expect(findManyCall.orderBy).toEqual({ createdAt: 'asc' });
+    });
+  });
+
+  describe('listAllOrders', () => {
+    it('returns paginated orders for admin', async () => {
+      const fakeOrders = [{ id: 'order-1' }, { id: 'order-2' }];
+      (prisma.$transaction as jest.Mock).mockResolvedValue([fakeOrders, 2]);
+
+      const result = await service.listAllOrders(10, 0);
+
+      expect(result.items).toEqual(fakeOrders);
+      expect(result.total).toBe(2);
+      expect(result.limit).toBe(10);
+      expect(result.offset).toBe(0);
+    });
+
+    it('filters by status when provided', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([[], 0]);
+
+      await service.listAllOrders(10, 0, OrderStatus.CONFIRMED);
+
+      // $transaction uses the array form: prisma.$transaction([findMany(...), count(...)])
+      // order.findMany is called first and its arguments are captured before being
+      // passed to $transaction, so we can assert the where clause directly.
+      const findManyCall = (prisma.order.findMany as jest.Mock).mock.calls[0][0];
+      expect(findManyCall.where).toEqual({ status: OrderStatus.CONFIRMED });
+    });
+
+    it('sanitizes negative limit and offset', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([[], 0]);
+
+      const result = await service.listAllOrders(-5, -10);
+
+      expect(result.limit).toBe(1);
+      expect(result.offset).toBe(0);
+    });
+
+    it('returns empty items when no orders exist', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([[], 0]);
+
+      const result = await service.listAllOrders(20, 0);
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+  });
+
+  describe('getOrderById', () => {
+    it('returns order detail when found', async () => {
+      const fakeOrder = {
+        id: 'order-1',
+        quote: { items: [] },
+        rfq: {},
+        payment: null,
+      };
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(fakeOrder);
+
+      const result = await service.getOrderById('order-1');
+
+      expect(result).toEqual(fakeOrder);
+      expect(prisma.order.findUnique).toHaveBeenCalledWith({
+        where: { id: 'order-1' },
+        include: {
+          quote: { include: { items: true } },
+          rfq: true,
+          payment: true,
+        },
+      });
+    });
+
+    it('throws NotFoundException when order does not exist', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.getOrderById('nonexistent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

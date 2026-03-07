@@ -24,7 +24,7 @@ describe('VendorService', () => {
       create: jest.fn(),
     },
     $transaction: jest.fn(),
-  } as unknown as PrismaService;
+  } as unknown as jest.Mocked<PrismaService>;
 
   const cloudinaryAdapter = {
     uploadFile: jest.fn(),

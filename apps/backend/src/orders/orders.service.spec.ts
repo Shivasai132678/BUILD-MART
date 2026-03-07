@@ -21,7 +21,7 @@ describe('OrdersService', () => {
     vendorProfile: {
       findUnique: jest.fn(),
     },
-  } as unknown as PrismaService;
+  } as unknown as jest.Mocked<PrismaService>;
 
   const notificationsService = {
     createNotification: jest.fn(),

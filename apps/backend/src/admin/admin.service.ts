@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Order, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 type AdminMetricsResponse = {
@@ -29,6 +29,17 @@ type PendingVendorsResponse = {
   limit: number;
   offset: number;
 };
+
+type AdminOrderListResponse = {
+  items: Order[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+type AdminOrderDetail = Prisma.OrderGetPayload<{
+  include: { quote: { include: { items: true } }; rfq: true; payment: true };
+}>;
 
 @Injectable()
 export class AdminService {
@@ -60,6 +71,7 @@ export class AdminService {
         where: {
           isApproved: false,
           deletedAt: null,
+          rejectedAt: null,
         },
       }),
       this.prisma.rFQ.count(),
@@ -98,6 +110,7 @@ export class AdminService {
     const where: Prisma.VendorProfileWhereInput = {
       isApproved: false,
       deletedAt: null,
+      rejectedAt: null,
     };
 
     const [data, total] = await Promise.all([
@@ -132,5 +145,49 @@ export class AdminService {
       offset: safeOffset,
     };
   }
-}
 
+  async listAllOrders(
+    limit: number,
+    offset: number,
+    status?: OrderStatus,
+  ): Promise<AdminOrderListResponse> {
+    const safeLimit = Math.max(1, limit);
+    const safeOffset = Math.max(0, offset);
+
+    const where: Prisma.OrderWhereInput = status !== undefined ? { status } : {};
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        skip: safeOffset,
+        take: safeLimit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    this.logger.log(
+      `Admin orders listed count=${items.length} total=${total} limit=${safeLimit} offset=${safeOffset}`,
+    );
+
+    return { items, total, limit: safeLimit, offset: safeOffset };
+  }
+
+  async getOrderById(id: string): Promise<AdminOrderDetail> {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        quote: { include: { items: true } },
+        rfq: true,
+        payment: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    this.logger.log(`Admin fetched order id=${id}`);
+    return order;
+  }
+}

@@ -21,7 +21,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 type OrderWithRelations = Prisma.OrderGetPayload<{
-  include: { quote: true; rfq: true; payment: true };
+  include: { quote: { include: { items: true } }; rfq: true; payment: true };
 }>;
 
 type PaginatedOrders = {
@@ -167,7 +167,7 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({
       where,
       include: {
-        quote: true,
+        quote: { include: { items: true } },
         rfq: true,
         payment: true,
       },

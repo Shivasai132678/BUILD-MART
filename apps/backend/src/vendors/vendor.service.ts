@@ -105,6 +105,41 @@ export class VendorService {
     return approvedProfile;
   }
 
+  async rejectVendor(
+    vendorId: string,
+    rejectionReason?: string,
+    adminUserId?: string,
+  ): Promise<VendorProfile> {
+    const existingProfile = await this.prisma.vendorProfile.findUnique({
+      where: { id: vendorId },
+    });
+
+    if (!existingProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    if (existingProfile.isApproved) {
+      throw new BadRequestException('Cannot reject an already approved vendor');
+    }
+
+    const rejectedAt = new Date();
+
+    const rejectedProfile = await this.prisma.vendorProfile.update({
+      where: { id: vendorId },
+      data: {
+        isApproved: false,
+        rejectedAt,
+        ...(rejectionReason !== undefined ? { rejectionReason } : {}),
+      },
+    });
+
+    await this.recordVendorRejectionAudit(vendorId, adminUserId, rejectedAt, rejectionReason);
+
+    this.logger.log(`Vendor profile rejected id=${vendorId}`);
+
+    return rejectedProfile;
+  }
+
   private async buildCreateData(
     userId: string,
     dto: OnboardVendorDto,
@@ -242,6 +277,38 @@ export class VendorService {
         error instanceof Error ? error.message : 'Unknown audit log error';
       this.logger.error(
         `Failed to create vendor approval audit log for vendorId=${vendorId}: ${message}`,
+      );
+    }
+  }
+
+  private async recordVendorRejectionAudit(
+    vendorId: string,
+    adminUserId: string | undefined,
+    rejectedAt: Date,
+    rejectionReason: string | undefined,
+  ): Promise<void> {
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: adminUserId ?? null,
+          action: 'VENDOR_REJECTED',
+          entityType: 'VendorProfile',
+          entityId: vendorId,
+          newValue: {
+            rejectedAt: rejectedAt.toISOString(),
+            ...(rejectionReason !== undefined ? { rejectionReason } : {}),
+          },
+        },
+      });
+
+      this.logger.log(
+        `Audit log created for vendor rejection vendorId=${vendorId} by userId=${adminUserId ?? 'unknown'}`,
+      );
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown audit log error';
+      this.logger.error(
+        `Failed to create vendor rejection audit log for vendorId=${vendorId}: ${message}`,
       );
     }
   }

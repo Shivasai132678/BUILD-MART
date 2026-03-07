@@ -34,7 +34,7 @@ describe('QuotesService', () => {
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
-  } as unknown as PrismaService;
+  } as unknown as jest.Mocked<PrismaService>;
 
   const notificationsService = {
     create: jest.fn(),

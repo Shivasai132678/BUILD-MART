@@ -2,11 +2,13 @@ import {
   Controller,
   DefaultValuePipe,
   Get,
+  Param,
+  ParseEnumPipe,
   ParseIntPipe,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { OrderStatus, UserRole } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -34,5 +36,21 @@ export class AdminController {
   ) {
     return this.adminService.getPendingVendors(limit, offset);
   }
-}
 
+  @Get('orders')
+  @Roles(UserRole.ADMIN)
+  listAllOrders(
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+    @Query('status', new ParseEnumPipe(OrderStatus, { optional: true }))
+    status?: OrderStatus,
+  ) {
+    return this.adminService.listAllOrders(limit, offset, status);
+  }
+
+  @Get('orders/:id')
+  @Roles(UserRole.ADMIN)
+  getOrderById(@Param('id') id: string) {
+    return this.adminService.getOrderById(id);
+  }
+}

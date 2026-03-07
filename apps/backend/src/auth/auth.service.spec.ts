@@ -23,7 +23,7 @@ describe('AuthService', () => {
       findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
-  } as unknown as PrismaService;
+  } as unknown as jest.Mocked<PrismaService>;
 
   const jwtService = {
     signAsync: jest.fn(),

@@ -226,10 +226,36 @@ export class RfqService {
         buyerId: userId,
       };
     } else if (role === UserRole.VENDOR) {
+      const vendorProfile = await this.prisma.vendorProfile.findUnique({
+        where: { userId },
+        select: {
+          products: {
+            select: { productId: true },
+          },
+        },
+      });
+
+      if (!vendorProfile) {
+        throw new NotFoundException('Vendor profile not found');
+      }
+
+      const productIds = Array.from(new Set(vendorProfile.products.map((p) => p.productId)));
+
+      if (productIds.length === 0) {
+        throw new NotFoundException('RFQ not found');
+      }
+
       where = {
         id,
         status: {
           in: [RFQStatus.OPEN, RFQStatus.QUOTED],
+        },
+        items: {
+          some: {
+            productId: {
+              in: productIds,
+            },
+          },
         },
       };
     } else {

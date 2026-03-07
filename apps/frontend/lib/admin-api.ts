@@ -66,6 +66,13 @@ export async function approveVendor(id: string) {
   return unwrapApiData<PendingVendorProfile>(response.data);
 }
 
+export async function rejectVendor(id: string, rejectionReason?: string) {
+  const response = await api.patch(`/api/v1/admin/vendors/${id}/reject`, {
+    ...(rejectionReason ? { rejectionReason } : {}),
+  });
+  return unwrapApiData<PendingVendorProfile>(response.data);
+}
+
 export async function getUsers(limit: number, offset: number) {
   const response = await api.get('/api/v1/admin/users', {
     params: { limit, offset },

@@ -10,6 +10,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const logger = new Logger('Bootstrap');
 
+  if (process.env.NODE_ENV === 'production' && process.env.E2E_TEST_OTP) {
+    logger.error(
+      'E2E_TEST_OTP must not be set in production — it bypasses real OTP verification. Aborting.',
+    );
+    process.exit(1);
+  }
+
   app.setGlobalPrefix('api');
   app.enableVersioning({
     type: VersioningType.URI,

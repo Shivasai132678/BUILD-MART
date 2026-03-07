@@ -17,6 +17,10 @@ const vendorNavLinks = [
   { href: '/vendor/orders', label: 'My Orders' },
 ];
 
+function isAllowedRole(role: string): boolean {
+  return role === 'VENDOR' || role === 'ADMIN';
+}
+
 export default function VendorLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -37,11 +41,13 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
         try {
           const res = await api.get('/api/v1/auth/me');
           const data = res.data?.data ?? res.data;
-          if (data?.role === 'VENDOR') { setUser(data); currentUser = data; }
+          if (data?.role && isAllowedRole(data.role)) { setUser(data); currentUser = data; }
           else { router.replace('/login'); if (isActive) setIsCheckingProfile(false); return; }
         } catch { router.replace('/login'); if (isActive) setIsCheckingProfile(false); return; }
       }
-      if (currentUser?.role !== 'VENDOR') { router.replace('/login'); if (isActive) setIsCheckingProfile(false); return; }
+      if (!currentUser?.role || !isAllowedRole(currentUser.role)) { router.replace('/login'); if (isActive) setIsCheckingProfile(false); return; }
+      // ADMIN users skip vendor profile check — they can view vendor pages without a profile
+      if (currentUser.role === 'ADMIN') { if (isActive) setIsCheckingProfile(false); return; }
       const isOnboardingRoute = pathname.startsWith('/vendor/onboarding');
       try {
         await getVendorProfile();
@@ -64,7 +70,7 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
     return () => { isActive = false; };
   }, [hydrated, clearUser, pathname, router, user, setUser]);
 
-  if (!hydrated || !user || user.role !== 'VENDOR' || isCheckingProfile) {
+  if (!hydrated || !user || !isAllowedRole(user.role) || isCheckingProfile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-base">
         <div className="flex items-center gap-3 text-sm text-text-secondary">

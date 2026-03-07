@@ -1,4 +1,5 @@
-import { NotificationType } from '@prisma/client';
+import { NotFoundException } from '@nestjs/common';
+import { NotificationType, RFQStatus, UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RfqService } from './rfq.service';
@@ -9,8 +10,12 @@ describe('RfqService vendor matching', () => {
   const prisma = {
     vendorProfile: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
-  } as unknown as PrismaService;
+    rFQ: {
+      findFirst: jest.fn(),
+    },
+  } as unknown as jest.Mocked<PrismaService>;
 
   const notificationsService = {
     create: jest.fn(),
@@ -126,5 +131,101 @@ describe('RfqService vendor matching', () => {
 
     expect(result).toEqual([]);
     expect(prisma.vendorProfile.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('RfqService getRFQ vendor restriction', () => {
+  let service: RfqService;
+
+  const prisma = {
+    vendorProfile: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    rFQ: {
+      findFirst: jest.fn(),
+    },
+  } as unknown as jest.Mocked<PrismaService>;
+
+  const notificationsService = {
+    create: jest.fn(),
+    createNotification: jest.fn(),
+  } as unknown as NotificationsService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new RfqService(prisma, notificationsService);
+  });
+
+  it('vendor with matching products can see the RFQ', async () => {
+    prisma.vendorProfile.findUnique.mockResolvedValueOnce({
+      products: [{ productId: 'product-1' }],
+    });
+
+    const mockRfq = {
+      id: 'rfq-1',
+      status: RFQStatus.OPEN,
+      items: [{ id: 'item-1', productId: 'product-1' }],
+    };
+    prisma.rFQ.findFirst.mockResolvedValueOnce(mockRfq);
+
+    const result = await service.getRFQ('rfq-1', 'vendor-user-1', UserRole.VENDOR);
+
+    expect(result).toEqual(mockRfq);
+    expect(prisma.vendorProfile.findUnique).toHaveBeenCalledWith({
+      where: { userId: 'vendor-user-1' },
+      select: {
+        products: {
+          select: { productId: true },
+        },
+      },
+    });
+
+    const findFirstArg = (prisma.rFQ.findFirst as jest.Mock).mock.calls[0][0] as {
+      where: {
+        items: {
+          some: {
+            productId: {
+              in: string[];
+            };
+          };
+        };
+      };
+    };
+    expect(findFirstArg.where.items.some.productId.in).toContain('product-1');
+  });
+
+  it('vendor without matching products gets NotFoundException', async () => {
+    prisma.vendorProfile.findUnique.mockResolvedValueOnce({
+      products: [],
+    });
+
+    await expect(
+      service.getRFQ('rfq-1', 'vendor-user-1', UserRole.VENDOR),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(prisma.rFQ.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('vendor with no profile gets NotFoundException', async () => {
+    prisma.vendorProfile.findUnique.mockResolvedValueOnce(null);
+
+    await expect(
+      service.getRFQ('rfq-1', 'vendor-user-1', UserRole.VENDOR),
+    ).rejects.toThrow(NotFoundException);
+
+    expect(prisma.rFQ.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('vendor with matching products but RFQ not found gets NotFoundException', async () => {
+    prisma.vendorProfile.findUnique.mockResolvedValueOnce({
+      products: [{ productId: 'product-1' }],
+    });
+
+    prisma.rFQ.findFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      service.getRFQ('rfq-1', 'vendor-user-1', UserRole.VENDOR),
+    ).rejects.toThrow(NotFoundException);
   });
 });

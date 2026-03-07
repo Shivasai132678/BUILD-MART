@@ -108,6 +108,8 @@ model VendorProfile {
   serviceableAreas   String[]
   isApproved         Boolean   @default(false)
   approvedAt         DateTime?
+  rejectedAt         DateTime?
+  rejectionReason    String?
   averageRating      Decimal   @default(0) @db.Decimal(3, 2)
   totalReviews       Int       @default(0)
   deletedAt          DateTime?
@@ -180,23 +182,25 @@ model VendorProduct {
 // ─── ADDRESSES ──────────────────────────────────────────────
 
 model Address {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   label     String?
   line1     String
   line2     String?
   area      String
-  city      String   @default("Hyderabad")
+  city      String    @default("Hyderabad")
   pincode   String
-  state     String   @default("Telangana")
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  state     String    @default("Telangana")
+  isDefault Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   rfqs RFQ[]
 
   @@index([userId])
+  @@index([deletedAt])
 }
 
 // ─── RFQ ────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ describe('NotificationsService', () => {
       findUnique: jest.fn(),
     },
     $transaction: jest.fn(),
-  } as unknown as PrismaService;
+  } as unknown as jest.Mocked<PrismaService>;
 
   beforeEach(() => {
     jest.clearAllMocks();

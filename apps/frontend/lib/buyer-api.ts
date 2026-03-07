@@ -66,7 +66,7 @@ export type Quote = {
   isWithdrawn: boolean;
   createdAt: string;
   updatedAt: string;
-  items: Array<{
+  items?: Array<{
     id: string;
     quoteId: string;
     productName: string;
@@ -232,4 +232,16 @@ export async function cancelBuyerOrder(id: string, cancelReason?: string) {
   });
 
   return unwrapApiData<Order>(response.data);
+}
+
+export type CreatePaymentOrderResponse = {
+  razorpayOrderId: string;
+  amount: number;
+  currency: 'INR';
+  key: string;
+};
+
+export async function createPaymentOrder(orderId: string) {
+  const response = await api.post('/api/v1/payments/create-order', { orderId });
+  return unwrapApiData<CreatePaymentOrderResponse>(response.data);
 }

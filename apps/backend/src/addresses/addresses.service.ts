@@ -8,10 +8,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 
-// TODO: Address model lacks deletedAt — soft delete uses label prefix hack.
-// Phase 2: add deletedAt DateTime? to Address model with migration.
-const SOFT_DELETED_LABEL = '__SOFT_DELETED__';
-
 type PaginatedAddressesResponse = {
   items: Address[];
   total: number;
@@ -156,7 +152,7 @@ export class AddressesService {
     const address = await this.prisma.address.update({
       where: { id: addressId },
       data: {
-        label: SOFT_DELETED_LABEL,
+        deletedAt: new Date(),
         isDefault: false,
       },
     });
@@ -169,7 +165,7 @@ export class AddressesService {
   private visibleAddressWhere(userId: string): Prisma.AddressWhereInput {
     return {
       userId,
-      OR: [{ label: null }, { label: { not: SOFT_DELETED_LABEL } }],
+      deletedAt: null,
     };
   }
 

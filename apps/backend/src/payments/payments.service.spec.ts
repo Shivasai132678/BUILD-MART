@@ -44,7 +44,7 @@ describe('PaymentsService', () => {
       upsert: jest.fn(),
       update: jest.fn(),
     },
-  } as unknown as PrismaService;
+  } as unknown as jest.Mocked<PrismaService>;
 
   const configValues: Record<string, string | undefined> = {
     RAZORPAY_KEY_ID: 'rzp_test_key_id',

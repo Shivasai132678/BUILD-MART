@@ -28,7 +28,6 @@ are tracked in git.
 | `MSG91_TEMPLATE_ID` | No | MSG91 OTP template ID |
 | `WHATSAPP_API_KEY` | No | Interakt/AiSensy WhatsApp Business API key |
 | `WHATSAPP_SENDER_NUMBER` | No | WhatsApp sender phone number |
-| `SENTRY_DSN` | No | Sentry error tracking DSN |
 
 **Prod** = required in production, optional in development (graceful fallback).
 

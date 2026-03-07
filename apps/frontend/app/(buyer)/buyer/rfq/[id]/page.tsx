@@ -91,7 +91,7 @@ export default function BuyerRfqDetailPage() {
                 </button>
                 {expandedQuote === quote.id && (
                   <div className="mt-3 space-y-1.5">
-                    {quote.items.map((item) => (
+                    {quote.items?.map((item) => (
                       <div key={item.id} className="flex items-center justify-between rounded-lg bg-elevated px-3 py-2 text-sm border border-border-subtle">
                         <span className="text-text-primary">{item.productName}</span>
                         <span className="text-text-secondary">{item.quantity} {item.unit} × ₹{item.unitPrice} = ₹{item.subtotal}</span>

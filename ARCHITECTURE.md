@@ -37,3 +37,13 @@ WHERE vp.city = :rfqCity
       AND vpr.productId IN (:rfqItemProductIds)
   )
 ```
+
+## Address Soft-Delete
+`DELETE /api/v1/addresses/:id` sets `deletedAt = NOW()` and never physically
+removes the row. Read and list queries always filter `deletedAt IS NULL`.
+
+## Admin Order Access
+`GET /api/v1/admin/orders` and `GET /api/v1/admin/orders/:id` are read-only
+endpoints accessible only to users with role `ADMIN`. They do not share code
+paths with buyer/vendor order endpoints; access control is enforced by the
+`RolesGuard` in `AdminController`.
