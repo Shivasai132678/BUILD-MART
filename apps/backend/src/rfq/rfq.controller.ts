@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { UserRole } from '@prisma/client';
+import { RFQStatus, UserRole } from '@prisma/client';
 import type { Request } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -71,9 +71,10 @@ export class RfqController {
     @Req() request: AuthenticatedRequest,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+    @Query('status') status?: RFQStatus,
   ) {
     const { userId } = getRequestUser(request);
-    return this.rfqService.listRFQs(userId, limit, offset);
+    return this.rfqService.listRFQs(userId, limit, offset, status);
   }
 
   @Get('available')

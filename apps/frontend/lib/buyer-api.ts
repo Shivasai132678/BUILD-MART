@@ -158,9 +158,9 @@ export async function createAddress(payload: CreateAddressPayload) {
   return unwrapApiData<Address>(response.data);
 }
 
-export async function fetchBuyerRfqs(limit = 20, offset = 0) {
+export async function fetchBuyerRfqs(limit = 20, offset = 0, status?: string) {
   const response = await api.get('/api/v1/rfq', {
-    params: { limit, offset },
+    params: { limit, offset, ...(status ? { status } : {}) },
   });
 
   return unwrapApiData<PaginatedResponse<Rfq>>(response.data);

@@ -133,9 +133,11 @@ export class RfqService {
     userId: string,
     limit: number,
     offset: number,
+    status?: RFQStatus,
   ): Promise<PaginatedRfqResponse> {
     const where: Prisma.RFQWhereInput = {
       buyerId: userId,
+      ...(status ? { status } : {}),
     };
 
     const [items, total] = await this.prisma.$transaction([
