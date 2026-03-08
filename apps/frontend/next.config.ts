@@ -7,11 +7,19 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=()" },
 ];
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+
 const nextConfig: NextConfig = {
   headers: async () => [
     {
       source: "/(.*)",
       headers: securityHeaders,
+    },
+  ],
+  rewrites: async () => [
+    {
+      source: '/api/:path*',
+      destination: `${apiUrl}/api/:path*`,
     },
   ],
 };

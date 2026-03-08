@@ -7,18 +7,11 @@ export type ApiSuccessEnvelope<T> = {
   path?: string;
 };
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-
-if (
-  typeof window !== 'undefined' &&
-  process.env.NODE_ENV === 'production' &&
-  !process.env.NEXT_PUBLIC_API_URL
-) {
-  console.error(
-    '[BuildMart] NEXT_PUBLIC_API_URL is not set. ' +
-    'All API calls will fail in production.',
-  );
-}
+// In the browser, use relative URLs so requests go through Next.js rewrites (same-origin proxy).
+// On the server (middleware, SSR), use the absolute backend URL directly.
+const baseURL = typeof window !== 'undefined'
+  ? ''
+  : (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001');
 
 export const api = axios.create({
   baseURL,
