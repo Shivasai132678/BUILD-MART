@@ -17,9 +17,9 @@ interface NavbarProps {
 }
 
 const portalBadgeStyles: Record<string, string> = {
-    blue: 'bg-accent/10 text-accent border-accent/20',
-    orange: 'bg-orange/10 text-orange border-orange/20',
-    purple: 'bg-purple/10 text-purple border-purple/20',
+    blue: 'bg-blue/10 text-blue border-blue/20',
+    orange: 'bg-accent/10 text-accent border-accent/20', // orange mapped to accent(amber)
+    purple: 'bg-admin/10 text-admin border-admin/20', // purple mapped to admin(indigo)
 };
 
 export function Navbar({ links, portalLabel, portalColor = 'blue' }: NavbarProps) {
@@ -79,9 +79,20 @@ export function Navbar({ links, portalLabel, portalColor = 'blue' }: NavbarProps
 
             {/* Nav links */}
             <nav className="border-t border-border-subtle/50">
-                <div className="mx-auto flex w-full max-w-7xl gap-1 overflow-x-auto px-6 py-1.5">
+                <div className="mx-auto flex w-full max-w-7xl gap-2 overflow-x-auto px-6 py-2">
                     {links.map((link) => {
                         const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
+
+                        let activeStyle = 'bg-elevated/80 text-text-primary shadow-sm ring-1 ring-border-strong';
+                        if (isActive) {
+                            switch (portalColor) {
+                                case 'blue': activeStyle = 'bg-blue/15 text-blue ring-1 ring-blue/30'; break;
+                                case 'purple': activeStyle = 'bg-admin/15 text-admin ring-1 ring-admin/30'; break;
+                                case 'orange':
+                                default: activeStyle = 'bg-accent/15 text-accent ring-1 ring-accent/30'; break;
+                            }
+                        }
+
                         return (
                             <Link
                                 key={link.href}
@@ -89,7 +100,7 @@ export function Navbar({ links, portalLabel, portalColor = 'blue' }: NavbarProps
                                 className={cn(
                                     'shrink-0 rounded-lg px-3.5 py-1.5 text-sm font-medium transition-all duration-200',
                                     isActive
-                                        ? 'bg-accent/15 text-accent'
+                                        ? activeStyle
                                         : 'text-text-secondary hover:text-text-primary hover:bg-elevated/60',
                                 )}
                             >

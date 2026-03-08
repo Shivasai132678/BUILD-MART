@@ -1,82 +1,214 @@
-# BuildMart — Construction Procurement Platform
+# BuildMart — B2B Construction Procurement Platform
 
-## Quick Start (Local Dev)
+> Hyderabad's construction materials marketplace. Buyers post RFQs, vendors submit competing quotes, orders are confirmed and tracked end-to-end.
 
-### Prerequisites
-- Node v20+, pnpm v8+, Docker Desktop
+---
 
-### Steps
-1. `pnpm install`
-2. `cp apps/backend/.env.example apps/backend/.env`
-   Edit `.env` and set required values (see ENV.md)
-   For Cloudinary/MSG91/Razorpay: leave blank — app works without them in dev
-3. `cp apps/frontend/.env.example apps/frontend/.env.local`
-   Set `NEXT_PUBLIC_API_URL=http://localhost:3001`
-4. `docker compose up -d db`  ← starts Postgres on port **5433**
-   Update DATABASE_URL to use port 5433 if needed
-5. `cd apps/backend && npx prisma migrate deploy && npx prisma db seed`
-6. Terminal 1: `pnpm dev:backend`
-7. Terminal 2: `pnpm dev:frontend`
-8. Open http://localhost:3000
+## Table of Contents
 
-### Demo Accounts (from seed)
-| Phone | Role | Business |
-|-------|------|----------|
-| +919000000001 | Admin | Platform Admin |
-| +919000000002 | Buyer | Demo Buyer |
-| +919000000003 | Buyer | Demo Buyer 2 |
-| +919000000004 | Vendor | Lakshmi Cement Stores |
-| +919000000005 | Vendor | Hyderabad Paints Hub |
-| +919000000006 | Vendor | Telangana Steel Works |
-
-### Getting Your OTP in Dev Mode
-OTPs are printed to the backend console:
-`[DEV] OTP for +91XXXXXXXXXX: 123456`
-(Never logged in production)
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Dev Scripts](#dev-scripts)
+- [Demo Accounts](#demo-accounts)
+- [Project Structure](#project-structure)
+- [Core Workflows](#core-workflows)
+- [Deployment](#deployment)
 
 ---
 
 ## Overview
-BuildMart is a construction procurement platform for Hyderabad contractors and homeowners that streamlines material sourcing through a quote-driven workflow: buyers create RFQs, matched vendors submit quotes, buyers place orders from selected quotes, and both sides track delivery and payment progress in one system.
 
-## What's Built
-- Auth: OTP login (MSG91 adapter), JWT HTTP-only cookie sessions, role-protected buyer/vendor/admin portals.
-- Buyer flows: catalog browsing with category/search filters, address management API integration, multi-item RFQ creation, quote comparison, quote acceptance, and order tracking.
-- Vendor flows: onboarding form + profile management UI, available RFQ feed, quote submission, and order status management.
-- Admin flows: metrics + vendor approval queue backed by admin endpoints.
-- Backend integrations: notification event wiring across RFQ/quote/order/payment flows, Cloudinary adapter for vendor document URL upload handling, Razorpay payment order/webhook flow.
-- Testing: backend Jest coverage for auth OTP lifecycle, order state machine transitions, and RFQ vendor matching logic.
+BuildMart is a **B2B construction materials procurement platform** connecting buyers and verified vendors in Hyderabad.
+
+- **Buyers** browse the catalog, create Requests for Quote (RFQ), compare vendor submissions, and track orders + payments.
+- **Vendors** receive matched RFQs based on their product catalog, submit quotes, and manage fulfilment.
+- **Admins** approve vendor onboarding and monitor platform metrics.
+
+Payment processing via **Razorpay** · OTP delivery via **MSG91** · File storage via **Cloudinary**
+
+---
 
 ## Tech Stack
-- Backend: NestJS, Prisma 6, PostgreSQL, JWT (HTTP-only cookie)
-- Frontend: Next.js (App Router), TailwindCSS, React Query, Zustand
-- Infra: Docker, GitHub Actions CI, Render (backend), Vercel (frontend)
 
-## Dev Scripts (Root)
-| Script | Description |
-|--------|-------------|
-| `pnpm dev:backend` | Start backend in watch mode |
-| `pnpm dev:frontend` | Start Next.js dev server |
-| `pnpm db:reset` | Reset DB + run migrations + seed |
-| `pnpm db:seed` | Run seed script only |
-| `pnpm lint:all` | Lint backend + frontend |
-| `pnpm test:backend` | Run backend tests |
-| `pnpm build:all` | Build backend + frontend |
+| Layer | Technology |
+|-------|-----------|
+| Backend | NestJS 11, Prisma 6, PostgreSQL 16, JWT (HTTP-only cookie) |
+| Frontend | Next.js 16 (App Router), React 19, TailwindCSS v4, TanStack Query v5, Zustand |
+| Auth | OTP via MSG91, SHA-256 hashed storage, JWT cookie sessions |
+| Payments | Razorpay (order create + idempotent webhook) |
+| Files | Cloudinary (vendor documents) |
+| Infra | Docker Compose (local DB), GitHub Actions (CI), Render (backend), Vercel (frontend) |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js** v20+
+- **pnpm** v8+
+- **Docker Desktop** (for local Postgres)
+
+### 1. Install dependencies
+
+```bash
+pnpm install
+```
+
+### 2. Configure environment
+
+```bash
+# Backend
+cp apps/backend/.env.example apps/backend/.env
+# Edit apps/backend/.env — set DATABASE_URL and any required secrets
+# For local dev: Cloudinary/MSG91/Razorpay are optional (OTPs print to console)
+
+# Frontend
+cp apps/frontend/.env.example apps/frontend/.env.local
+# Set: NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+### 3. Start the database
+
+```bash
+docker compose up -d db   # Postgres on port 5433
+```
+
+### 4. Run migrations + seed
+
+```bash
+pnpm db:reset   # migrate + seed in one command
+```
+
+### 5. Start the app
+
+```bash
+# Run BOTH backend and frontend simultaneously (recommended)
+pnpm dev
+
+# — or — run them separately if you prefer two terminals:
+pnpm dev:backend    # Terminal 1  →  http://localhost:3001
+pnpm dev:frontend   # Terminal 2  →  http://localhost:3000
+```
+
+Open **http://localhost:3000** in your browser.
+
+> **Getting OTPs in dev mode:** OTPs are printed to the backend console as:
+> `[DEV] OTP for +91XXXXXXXXXX: 123456`
+> They are never logged in production.
+
+---
+
+## Dev Scripts
+
+All scripts run from the **repo root**.
+
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | **Start backend + frontend together** (recommended) |
+| `pnpm dev:backend` | Backend only — NestJS in watch mode on :3001 |
+| `pnpm dev:frontend` | Frontend only — Next.js dev server on :3000 |
+| `pnpm db:reset` | Reset DB + run all migrations + reseed |
+| `pnpm db:seed` | Run seed script only (no reset) |
+| `pnpm lint:all` | Lint backend and frontend |
+| `pnpm test:backend` | Run backend Jest test suite |
+| `pnpm build:all` | Production build for both apps |
+
+---
+
+## Demo Accounts
+
+Seed data creates these accounts (use the phone number to receive an OTP via console):
+
+| Phone | Role | Notes |
+|-------|------|-------|
+| +919000000001 | Admin | Platform admin — vendor approval, metrics |
+| +919000000002 | Buyer | Demo buyer account |
+| +919000000003 | Buyer | Second demo buyer |
+| +919000000004 | Vendor | Lakshmi Cement Stores (approved) |
+| +919000000005 | Vendor | Hyderabad Paints Hub (approved) |
+| +919000000006 | Vendor | Telangana Steel Works (approved) |
+
+---
+
+## Project Structure
+
+```
+apps/
+├── backend/                        # NestJS API
+│   ├── prisma/
+│   │   ├── schema.prisma           # 16 models, Decimal(10,2) money fields
+│   │   ├── seed.ts
+│   │   └── migrations/
+│   └── src/
+│       ├── auth/                   # OTP flow, JWT strategy, guards
+│       ├── vendors/                # Vendor profiles + admin approval
+│       ├── products/               # Catalog CRUD
+│       ├── rfq/                    # RFQ creation + vendor matching
+│       ├── quotes/                 # Quote submission + comparison
+│       ├── orders/                 # State machine (CONFIRMED → DELIVERED)
+│       ├── payments/               # Razorpay + idempotent webhook
+│       ├── notifications/          # All alerts route through here only
+│       ├── addresses/              # Buyer delivery addresses
+│       ├── admin/                  # Metrics + vendor approval queue
+│       └── common/                 # Guards, filters, interceptors
+└── frontend/                       # Next.js App Router
+    ├── app/
+    │   ├── (auth)/                 # /login
+    │   ├── (buyer)/                # /buyer/dashboard, /catalog, /rfq/*, /orders/*
+    │   ├── (vendor)/               # /vendor/onboarding, /rfq/*, /orders/*
+    │   └── (admin)/                # /admin/dashboard, /admin/vendors
+    ├── lib/
+    │   ├── api.ts                  # Axios base client
+    │   ├── buyer-api.ts
+    │   ├── vendor-api.ts
+    │   └── admin-api.ts
+    └── components/ui/              # Shared UI components
+```
+
+---
+
+## Core Workflows
+
+### RFQ Lifecycle
+```
+OPEN → QUOTED   (first vendor quote received)
+OPEN → EXPIRED  (validUntil datetime reached)
+QUOTED → CLOSED (buyer accepts a quote → order created)
+```
+
+### Order Lifecycle
+```
+CONFIRMED → OUT_FOR_DELIVERY → DELIVERED
+CONFIRMED → CANCELLED
+```
+Any invalid transition throws a `400 Bad Request` with a descriptive message.
+
+### Auth Flow
+1. Buyer/Vendor submits phone number
+2. Backend sends OTP via MSG91 (or prints to console in dev)
+3. OTP stored as SHA-256 hash with 5-minute expiry and `isUsed` guard
+4. On verify: check expiry → check `isUsed=false` → mark used atomically → issue JWT as HTTP-only cookie
+
+---
 
 ## Deployment
 
-### Backend (Render)
-- Use `apps/backend/render.yaml` as the Render blueprint.
-- Render builds the backend Docker image using `apps/backend/Dockerfile`.
-- Production startup runs `npx prisma migrate deploy` before starting NestJS (Rule 21: never `migrate dev` in production).
-- Configure all secrets in Render using `apps/backend/.env.example` as the checklist.
-- Set `FRONTEND_URL` to the deployed Vercel app URL so backend CORS allows browser requests.
+### Backend — Render
 
-### Frontend (Vercel)
-- Deploy `apps/frontend` to Vercel as a Next.js app.
-- Set env vars from `apps/frontend/.env.example` (`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_RAZORPAY_KEY_ID`).
-- `apps/frontend/vercel.json` includes a rewrite placeholder for backend API proxying.
-- Replace `YOUR_RENDER_BACKEND_URL` with the actual Render backend URL after the first backend deployment.
+1. Deploy using `apps/backend/render.yaml` as the Render blueprint.
+2. The Dockerfile at `apps/backend/Dockerfile` is used for the build.
+3. Production start command runs `npx prisma migrate deploy` before NestJS starts.
+4. Set all secrets from `apps/backend/.env.example` in the Render dashboard.
+5. Set `FRONTEND_URL` to your Vercel frontend URL (CORS).
+
+### Frontend — Vercel
+
+1. Deploy the `apps/frontend` directory as a Next.js project.
+2. Set env vars: `NEXT_PUBLIC_API_URL` (Render backend URL), `NEXT_PUBLIC_RAZORPAY_KEY_ID`.
+3. Update `apps/frontend/vercel.json` — replace `YOUR_RENDER_BACKEND_URL` with the actual Render URL.
+
 
 ## Staging Smoke Test Checklist
 After deploying backend (Render) and frontend (Vercel), run this minimum staging validation:

@@ -143,7 +143,7 @@ export default function VendorOnboardingPage() {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="flex items-center gap-3 text-sm text-text-secondary">
-          <Loader2 className="h-5 w-5 animate-spin text-accent" />
+          <Loader2 className="h-5 w-5 animate-spin text-blue" />
           Checking vendor profile…
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function VendorOnboardingPage() {
 
   if (profileQuery.isError && !isNotFoundError(profileQuery.error)) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
         {getApiErrorMessage(profileQuery.error, 'Failed to verify vendor profile status.')}
       </div>
     );
@@ -177,7 +177,7 @@ export default function VendorOnboardingPage() {
           {/* Business info section */}
           <div className="space-y-1 mb-1">
             <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-              <Building2 className="h-4 w-4 text-accent" />
+              <Building2 className="h-4 w-4 text-blue" />
               Business Information
             </div>
           </div>
@@ -208,7 +208,7 @@ export default function VendorOnboardingPage() {
           {/* Location section */}
           <div className="border-t border-border pt-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-4">
-              <MapPin className="h-4 w-4 text-accent" />
+              <MapPin className="h-4 w-4 text-blue" />
               Location & Service Area
             </div>
           </div>
@@ -264,7 +264,7 @@ export default function VendorOnboardingPage() {
           {/* Documents section */}
           <div className="border-t border-border pt-5">
             <div className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-4">
-              <FileText className="h-4 w-4 text-accent" />
+              <FileText className="h-4 w-4 text-blue" />
               Documents (Optional)
             </div>
           </div>
@@ -288,7 +288,7 @@ export default function VendorOnboardingPage() {
           </div>
 
           {errors.root && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger">
               {errors.root.message}
             </div>
           )}

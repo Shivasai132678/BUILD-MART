@@ -12,7 +12,7 @@ interface ConfirmDialogProps {
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
-  variant?: 'primary' | 'danger';
+  variant?: 'primary' | 'danger' | 'admin' | 'vendor';
   loading?: boolean;
   children?: ReactNode;
 }

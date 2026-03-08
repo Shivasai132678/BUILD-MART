@@ -38,14 +38,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
                             'focus:ring-2 focus:ring-accent/20 focus:border-accent focus:outline-none',
                             'disabled:opacity-50 disabled:cursor-not-allowed',
                             icon && 'pl-10',
-                            error && 'border-accent-danger focus:ring-accent-danger/20 focus:border-accent-danger',
+                            error && 'border-danger focus:ring-danger/20 focus:border-danger',
                             className,
                         )}
                         {...props}
                     />
                 </div>
                 {error && (
-                    <p className="text-xs text-accent-danger font-medium">{error}</p>
+                    <p className="text-xs text-danger font-medium">{error}</p>
                 )}
             </div>
         );

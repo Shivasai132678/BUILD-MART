@@ -10,10 +10,9 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles: Record<CardVariant, string> = {
-    default: 'shadow-sm border border-border bg-surface-raised',
-    elevated:
-        'shadow-md border border-border bg-surface-raised hover:shadow-lg transition-shadow duration-300',
-    flat: 'border border-border bg-surface-raised',
+    default: 'card',
+    elevated: 'card hover:shadow-lg transition-shadow duration-300',
+    flat: 'bg-surface border border-border-strong',
 };
 
 export function Card({

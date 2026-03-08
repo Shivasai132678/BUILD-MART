@@ -13,16 +13,12 @@ export default function LoginPage() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2 text-center">
-        <p className="text-lg font-bold tracking-tight">
-          <span className="text-text-primary">Build</span>
-          <span className="text-accent">Mart</span>
-        </p>
-        <h2 className="text-2xl font-bold text-text-primary">Welcome back</h2>
-        <p className="text-sm text-text-secondary">
+      <div className="space-y-2">
+        <h2 className="text-3xl font-bold text-[#F5F0E8]">Welcome back</h2>
+        <p className="text-[#A89F91]">
           {step === 'phone'
-            ? 'Enter your phone number to get started.'
-            : `Enter the 6-digit OTP sent to ${phone}.`}
+            ? 'Sign in to your BuildMart account'
+            : `Enter the OTP sent to ${phone}`}
         </p>
       </div>
 

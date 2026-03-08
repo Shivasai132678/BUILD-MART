@@ -14,7 +14,7 @@ export function ErrorMessage({ message, className = '' }: ErrorMessageProps) {
     <div
       role="alert"
       className={cn(
-        'rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700',
+        'rounded-xl border border-danger/20 bg-danger/10 px-4 py-3 text-sm text-danger',
         className,
       )}
     >

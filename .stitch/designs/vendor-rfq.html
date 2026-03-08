@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BuildMart Vendor RFQ Board View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#3b7fc1",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#141210",
+                        "surface-dark": "#1a1714",
+                        "border-dark": "#2a251f",
+                        "amber-accent": "#d97706"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen overflow-x-hidden flex flex-col">
+<div class="layout-container flex h-full grow flex-col">
+<div class="px-4 md:px-10 lg:px-40 flex flex-1 justify-center py-5">
+<div class="layout-content-container flex flex-col max-w-[1200px] flex-1">
+<!-- Top Navigation -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-border-dark px-4 py-4 mb-6">
+<div class="flex items-center gap-4">
+<div class="text-primary size-8 flex items-center justify-center">
+<span class="material-symbols-outlined text-3xl">construction</span>
+</div>
+<h2 class="text-xl font-bold leading-tight tracking-[-0.015em]">BuildMart</h2>
+<span class="bg-primary/20 text-primary text-xs font-semibold px-2 py-1 rounded ml-2">Vendor Portal</span>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<div class="flex items-center gap-9">
+<a class="text-primary text-sm font-semibold leading-normal border-b-2 border-primary pb-1" href="#">RFQ Board</a>
+<a class="text-slate-400 hover:text-slate-200 text-sm font-medium leading-normal transition-colors" href="#">Orders</a>
+<a class="text-slate-400 hover:text-slate-200 text-sm font-medium leading-normal transition-colors" href="#">Catalog</a>
+<a class="text-slate-400 hover:text-slate-200 text-sm font-medium leading-normal transition-colors" href="#">Settings</a>
+</div>
+<div class="flex items-center gap-4 border-l border-border-dark pl-8">
+<button class="text-slate-400 hover:text-slate-200 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-dark border border-border-dark flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-slate-400">person</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Header & Filters -->
+<div class="flex flex-wrap items-center justify-between gap-4 p-4 mb-2">
+<h1 class="text-[32px] font-bold leading-tight">Active RFQs</h1>
+<div class="flex gap-3 flex-wrap">
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-surface-dark border border-border-dark px-4 hover:bg-border-dark transition-colors">
+<span class="material-symbols-outlined text-sm text-slate-400">category</span>
+<span class="text-sm font-medium leading-normal">Category</span>
+<span class="material-symbols-outlined text-slate-400 text-sm">expand_more</span>
+</button>
+<button class="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-surface-dark border border-border-dark px-4 hover:bg-border-dark transition-colors">
+<span class="material-symbols-outlined text-sm text-slate-400">location_on</span>
+<span class="text-sm font-medium leading-normal">Location: Hyderabad</span>
+<span class="material-symbols-outlined text-slate-400 text-sm">expand_more</span>
+</button>
+<div class="relative flex h-10 items-center rounded-lg bg-surface-dark border border-border-dark px-4 hover:bg-border-dark transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-sm text-slate-400 mr-2">sort</span>
+<select class="appearance-none bg-transparent border-none text-sm font-medium pr-6 focus:ring-0 cursor-pointer">
+<option>Sort by: Urgency</option>
+<option>Sort by: Volume</option>
+<option>Sort by: Newest</option>
+</select>
+<span class="material-symbols-outlined text-slate-400 text-sm absolute right-3 pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Tabs -->
+<div class="mb-6">
+<div class="flex border-b border-border-dark px-4 gap-8">
+<a class="flex flex-col items-center justify-center border-b-[3px] border-primary text-slate-100 pb-3 pt-2" href="#">
+<span class="text-sm font-bold leading-normal tracking-wide">Open</span>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-transparent text-slate-400 hover:text-slate-200 transition-colors pb-3 pt-2" href="#">
+<span class="text-sm font-bold leading-normal tracking-wide">Quoted</span>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-transparent text-slate-400 hover:text-slate-200 transition-colors pb-3 pt-2" href="#">
+<span class="text-sm font-bold leading-normal tracking-wide">Awarded</span>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] border-transparent text-slate-400 hover:text-slate-200 transition-colors pb-3 pt-2" href="#">
+<span class="text-sm font-bold leading-normal tracking-wide">Lost</span>
+</a>
+</div>
+</div>
+<!-- RFQ List -->
+<div class="flex flex-col gap-4 px-4 pb-12">
+<!-- Card 1 -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-6 flex flex-col gap-5 hover:border-border-dark hover:border-l-4 hover:border-l-primary transition-all group">
+<div class="flex justify-between items-start gap-4 flex-wrap">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-3">
+<h3 class="text-lg font-bold">500 Bags OPC 43 Grade Cement</h3>
+<span class="bg-amber-accent/20 text-amber-accent text-xs font-semibold px-2 py-1 rounded">Urgent</span>
+</div>
+<div class="flex items-center gap-2 text-slate-400 text-sm">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span class="text-amber-accent">Closes in 2 days</span>
+<span class="px-1">•</span>
+<span>RFQ-2023-8942</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-border-dark">
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Buyer Location</span>
+<div class="flex items-center gap-1.5 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px] text-slate-500">location_on</span>
+                                    Gachibowli, Hyderabad
+                                </div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Site Type</span>
+<div class="flex items-center gap-1.5 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px] text-slate-500">apartment</span>
+                                    Commercial High-rise
+                                </div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Req. Delivery</span>
+<div class="flex items-center gap-1.5 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_today</span>
+                                    Oct 15 - Oct 18, 2023
+                                </div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Quantity</span>
+<div class="flex items-center gap-1.5 text-sm font-medium text-slate-100">
+<span class="material-symbols-outlined text-[18px] text-slate-500">inventory_2</span>
+                                    500 Bags
+                                </div>
+</div>
+</div>
+<div class="flex justify-between items-center mt-1">
+<div class="flex items-center gap-2 text-sm text-slate-300">
+<span class="material-symbols-outlined text-green-500 text-[18px]">check_circle</span>
+<span>Matching items in your catalog: <strong class="text-slate-100">2</strong></span>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center gap-2">
+                                Submit Quote
+                                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-dark border border-border-dark rounded-xl p-6 flex flex-col gap-5 hover:border-border-dark hover:border-l-4 hover:border-l-primary transition-all group">
+<div class="flex justify-between items-start gap-4 flex-wrap">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-3">
+<h3 class="text-lg font-bold">TMT Steel Bars (Fe500D) - Various Sizes</h3>
+<span class="bg-primary/20 text-primary text-xs font-semibold px-2 py-1 rounded">High Volume</span>
+</div>
+<div class="flex items-center gap-2 text-slate-400 text-sm">
+<span class="material-symbols-outlined text-[16px]">schedule</span>
+<span>Closes in 5 days</span>
+<span class="px-1">•</span>
+<span>RFQ-2023-8938</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-y border-border-dark">
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Buyer Location</span>
+<div class="flex items-center gap-1.5 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px] text-slate-500">location_on</span>
+                                    Madhapur, Hyderabad
+                                </div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Site Type</span>
+<div class="flex items-center gap-1.5 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px] text-slate-500">house</span>
+                                    Residential Complex
+                                </div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Req. Delivery</span>
+<div class="flex items-center gap-1.5 text-sm font-medium">
+<span class="material-symbols-outlined text-[18px] text-slate-500">calendar_today</span>
+                                    Nov 01 - Nov 05, 2023
+                                </div>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Quantity</span>
+<div class="flex items-center gap-1.5 text-sm font-medium text-slate-100">
+<span class="material-symbols-outlined text-[18px] text-slate-500">inventory_2</span>
+                                    25 Metric Tons
+                                </div>
+</div>
+</div>
+<div class="flex justify-between items-center mt-1">
+<div class="flex items-center gap-2 text-sm text-slate-300">
+<span class="material-symbols-outlined text-green-500 text-[18px]">check_circle</span>
+<span>Matching items in your catalog: <strong class="text-slate-100">4</strong></span>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white font-semibold py-2.5 px-6 rounded-lg transition-colors flex items-center gap-2">
+                                Submit Quote
+                                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

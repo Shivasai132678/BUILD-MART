@@ -3,20 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { Truck, Package } from 'lucide-react';
 import { getVendorOrderById, updateOrderStatus } from '@/lib/vendor-api';
 import type { OrderDetail } from '@/lib/buyer-api';
 import { getApiErrorMessage } from '@/lib/api';
 import { formatIST } from '@/lib/utils/date';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { SkeletonCard } from '@/components/ui/Skeleton';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { cn } from '@/lib/utils';
-
-const pageV = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
 
 function buildTimeline(order: OrderDetail) {
   const delivered = order.status === 'DELIVERED';
@@ -26,6 +17,20 @@ function buildTimeline(order: OrderDetail) {
     { key: 'OUT_FOR_DELIVERY', label: 'Dispatched', timestamp: order.dispatchedAt, complete: outForDelivery },
     { key: 'DELIVERED', label: 'Delivered', timestamp: order.deliveredAt, complete: delivered },
   ];
+}
+
+function OrderStatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    CONFIRMED: 'bg-[#3B7FC1]/15 text-[#60A5FA] border-[#3B7FC1]/30',
+    OUT_FOR_DELIVERY: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+    DELIVERED: 'bg-green-500/15 text-green-400 border-green-500/30',
+    CANCELLED: 'bg-red-500/15 text-red-400 border-red-500/30',
+  };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${map[status] ?? 'bg-[#253347] text-[#8EA5C0]'}`}>
+      {status.replace(/_/g, ' ')}
+    </span>
+  );
 }
 
 export default function VendorOrderDetailPage() {
@@ -41,43 +46,65 @@ export default function VendorOrderDetailPage() {
     onError: (error) => { toast.error(getApiErrorMessage(error)); },
   });
 
-  if (!orderId) return <EmptyState title="Invalid order ID" />;
-  if (orderQuery.isLoading) return <div className="space-y-6"><SkeletonCard /><SkeletonCard /></div>;
-  if (orderQuery.isError || !orderQuery.data) return <EmptyState title="Failed to load order" subtitle={getApiErrorMessage(orderQuery.error)} actionLabel="Back" actionHref="/vendor/orders" />;
+  if (!orderId) return (
+    <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-12 text-center">
+      <span className="material-symbols-outlined text-4xl text-[#4A6080]">error</span>
+      <p className="mt-3 font-semibold text-[#E2EAF4]">Invalid order ID</p>
+    </div>
+  );
+
+  if (orderQuery.isLoading) return (
+    <div className="space-y-4">
+      {[1, 2].map((i) => <div key={i} className="bg-[#1E2A3A] border border-[#253347] rounded-2xl h-36 animate-pulse" />)}
+    </div>
+  );
+
+  if (orderQuery.isError || !orderQuery.data) return (
+    <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-12 text-center">
+      <span className="material-symbols-outlined text-4xl text-[#4A6080]">error</span>
+      <p className="mt-3 font-semibold text-[#E2EAF4]">Failed to load order</p>
+      <p className="mt-1 text-sm text-[#8EA5C0]">{orderQuery.error ? getApiErrorMessage(orderQuery.error) : 'Order not found'}</p>
+      <Link href="/vendor/orders" className="mt-4 inline-block text-sm font-medium text-[#60A5FA] hover:underline">← Back to Orders</Link>
+    </div>
+  );
 
   const order = orderQuery.data;
   const timeline = buildTimeline(order);
 
   return (
-    <motion.div className="space-y-6" variants={pageV} initial="hidden" animate="visible">
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <span className="text-xs font-mono text-text-tertiary bg-elevated px-2 py-0.5 rounded">Order #{order.id.slice(0, 10)}</span>
-          <h1 className="mt-2 text-3xl font-bold text-text-primary">₹{Number(order.totalAmount).toLocaleString('en-IN')}</h1>
-          <p className="mt-1 text-sm text-text-secondary">Created {formatIST(order.createdAt)}</p>
+          <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#253347] text-[#4A6080]">Order #{order.id.slice(0, 10)}</span>
+          <h1 className="mt-2 text-3xl font-bold text-[#E2EAF4]">₹{Number(order.totalAmount).toLocaleString('en-IN')}</h1>
+          <p className="mt-1 text-sm text-[#8EA5C0]">Created {formatIST(order.createdAt)}</p>
         </div>
-        <Badge status={order.status} />
+        <OrderStatusBadge status={order.status} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
+        {/* Timeline */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="card p-5">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">Order Timeline</h2>
+          <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-6">
+            <h2 className="text-lg font-semibold text-[#E2EAF4] mb-4">Order Timeline</h2>
+
             {order.status === 'CANCELLED' && (
-              <div className="mb-4 rounded-xl bg-danger/10 border border-danger/20 px-4 py-3 text-sm text-danger">
+              <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
                 Cancelled{order.cancelledAt ? ` on ${formatIST(order.cancelledAt)}` : ''}{order.cancelReason ? ` · ${order.cancelReason}` : ''}
               </div>
             )}
+
             <ol className="space-y-0">
               {timeline.map((step, i) => (
                 <li key={step.key} className="flex gap-3.5">
                   <div className="flex flex-col items-center">
-                    <div className={cn('h-3 w-3 rounded-full mt-1', step.complete ? 'bg-success' : 'bg-border-strong')} />
-                    {i < timeline.length - 1 && <div className={cn('w-0.5 flex-1 my-1 min-h-[32px]', step.complete ? 'bg-success' : 'bg-border-subtle')} />}
+                    <div className={`h-3 w-3 rounded-full mt-1 ${step.complete ? 'bg-green-500' : 'bg-[#253347]'}`} />
+                    {i < timeline.length - 1 && <div className={`w-0.5 flex-1 my-1 min-h-[32px] ${step.complete ? 'bg-green-500' : 'bg-[#253347]'}`} />}
                   </div>
                   <div className="pb-4">
-                    <p className={cn('text-sm font-medium', step.complete ? 'text-text-primary' : 'text-text-tertiary')}>{step.label}</p>
-                    <p className="text-xs text-text-tertiary">{step.timestamp ? formatIST(step.timestamp) : 'Pending'}</p>
+                    <p className={`text-sm font-medium ${step.complete ? 'text-[#E2EAF4]' : 'text-[#4A6080]'}`}>{step.label}</p>
+                    <p className="text-xs text-[#4A6080]">{step.timestamp ? formatIST(step.timestamp) : 'Pending'}</p>
                   </div>
                 </li>
               ))}
@@ -85,30 +112,49 @@ export default function VendorOrderDetailPage() {
           </div>
         </div>
 
+        {/* Actions Sidebar */}
         <div>
-          <div className="card p-5 sticky top-24 space-y-4">
-            <h3 className="text-sm font-semibold text-text-primary">Actions</h3>
+          <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-6 sticky top-24 space-y-4">
+            <h3 className="text-sm font-semibold text-[#E2EAF4]">Actions</h3>
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between"><span className="text-text-secondary">Total Amount</span><span className="font-semibold text-text-primary">₹{order.totalAmount}</span></div>
-              <div className="flex justify-between"><span className="text-text-secondary">Buyer</span><span className="text-xs font-mono text-text-tertiary">#{order.buyerId.slice(0, 8)}</span></div>
+              <div className="flex justify-between">
+                <span className="text-[#8EA5C0]">Total Amount</span>
+                <span className="font-semibold text-[#E2EAF4]">₹{Number(order.totalAmount).toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#8EA5C0]">Buyer</span>
+                <span className="text-xs font-mono text-[#4A6080]">#{order.buyerId.slice(0, 8)}</span>
+              </div>
             </div>
 
             {order.status === 'CONFIRMED' && (
-              <Button className="w-full" loading={statusMutation.isPending} onClick={() => statusMutation.mutate('OUT_FOR_DELIVERY')}>
-                <Truck className="h-4 w-4" />Mark Dispatched
-              </Button>
+              <button
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate('OUT_FOR_DELIVERY')}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-[#3B7FC1] hover:bg-[#2B6FAF] text-white transition-all disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[18px]">local_shipping</span>
+                {statusMutation.isPending ? 'Updating…' : 'Mark Dispatched'}
+              </button>
             )}
+
             {order.status === 'OUT_FOR_DELIVERY' && (
-              <Button className="w-full" loading={statusMutation.isPending} onClick={() => statusMutation.mutate('DELIVERED')}>
-                <Package className="h-4 w-4" />Mark Delivered
-              </Button>
+              <button
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate('DELIVERED')}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-green-600 hover:bg-green-700 text-white transition-all disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[18px]">inventory</span>
+                {statusMutation.isPending ? 'Updating…' : 'Mark Delivered'}
+              </button>
             )}
-            <Link href="/vendor/orders" className="block text-center text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+
+            <Link href="/vendor/orders" className="block text-center text-sm font-medium text-[#8EA5C0] hover:text-[#E2EAF4] transition-colors">
               ← Back to Orders
             </Link>
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

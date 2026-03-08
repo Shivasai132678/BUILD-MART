@@ -13,9 +13,9 @@ export function Toaster() {
         style: {
           fontFamily: "'Inter var', 'Inter', system-ui, sans-serif",
           borderRadius: '12px',
-          background: '#0F1011',
-          border: '1px solid rgba(255,255,255,0.10)',
-          color: 'rgba(255,255,255,0.95)',
+          background: '#1A1714',
+          border: '1px solid #2A251F',
+          color: '#F5F0E8',
         },
       }}
     />

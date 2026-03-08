@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BuildMart Vendor Sales Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#3B7FC1",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#141210",
+                        "card-dark": "#211E19",
+                        "border-dark": "#322E26",
+                        "text-muted": "#9A8F7A",
+                        "amber-accent": "#D97706",
+                        "green-accent": "#10B981"
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display min-h-screen">
+<div class="layout-container flex h-full grow flex-col">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-border-dark px-10 py-4 bg-card-dark sticky top-0 z-50">
+<div class="flex items-center gap-4 text-slate-100">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-3xl">construction</span>
+<h2 class="text-slate-100 text-xl font-bold leading-tight tracking-[-0.015em]">BuildMart</h2>
+<span class="bg-primary/20 text-primary text-xs font-bold px-2 py-1 rounded ml-2">Vendor Portal</span>
+</div>
+</div>
+<div class="flex flex-1 justify-end gap-8">
+<nav class="flex items-center gap-9">
+<a class="text-primary text-sm font-semibold leading-normal border-b-2 border-primary pb-1" href="#">Dashboard</a>
+<a class="text-text-muted hover:text-slate-100 text-sm font-medium leading-normal transition-colors" href="#">RFQ Board</a>
+<a class="text-text-muted hover:text-slate-100 text-sm font-medium leading-normal transition-colors" href="#">My Orders</a>
+<a class="text-text-muted hover:text-slate-100 text-sm font-medium leading-normal transition-colors" href="#">My Profile</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="text-text-muted hover:text-slate-100 transition-colors relative" aria-label="Notifications">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 size-2 bg-amber-accent rounded-full"></span>
+</button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-border-dark" data-alt="Vendor profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBo1kSEVgW1eoeiRxMwjIOCcLgS-N9ZJM6PTUxEaQwfT8wBWL1T558ijXdo30NhQRLvBveuHDx4ZWnJt0mcw5a220dSWgAJ4-FFKwpq5_j6lTlpV2S81-8v4VzwKdNxwds5rFt84AMF6SAS6GDfeiz-JHTq9JMXOdynE1xUoHLhp3SUPJKyxul1seZ445pHbdd-0DjFvREc-wGzitQjeVKUO-MQITWzO6VQLYRRWU474_pXksjyFEbdVndR8iM4nFvXk3HvZlnC44e6");'></div>
+</div>
+</div>
+</header>
+<main class="flex-1 w-full max-w-7xl mx-auto px-6 py-8 flex flex-col gap-8">
+<!-- Page Header -->
+<div class="flex flex-wrap items-center justify-between gap-4">
+<div class="flex flex-col gap-2">
+<h1 class="text-slate-100 text-3xl font-bold leading-tight tracking-[-0.033em]">Welcome back, Sharma Hardware</h1>
+<p class="text-text-muted text-base font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-sm">info</span>
+                        You have 3 new RFQs matching your catalog
+                    </p>
+</div>
+<button class="flex items-center gap-2 bg-primary hover:bg-primary/90 transition-colors text-white px-5 py-2.5 rounded-lg text-sm font-semibold shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-sm">search</span>
+                    Browse RFQs
+                </button>
+</div>
+<!-- Stats Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-card-dark border border-border-dark">
+<div class="flex items-center justify-between">
+<p class="text-text-muted text-sm font-semibold uppercase tracking-wider">New RFQs Today</p>
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">assignment</span>
+</div>
+<p class="text-slate-100 text-3xl font-bold">3</p>
+</div>
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-card-dark border border-border-dark">
+<div class="flex items-center justify-between">
+<p class="text-text-muted text-sm font-semibold uppercase tracking-wider">Quotes Submitted</p>
+<span class="material-symbols-outlined text-slate-100 bg-border-dark p-2 rounded-lg">send</span>
+</div>
+<p class="text-slate-100 text-3xl font-bold">12</p>
+</div>
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-card-dark border border-border-dark">
+<div class="flex items-center justify-between">
+<p class="text-text-muted text-sm font-semibold uppercase tracking-wider">Orders Won</p>
+<span class="material-symbols-outlined text-green-accent bg-green-accent/10 p-2 rounded-lg">emoji_events</span>
+</div>
+<p class="text-slate-100 text-3xl font-bold">5</p>
+</div>
+<div class="flex flex-col gap-3 rounded-xl p-5 bg-card-dark border border-border-dark relative overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-amber-accent/5 to-transparent"></div>
+<div class="relative flex items-center justify-between">
+<p class="text-amber-accent text-sm font-semibold uppercase tracking-wider">Revenue This Month</p>
+<span class="material-symbols-outlined text-amber-accent bg-amber-accent/10 p-2 rounded-lg">payments</span>
+</div>
+<p class="relative text-slate-100 text-3xl font-bold">₹45,000</p>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Live RFQ Board -->
+<div class="lg:col-span-2 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="text-slate-100 text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">local_shipping</span>
+                            New RFQs for You
+                        </h2>
+<a class="text-primary text-sm font-medium hover:underline" href="#">View All</a>
+</div>
+<div class="flex flex-col gap-4">
+<!-- RFQ Card 1 -->
+<div class="flex items-center justify-between gap-4 rounded-xl bg-card-dark border border-border-dark p-5 transition-transform hover:-translate-y-1 hover:shadow-lg">
+<div class="flex items-center gap-4 flex-1">
+<div class="bg-border-dark p-3 rounded-lg">
+<span class="material-symbols-outlined text-slate-300">architecture</span>
+</div>
+<div class="flex flex-col gap-1">
+<h3 class="text-slate-100 text-lg font-bold">TMT Steel Bars (Fe500D)</h3>
+<div class="flex items-center gap-4 text-text-muted text-sm font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">location_on</span> Hyderabad</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">scale</span> 50 Tons</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">schedule</span> Closes in 2h</span>
+</div>
+</div>
+</div>
+<button class="bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors px-4 py-2 rounded-lg text-sm font-semibold">
+                                Submit Quote
+                            </button>
+</div>
+<!-- RFQ Card 2 -->
+<div class="flex items-center justify-between gap-4 rounded-xl bg-card-dark border border-border-dark p-5 transition-transform hover:-translate-y-1 hover:shadow-lg">
+<div class="flex items-center gap-4 flex-1">
+<div class="bg-border-dark p-3 rounded-lg">
+<span class="material-symbols-outlined text-slate-300">water_drop</span>
+</div>
+<div class="flex flex-col gap-1">
+<h3 class="text-slate-100 text-lg font-bold">Portland Pozzolana Cement (PPC)</h3>
+<div class="flex items-center gap-4 text-text-muted text-sm font-medium">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">location_on</span> Bangalore</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">scale</span> 200 Bags</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-xs">schedule</span> Closes in 5h</span>
+</div>
+</div>
+</div>
+<button class="bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors px-4 py-2 rounded-lg text-sm font-semibold">
+                                Submit Quote
+                            </button>
+</div>
+</div>
+</div>
+<!-- Performance Metrics -->
+<div class="flex flex-col gap-4">
+<h2 class="text-slate-100 text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">monitoring</span>
+                        Performance
+                    </h2>
+<div class="flex flex-col gap-4">
+<div class="bg-card-dark border border-border-dark rounded-xl p-5 flex flex-col gap-3">
+<div class="flex justify-between items-center text-sm">
+<span class="text-text-muted font-medium">Quote Win Rate</span>
+<span class="text-slate-100 font-bold">42%</span>
+</div>
+<div class="w-full bg-border-dark rounded-full h-2">
+<div class="bg-primary h-2 rounded-full" style="width: 42%"></div>
+</div>
+</div>
+<div class="bg-card-dark border border-border-dark rounded-xl p-5 flex items-center justify-between">
+<div class="flex flex-col gap-1">
+<span class="text-text-muted text-sm font-medium">Avg Response Time</span>
+<span class="text-slate-100 text-xl font-bold">1.5 hrs</span>
+</div>
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">timer</span>
+</div>
+<div class="bg-card-dark border border-border-dark rounded-xl p-5 flex items-center justify-between">
+<div class="flex flex-col gap-1">
+<span class="text-text-muted text-sm font-medium">Buyer Rating</span>
+<div class="flex items-center gap-2">
+<span class="text-slate-100 text-xl font-bold">4.7</span>
+<span class="text-text-muted text-sm">/ 5</span>
+</div>
+</div>
+<div class="flex text-amber-accent">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 0.5;">star_half</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Active Orders Table -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h2 class="text-slate-100 text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">inventory_2</span>
+                        Active Orders
+                    </h2>
+<button class="text-text-muted hover:text-slate-100 text-sm font-medium flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-sm">filter_list</span> Filter
+                    </button>
+</div>
+<div class="bg-card-dark border border-border-dark rounded-xl overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-border-dark bg-background-dark/50">
+<th class="p-4 text-text-muted text-sm font-semibold">Order ID</th>
+<th class="p-4 text-text-muted text-sm font-semibold">Buyer Name</th>
+<th class="p-4 text-text-muted text-sm font-semibold">Material</th>
+<th class="p-4 text-text-muted text-sm font-semibold">Amount</th>
+<th class="p-4 text-text-muted text-sm font-semibold">Status</th>
+<th class="p-4 text-text-muted text-sm font-semibold text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-dark">
+<tr class="hover:bg-border-dark/30 transition-colors">
+<td class="p-4 text-slate-100 font-medium">#BM-8902</td>
+<td class="p-4 text-slate-300">Larsen &amp; Toubro</td>
+<td class="p-4 text-slate-300">TMT Steel Bars</td>
+<td class="p-4 text-slate-100 font-medium">₹1,25,000</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-accent/20 text-amber-accent border border-amber-accent/30">
+<span class="material-symbols-outlined text-[12px]">sync</span> Processing
+                                        </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:text-primary/80 text-sm font-medium">View</button>
+</td>
+</tr>
+<tr class="hover:bg-border-dark/30 transition-colors">
+<td class="p-4 text-slate-100 font-medium">#BM-8895</td>
+<td class="p-4 text-slate-300">Rohan Builders</td>
+<td class="p-4 text-slate-300">Ultratech Cement</td>
+<td class="p-4 text-slate-100 font-medium">₹45,000</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary border border-primary/30">
+<span class="material-symbols-outlined text-[12px]">local_shipping</span> Shipped
+                                        </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:text-primary/80 text-sm font-medium">View</button>
+</td>
+</tr>
+<tr class="hover:bg-border-dark/30 transition-colors">
+<td class="p-4 text-slate-100 font-medium">#BM-8850</td>
+<td class="p-4 text-slate-300">Ahuja Constructions</td>
+<td class="p-4 text-slate-300">River Sand</td>
+<td class="p-4 text-slate-100 font-medium">₹32,000</td>
+<td class="p-4">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-accent/20 text-green-accent border border-green-accent/30">
+<span class="material-symbols-outlined text-[12px]">check_circle</span> Delivered
+                                        </span>
+</td>
+<td class="p-4 text-right">
+<button class="text-primary hover:text-primary/80 text-sm font-medium">View</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

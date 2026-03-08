@@ -2,6 +2,7 @@
     "name": "buildmart",
     "private": true,
     "scripts": {
+        "dev": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"blue,green\" \"pnpm dev:backend\" \"pnpm dev:frontend\"",
         "dev:backend": "cd apps/backend && pnpm start:dev",
         "dev:frontend": "cd apps/frontend && pnpm dev",
         "db:reset": "cd apps/backend && npx prisma migrate reset --force && npx prisma db seed",
@@ -9,5 +10,8 @@
         "lint:all": "cd apps/backend && pnpm lint && cd ../frontend && pnpm lint",
         "test:backend": "cd apps/backend && pnpm test",
         "build:all": "cd apps/backend && pnpm build && cd ../frontend && pnpm build"
+    },
+    "devDependencies": {
+        "concurrently": "^9.1.2"
     }
 }

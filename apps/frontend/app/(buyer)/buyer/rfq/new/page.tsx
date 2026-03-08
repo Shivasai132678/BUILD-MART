@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Plus, Trash2, MapPin, Package, FileText, Send, ChevronDown, Loader2 } from 'lucide-react';
 import {
   createAddress,
   createRfq,
@@ -19,10 +18,6 @@ import {
   getAddresses,
 } from '@/lib/buyer-api';
 import { getApiErrorMessage } from '@/lib/api';
-import { Button } from '@/components/ui/Button';
-import { PageHeader } from '@/components/ui/PageHeader';
-import { MotionContainer } from '@/components/ui/Motion';
-import { cn } from '@/lib/utils';
 
 const rfqItemSchema = z.object({
   productId: z.string().min(1, 'Select a product'),
@@ -49,8 +44,8 @@ const addressFormSchema = z.object({
 type RfqFormValues = z.infer<typeof rfqFormSchema>;
 type AddressFormValues = z.infer<typeof addressFormSchema>;
 
-const inputClassName =
-  'w-full h-10 rounded-xl border border-border bg-elevated px-4 text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20';
+const inputCls =
+  'w-full h-10 rounded-xl border border-[#2A2520] bg-[#211E19] px-4 text-sm text-[#F5F0E8] placeholder:text-[#7A7067] outline-none transition-all focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/20';
 
 export default function BuyerNewRfqPage() {
   const router = useRouter();
@@ -106,10 +101,7 @@ export default function BuyerNewRfqPage() {
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: 'items',
-  });
+  const { fields, append, remove } = useFieldArray({ control, name: 'items' });
 
   const selectedAddressId = watch('addressId');
   const firstItemProductId = watch('items.0.productId');
@@ -201,288 +193,291 @@ export default function BuyerNewRfqPage() {
 
   return (
     <div className="space-y-6">
-      <MotionContainer>
-        <PageHeader
-          title="Create RFQ"
-          subtitle="Add products and request quotes from matching vendors."
-        />
-      </MotionContainer>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-[#F5F0E8]">Create RFQ</h1>
+        <p className="mt-1 text-sm text-[#A89F91]">Add products and request quotes from matching vendors.</p>
+      </div>
 
-      <MotionContainer delay={0.1}>
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left: Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Delivery Address */}
-              <section className="card p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <MapPin className="h-4 w-4 text-accent" />
-                  <h2 className="text-sm font-semibold text-text-primary">Delivery Address</h2>
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left: Form */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* Delivery Address */}
+            <section className="bg-[#1A1714] border border-[#2A2520] rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined text-[20px] text-[#D97706]">location_on</span>
+                <h2 className="text-sm font-semibold text-[#F5F0E8]">Delivery Address</h2>
+              </div>
+
+              {addressesQuery.isLoading ? (
+                <div className="flex items-center gap-3 text-sm text-[#A89F91]">
+                  <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                  Loading addresses…
                 </div>
-
-                {addressesQuery.isLoading ? (
-                  <div className="flex items-center gap-3 text-sm text-text-secondary">
-                    <Loader2 className="h-4 w-4 animate-spin text-accent" />
-                    Loading addresses…
-                  </div>
-                ) : addresses.length > 0 ? (
-                  <div className="space-y-2">
-                    {addresses.map((addr) => (
-                      <label
-                        key={addr.id}
-                        className={cn(
-                          'flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all duration-200',
-                          selectedAddressId === addr.id
-                            ? 'border-accent bg-accent/5'
-                            : 'border-border-subtle hover:border-border',
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          value={addr.id}
-                          {...register('addressId')}
-                          className="mt-1 accent-accent"
-                        />
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">
-                            {addr.label || addr.line1}
-                          </p>
-                          <p className="text-xs text-text-secondary">
-                            {addr.line1}, {addr.city}, {addr.state} – {addr.pincode}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-
-                {errors.addressId && (
-                  <p className="mt-2 text-xs text-accent-danger">{errors.addressId.message}</p>
-                )}
-
-                {!showAddAddress ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddAddress(true)}
-                    className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add new address
-                  </button>
-                ) : (
-                  <div className="mt-4 rounded-xl border border-border-subtle bg-elevated p-4 space-y-3">
-                    <p className="text-sm font-semibold text-text-primary">New Address</p>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="space-y-1 sm:col-span-2">
-                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-label">Label (optional)</label>
-                        <input id="addr-label" className={inputClassName} placeholder="Home, Office…" {...registerAddress('label')} />
+              ) : addresses.length > 0 ? (
+                <div className="space-y-2">
+                  {addresses.map((addr) => (
+                    <label
+                      key={addr.id}
+                      className={`flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-all ${
+                        selectedAddressId === addr.id
+                          ? 'border-[#D97706] bg-[#D97706]/5'
+                          : 'border-[#2A2520] hover:border-[#3A3027]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        value={addr.id}
+                        {...register('addressId')}
+                        className="mt-1 accent-[#D97706]"
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-[#F5F0E8]">{addr.label || addr.line1}</p>
+                        <p className="text-xs text-[#A89F91]">{addr.line1}, {addr.city}, {addr.state} – {addr.pincode}</p>
                       </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-line1">Address Line</label>
-                        <input id="addr-line1" className={inputClassName} {...registerAddress('line1')} />
-                        {addressErrors.line1 && <p className="text-xs text-accent-danger">{addressErrors.line1.message}</p>}
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-city">City</label>
-                        <input id="addr-city" className={inputClassName} {...registerAddress('city')} />
-                        {addressErrors.city && <p className="text-xs text-accent-danger">{addressErrors.city.message}</p>}
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-state">State</label>
-                        <input id="addr-state" className={inputClassName} {...registerAddress('state')} />
-                        {addressErrors.state && <p className="text-xs text-accent-danger">{addressErrors.state.message}</p>}
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-xs font-medium text-text-primary" htmlFor="addr-pincode">Pincode</label>
-                        <input id="addr-pincode" inputMode="numeric" className={inputClassName} {...registerAddress('pincode')} />
-                        {addressErrors.pincode && <p className="text-xs text-accent-danger">{addressErrors.pincode.message}</p>}
-                      </div>
-                    </div>
-                    {addressErrors.root && (
-                      <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{addressErrors.root.message}</div>
-                    )}
-                    <div className="flex gap-2">
-                      <Button type="button" size="sm" loading={createAddressMutation.isPending} onClick={() => void onCreateAddress()}>
-                        Save Address
-                      </Button>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setShowAddAddress(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </section>
-
-              {/* RFQ Items */}
-              <section className="card p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Package className="h-4 w-4 text-accent" />
-                  <h2 className="text-sm font-semibold text-text-primary">Request Items</h2>
-                </div>
-
-                <div className="space-y-4">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="rounded-xl border border-border-subtle bg-elevated p-4 relative">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-sm font-semibold text-text-primary">Item {index + 1}</p>
-                        {fields.length > 1 && (
-                          <button type="button" onClick={() => remove(index)} className="text-text-tertiary hover:text-accent-danger transition-colors">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-1 sm:col-span-2">
-                          <label className="block text-xs font-medium text-text-primary">Product</label>
-                          <div className="relative">
-                            <select
-                              className={cn(inputClassName, 'pr-8 appearance-none')}
-                              {...register(`items.${index}.productId`, {
-                                onChange: (e) => {
-                                  const p = productMap.get(e.target.value);
-                                  if (p) setValue(`items.${index}.unit`, p.unit, { shouldValidate: true });
-                                },
-                              })}
-                            >
-                              <option value="">Select a product…</option>
-                              {products.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} (₹{p.basePrice}/{p.unit})
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
-                          </div>
-                          {errors.items?.[index]?.productId && (
-                            <p className="text-xs text-accent-danger">{errors.items[index].productId?.message}</p>
-                          )}
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-xs font-medium text-text-primary">Quantity</label>
-                          <input
-                            type="number"
-                            min={1}
-                            className={inputClassName}
-                            {...register(`items.${index}.quantity`, { valueAsNumber: true })}
-                          />
-                          {errors.items?.[index]?.quantity && (
-                            <p className="text-xs text-accent-danger">{errors.items[index].quantity?.message}</p>
-                          )}
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="block text-xs font-medium text-text-primary">Unit</label>
-                          <input
-                            className={cn(inputClassName, 'bg-surface opacity-50')}
-                            readOnly
-                            {...register(`items.${index}.unit`)}
-                          />
-                        </div>
-
-                        <div className="space-y-1 sm:col-span-2">
-                          <label className="block text-xs font-medium text-text-primary">Notes (optional)</label>
-                          <input className={inputClassName} placeholder="Brand preference, etc." {...register(`items.${index}.notes`)} />
-                        </div>
-                      </div>
-                    </div>
+                    </label>
                   ))}
                 </div>
+              ) : null}
 
+              {errors.addressId && (
+                <p className="mt-2 text-xs text-red-400">{errors.addressId.message}</p>
+              )}
+
+              {!showAddAddress ? (
                 <button
                   type="button"
-                  onClick={() => append({ productId: '', quantity: 1, unit: '', notes: '' })}
-                  className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors"
+                  onClick={() => setShowAddAddress(true)}
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#D97706] hover:text-[#F59E0B] transition-colors"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add another item
+                  <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                  Add new address
                 </button>
-
-                {errors.items?.root && (
-                  <p className="mt-2 text-xs text-accent-danger">{errors.items.root.message}</p>
-                )}
-              </section>
-
-              {/* RFQ Details */}
-              <section className="card p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="h-4 w-4 text-accent" />
-                  <h2 className="text-sm font-semibold text-text-primary">RFQ Details</h2>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-medium text-text-primary" htmlFor="rfq-valid-until">
-                      Valid Until
-                    </label>
-                    <input
-                      id="rfq-valid-until"
-                      type="date"
-                      className={inputClassName}
-                      {...register('validUntil')}
-                    />
-                    {errors.validUntil && (
-                      <p className="text-xs text-accent-danger">{errors.validUntil.message}</p>
-                    )}
+              ) : (
+                <div className="mt-4 bg-[#211E19] border border-[#2A2520] rounded-xl p-4 space-y-3">
+                  <p className="text-sm font-semibold text-[#F5F0E8]">New Address</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-label">Label (optional)</label>
+                      <input id="addr-label" className={inputCls} placeholder="Home, Office…" {...registerAddress('label')} />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-line1">Address Line</label>
+                      <input id="addr-line1" className={inputCls} {...registerAddress('line1')} />
+                      {addressErrors.line1 && <p className="text-xs text-red-400">{addressErrors.line1.message}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-city">City</label>
+                      <input id="addr-city" className={inputCls} {...registerAddress('city')} />
+                      {addressErrors.city && <p className="text-xs text-red-400">{addressErrors.city.message}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-state">State</label>
+                      <input id="addr-state" className={inputCls} {...registerAddress('state')} />
+                      {addressErrors.state && <p className="text-xs text-red-400">{addressErrors.state.message}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-pincode">Pincode</label>
+                      <input id="addr-pincode" inputMode="numeric" className={inputCls} {...registerAddress('pincode')} />
+                      {addressErrors.pincode && <p className="text-xs text-red-400">{addressErrors.pincode.message}</p>}
+                    </div>
                   </div>
-
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="block text-xs font-medium text-text-primary" htmlFor="rfq-notes">
-                      Notes (optional)
-                    </label>
-                    <textarea
-                      id="rfq-notes"
-                      rows={3}
-                      className={inputClassName}
-                      placeholder="Any special requirements…"
-                      {...register('notes')}
-                    />
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            {/* Right: Summary */}
-            <div className="lg:col-span-1">
-              <div className="card p-5 sticky top-24 space-y-4">
-                <h3 className="text-sm font-semibold text-text-primary">RFQ Summary</h3>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">Items</span>
-                    <span className="font-medium text-text-primary">{fields.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-text-secondary">Address</span>
-                    <span className="font-medium text-text-primary truncate ml-4 max-w-[150px]">
-                      {addresses.find((a) => a.id === selectedAddressId)?.label
-                        || addresses.find((a) => a.id === selectedAddressId)?.city
-                        || 'Not selected'}
-                    </span>
+                  {addressErrors.root && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 text-xs text-red-400">
+                      {addressErrors.root.message}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={createAddressMutation.isPending}
+                      onClick={() => void onCreateAddress()}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#D97706] hover:bg-[#B45309] text-white transition-all disabled:opacity-60"
+                    >
+                      {createAddressMutation.isPending ? 'Saving…' : 'Save Address'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAddress(false)}
+                      className="px-4 py-2 rounded-xl text-sm font-medium text-[#A89F91] hover:text-[#F5F0E8] border border-[#2A2520] hover:border-[#3A3027] transition-all"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
+              )}
+            </section>
 
-                {errors.root && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                    {errors.root.message}
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={isSubmitDisabled}
-                  loading={createRfqMutation.isPending}
-                  className="w-full"
-                >
-                  <Send className="h-4 w-4" />
-                  {createRfqMutation.isPending ? 'Creating RFQ…' : 'Submit RFQ'}
-                </Button>
+            {/* RFQ Items */}
+            <section className="bg-[#1A1714] border border-[#2A2520] rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined text-[20px] text-[#D97706]">inventory_2</span>
+                <h2 className="text-sm font-semibold text-[#F5F0E8]">Request Items</h2>
               </div>
+
+              <div className="space-y-4">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="bg-[#211E19] border border-[#2A2520] rounded-xl p-4 relative">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-[#F5F0E8]">Item {index + 1}</p>
+                      {fields.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => remove(index)}
+                          className="text-[#7A7067] hover:text-red-400 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="block text-xs font-medium text-[#A89F91]">Product</label>
+                        <div className="relative">
+                          <select
+                            className={`${inputCls} pr-8 appearance-none`}
+                            {...register(`items.${index}.productId`, {
+                              onChange: (e) => {
+                                const p = productMap.get(e.target.value);
+                                if (p) setValue(`items.${index}.unit`, p.unit, { shouldValidate: true });
+                              },
+                            })}
+                          >
+                            <option value="">Select a product…</option>
+                            {products.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (₹{p.basePrice}/{p.unit})
+                              </option>
+                            ))}
+                          </select>
+                          <span className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-[#7A7067]">expand_more</span>
+                        </div>
+                        {errors.items?.[index]?.productId && (
+                          <p className="text-xs text-red-400">{errors.items[index].productId?.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-[#A89F91]">Quantity</label>
+                        <input
+                          type="number"
+                          min={1}
+                          className={inputCls}
+                          {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                        />
+                        {errors.items?.[index]?.quantity && (
+                          <p className="text-xs text-red-400">{errors.items[index].quantity?.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-xs font-medium text-[#A89F91]">Unit</label>
+                        <input
+                          className={`${inputCls} opacity-50 cursor-not-allowed`}
+                          readOnly
+                          {...register(`items.${index}.unit`)}
+                        />
+                      </div>
+
+                      <div className="space-y-1 sm:col-span-2">
+                        <label className="block text-xs font-medium text-[#A89F91]">Notes (optional)</label>
+                        <input className={inputCls} placeholder="Brand preference, etc." {...register(`items.${index}.notes`)} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => append({ productId: '', quantity: 1, unit: '', notes: '' })}
+                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-[#D97706] hover:text-[#F59E0B] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                Add another item
+              </button>
+
+              {errors.items?.root && (
+                <p className="mt-2 text-xs text-red-400">{errors.items.root.message}</p>
+              )}
+            </section>
+
+            {/* RFQ Details */}
+            <section className="bg-[#1A1714] border border-[#2A2520] rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="material-symbols-outlined text-[20px] text-[#D97706]">description</span>
+                <h2 className="text-sm font-semibold text-[#F5F0E8]">RFQ Details</h2>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-[#A89F91]" htmlFor="rfq-valid-until">Valid Until</label>
+                  <input
+                    id="rfq-valid-until"
+                    type="date"
+                    className={inputCls}
+                    {...register('validUntil')}
+                  />
+                  {errors.validUntil && (
+                    <p className="text-xs text-red-400">{errors.validUntil.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="block text-xs font-medium text-[#A89F91]" htmlFor="rfq-notes">Notes (optional)</label>
+                  <textarea
+                    id="rfq-notes"
+                    rows={3}
+                    className={`${inputCls} h-auto py-3`}
+                    placeholder="Any special requirements…"
+                    {...register('notes')}
+                  />
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* Right: Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-[#1A1714] border border-[#2A2520] rounded-2xl p-6 sticky top-24 space-y-4">
+              <h3 className="text-sm font-semibold text-[#F5F0E8]">RFQ Summary</h3>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[#A89F91]">Items</span>
+                  <span className="font-medium text-[#F5F0E8]">{fields.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#A89F91]">Address</span>
+                  <span className="font-medium text-[#F5F0E8] truncate ml-4 max-w-[140px]">
+                    {addresses.find((a) => a.id === selectedAddressId)?.label
+                      || addresses.find((a) => a.id === selectedAddressId)?.city
+                      || 'Not selected'}
+                  </span>
+                </div>
+              </div>
+
+              {errors.root && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2 text-xs text-red-400">
+                  {errors.root.message}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitDisabled}
+                className="w-full flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-semibold text-sm bg-[#D97706] hover:bg-[#B45309] text-white transition-all disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[18px]">send</span>
+                {createRfqMutation.isPending ? 'Creating RFQ…' : 'Submit RFQ'}
+              </button>
             </div>
           </div>
-        </form>
-      </MotionContainer>
+        </div>
+      </form>
     </div>
   );
 }

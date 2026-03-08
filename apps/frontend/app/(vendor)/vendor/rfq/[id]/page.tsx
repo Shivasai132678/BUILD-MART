@@ -8,15 +8,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { CheckCircle, FileText } from 'lucide-react';
 import { getApiErrorMessage } from '@/lib/api';
 import { formatIST } from '@/lib/utils/date';
 import { getRfqById, submitQuote } from '@/lib/vendor-api';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { SkeletonCard } from '@/components/ui/Skeleton';
-import { MotionContainer } from '@/components/ui/Motion';
 
 const DECIMAL_STRING_REGEX = /^\d+(\.\d{1,2})?$/;
 
@@ -50,10 +44,10 @@ function toMoneyString(value: number): string {
 }
 
 const inputClassName =
-  'w-full h-10 rounded-xl border border-border bg-elevated px-4 text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20';
+  'w-full h-10 rounded-xl border border-[#1E3A5F] bg-[#1E2A3A] px-4 text-sm text-[#E8F0F8] placeholder:text-[#4A6080] outline-none transition-all focus:border-[#3B7FC1] focus:ring-2 focus:ring-[#3B7FC1]/20';
 
 const readOnlyClassName =
-  'w-full h-10 rounded-xl border border-border-subtle bg-elevated px-4 text-sm text-text-tertiary';
+  'w-full h-10 rounded-xl border border-[#1E3A5F] bg-[#1E2A3A] px-4 text-sm text-[#4A6080] opacity-60 cursor-not-allowed';
 
 export default function VendorRfqDetailPage() {
   const params = useParams<{ id: string | string[] }>();
@@ -175,19 +169,29 @@ export default function VendorRfqDetailPage() {
     });
   });
 
-  if (!rfqId) return <EmptyState title="Invalid RFQ ID" />;
+  if (!rfqId) return (
+    <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-12 text-center">
+      <span className="material-symbols-outlined text-4xl text-[#4A6080]">error</span>
+      <p className="mt-3 font-semibold text-[#E2EAF4]">Invalid RFQ ID</p>
+    </div>
+  );
 
   if (rfqQuery.isLoading) {
     return (
-      <div className="space-y-6">
-        <SkeletonCard />
-        <SkeletonCard />
+      <div className="space-y-4">
+        {[1, 2].map((i) => <div key={i} className="bg-[#1E2A3A] border border-[#253347] rounded-2xl h-36 animate-pulse" />)}
       </div>
     );
   }
 
   if (rfqQuery.isError || !rfqQuery.data) {
-    return <EmptyState title="Failed to load RFQ" subtitle={getApiErrorMessage(rfqQuery.error)} actionLabel="Back to RFQs" actionHref="/vendor/rfq" />;
+    return (
+      <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-12 text-center">
+        <span className="material-symbols-outlined text-4xl text-[#4A6080]">error</span>
+        <p className="mt-3 font-semibold text-[#E2EAF4]">Failed to load RFQ</p>
+        <p className="mt-1 text-sm text-[#8EA5C0]">{getApiErrorMessage(rfqQuery.error)}</p>
+      </div>
+    );
   }
 
   const rfq = rfqQuery.data;
@@ -196,155 +200,153 @@ export default function VendorRfqDetailPage() {
   return (
     <div className="space-y-6">
       {/* RFQ Info */}
-      <MotionContainer>
-        <div className="card p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm text-text-tertiary font-mono">RFQ #{rfq.id.slice(0, 8)}</p>
-              <h1 className="mt-1 text-2xl font-semibold text-text-primary">{rfq.city} request</h1>
-              <p className="mt-2 text-sm text-text-secondary">
-                Created {formatIST(rfq.createdAt)} · Valid until {formatIST(rfq.validUntil)}
-              </p>
-            </div>
-            <Badge status={rfq.status} />
+      <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#253347] text-[#4A6080]">RFQ #{rfq.id.slice(0, 8)}</span>
+            <h1 className="mt-2 text-2xl font-bold text-[#E2EAF4]">{rfq.city} request</h1>
+            <p className="mt-1 text-sm text-[#8EA5C0]">Created {formatIST(rfq.createdAt)} · Valid until {formatIST(rfq.validUntil)}</p>
           </div>
-
-          {rfq.notes && (
-            <div className="mt-4 rounded-xl bg-elevated border border-border-subtle px-4 py-3 text-sm text-text-secondary">
-              {rfq.notes}
-            </div>
-          )}
-
-          <div className="mt-4 space-y-2">
-            <h3 className="text-sm font-semibold text-text-primary">Requested Items</h3>
-            {rfq.items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-xl border border-border px-4 py-2.5 text-sm">
-                <span className="text-text-primary font-medium font-mono text-xs">Product #{item.productId.slice(0, 8)}</span>
-                <span className="text-text-secondary">{String(item.quantity)} {item.unit}</span>
-              </div>
-            ))}
-          </div>
+          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${rfq.status === 'OPEN' ? 'bg-[#3B7FC1]/15 text-[#60A5FA] border border-[#3B7FC1]/30' : 'bg-[#253347] text-[#8EA5C0]'}`}>
+            {rfq.status}
+          </span>
         </div>
-      </MotionContainer>
+
+        {rfq.notes && (
+          <div className="mt-4 bg-[#111827] border border-[#253347] rounded-xl px-4 py-3 text-sm text-[#8EA5C0]">
+            {rfq.notes}
+          </div>
+        )}
+
+        <div className="mt-4 space-y-2">
+          <h3 className="text-sm font-semibold text-[#E2EAF4]">Requested Items</h3>
+          {rfq.items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between border border-[#253347] rounded-xl px-4 py-2.5 text-sm">
+              <span className="font-mono text-xs text-[#8EA5C0]">Product #{item.productId.slice(0, 8)}</span>
+              <span className="text-[#E2EAF4]">{String(item.quantity)} {item.unit}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Quote Form */}
-      <MotionContainer delay={0.1}>
-        <div className="card p-5">
-          <div className="flex items-center gap-2 mb-1">
-            <FileText className="h-5 w-5 text-accent" />
-            <h2 className="text-lg font-semibold text-text-primary">Submit Quote</h2>
-          </div>
-          <p className="text-sm text-text-secondary mb-4">
-            Fill in pricing for each requested line item.
-          </p>
-
-          {submitSuccess && (
-            <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800 flex items-center gap-2">
-              <CheckCircle className="h-4 w-4" />
-              Quote submitted successfully!
-            </div>
-          )}
-
-          {rfq.status !== 'OPEN' && (
-            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-              This RFQ is currently {rfq.status}. Quote submission is only available while OPEN.
-            </div>
-          )}
-
-          {submitError && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {submitError}
-            </div>
-          )}
-
-          {errors.root && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {errors.root.message}
-            </div>
-          )}
-
-          <form onSubmit={handleQuoteSubmit} className="space-y-5">
-            <fieldset disabled={isFormDisabled} className="space-y-5 disabled:opacity-70">
-              {fields.map((field, index) => (
-                <div key={field.id} className="rounded-xl border border-border-subtle bg-elevated p-4">
-                  <p className="mb-3 text-sm font-semibold text-text-primary">Line Item {index + 1}</p>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5 sm:col-span-2">
-                      <label className="block text-sm font-medium text-text-primary">Product Name</label>
-                      <input className={inputClassName} {...register(`items.${index}.productName`)} />
-                      {errors.items?.[index]?.productName && <p className="text-xs text-accent-danger">{errors.items[index].productName?.message}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-text-primary">Quantity</label>
-                      <input readOnly className={readOnlyClassName} {...register(`items.${index}.quantity`)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-text-primary">Unit</label>
-                      <input readOnly className={readOnlyClassName} {...register(`items.${index}.unit`)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-text-primary">Unit Price (₹)</label>
-                      <input type="number" inputMode="decimal" step="0.01" min="0" className={inputClassName} {...register(`items.${index}.unitPrice`)} />
-                      {errors.items?.[index]?.unitPrice && <p className="text-xs text-accent-danger">{errors.items[index].unitPrice?.message}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-medium text-text-primary">Subtotal</label>
-                      <div className="flex items-center h-[42px] rounded-xl bg-elevated border border-border-subtle px-4 text-sm font-semibold text-text-primary">
-                        ₹{itemSubtotals[index] ?? '0.00'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-text-primary">Subtotal</label>
-                  <div className="flex items-center h-[42px] rounded-xl bg-elevated border border-border-subtle px-4 text-sm font-bold text-text-primary">
-                    ₹{quoteSubtotal}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-text-primary" htmlFor="taxAmount">Tax Amount (₹)</label>
-                  <input id="taxAmount" type="number" inputMode="decimal" step="0.01" min="0" className={inputClassName} {...register('taxAmount')} />
-                  {errors.taxAmount && <p className="text-xs text-accent-danger">{errors.taxAmount.message}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-text-primary" htmlFor="deliveryFee">Delivery Fee (₹)</label>
-                  <input id="deliveryFee" type="number" inputMode="decimal" step="0.01" min="0" className={inputClassName} {...register('deliveryFee')} />
-                  {errors.deliveryFee && <p className="text-xs text-accent-danger">{errors.deliveryFee.message}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-text-primary">Total Amount</label>
-                  <div className="flex items-center h-[42px] rounded-xl bg-accent/5 border border-accent/20 px-4 text-sm font-bold text-accent">
-                    ₹{totalAmount}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-sm font-medium text-text-primary" htmlFor="validUntil">Quote Valid Until</label>
-                  <input id="validUntil" type="date" className={inputClassName} {...register('validUntil')} />
-                  {errors.validUntil && <p className="text-xs text-accent-danger">{errors.validUntil.message}</p>}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-text-primary" htmlFor="notes">Notes (optional)</label>
-                <textarea
-                  id="notes"
-                  rows={3}
-                  className={inputClassName}
-                  placeholder="Lead time, brand notes, exclusions, etc."
-                  {...register('notes')}
-                />
-              </div>
-            </fieldset>
-
-            <Button type="submit" disabled={isFormDisabled} loading={submitQuoteMutation.isPending} className="w-full">
-              {submitSuccess ? 'Quote Submitted' : submitQuoteMutation.isPending ? 'Submitting Quote…' : 'Submit Quote'}
-            </Button>
-          </form>
+      <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="material-symbols-outlined text-[22px] text-[#3B7FC1]">description</span>
+          <h2 className="text-lg font-semibold text-[#E2EAF4]">Submit Quote</h2>
         </div>
-      </MotionContainer>
+        <p className="text-sm text-[#8EA5C0] mb-4">Fill in pricing for each requested line item.</p>
+
+        {submitSuccess && (
+          <div className="mb-4 rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm text-green-400 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">check_circle</span>
+            Quote submitted successfully!
+          </div>
+        )}
+
+        {rfq.status !== 'OPEN' && (
+          <div className="mb-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20 px-4 py-3 text-sm text-yellow-400">
+            This RFQ is currently {rfq.status}. Quote submission is only available while OPEN.
+          </div>
+        )}
+
+        {submitError && (
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {submitError}
+          </div>
+        )}
+
+        {errors.root && (
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {errors.root.message}
+          </div>
+        )}
+
+        <form onSubmit={handleQuoteSubmit} className="space-y-5">
+          <fieldset disabled={isFormDisabled} className="space-y-5 disabled:opacity-70">
+            {fields.map((field, index) => (
+              <div key={field.id} className="bg-[#111827] border border-[#253347] rounded-xl p-4">
+                <p className="mb-3 text-sm font-semibold text-[#E2EAF4]">Line Item {index + 1}</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="block text-sm font-medium text-[#8EA5C0]">Product Name</label>
+                    <input className={inputClassName} {...register(`items.${index}.productName`)} />
+                    {errors.items?.[index]?.productName && <p className="text-xs text-red-400">{errors.items[index].productName?.message}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium text-[#8EA5C0]">Quantity</label>
+                    <input readOnly className={readOnlyClassName} {...register(`items.${index}.quantity`)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium text-[#8EA5C0]">Unit</label>
+                    <input readOnly className={readOnlyClassName} {...register(`items.${index}.unit`)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium text-[#8EA5C0]">Unit Price (₹)</label>
+                    <input type="text" inputMode="decimal" className={inputClassName} {...register(`items.${index}.unitPrice`)} />
+                    {errors.items?.[index]?.unitPrice && <p className="text-xs text-red-400">{errors.items[index].unitPrice?.message}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium text-[#8EA5C0]">Subtotal</label>
+                    <div className="flex items-center h-10 rounded-xl bg-[#1E2A3A] border border-[#253347] px-4 text-sm font-semibold text-[#E2EAF4]">
+                      ₹{itemSubtotals[index] ?? '0.00'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-[#8EA5C0]">Subtotal</label>
+                <div className="flex items-center h-10 rounded-xl bg-[#111827] border border-[#253347] px-4 text-sm font-bold text-[#E2EAF4]">₹{quoteSubtotal}</div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-[#8EA5C0]" htmlFor="taxAmount">Tax Amount (₹)</label>
+                <input id="taxAmount" type="number" inputMode="decimal" step="0.01" min="0" className={inputClassName} {...register('taxAmount')} />
+                {errors.taxAmount && <p className="text-xs text-red-400">{errors.taxAmount.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-[#8EA5C0]" htmlFor="deliveryFee">Delivery Fee (₹)</label>
+                <input id="deliveryFee" type="number" inputMode="decimal" step="0.01" min="0" className={inputClassName} {...register('deliveryFee')} />
+                {errors.deliveryFee && <p className="text-xs text-red-400">{errors.deliveryFee.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-[#8EA5C0]">Total Amount</label>
+                <div className="flex items-center h-10 rounded-xl bg-[#3B7FC1]/10 border border-[#3B7FC1]/20 px-4 text-sm font-bold text-[#60A5FA]">₹{totalAmount}</div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-[#8EA5C0]" htmlFor="validUntil">Quote Valid Until</label>
+                <input id="validUntil" type="date" className={inputClassName} {...register('validUntil')} />
+                {errors.validUntil && <p className="text-xs text-red-400">{errors.validUntil.message}</p>}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium text-[#8EA5C0]" htmlFor="notes">Notes (optional)</label>
+              <textarea
+                id="notes"
+                rows={3}
+                className={`${inputClassName} h-auto py-3`}
+                placeholder="Lead time, brand notes, exclusions, etc."
+                {...register('notes')}
+              />
+            </div>
+          </fieldset>
+
+          <button
+            type="submit"
+            disabled={isFormDisabled}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm bg-[#3B7FC1] hover:bg-[#2B6FAF] text-white transition-all disabled:opacity-60"
+          >
+            {submitSuccess
+              ? 'Quote Submitted'
+              : submitQuoteMutation.isPending
+              ? 'Submitting Quote…'
+              : 'Submit Quote'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

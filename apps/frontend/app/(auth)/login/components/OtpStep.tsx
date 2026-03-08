@@ -8,8 +8,6 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { api, getApiErrorMessage } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
-import { Button } from '@/components/ui/Button';
-import { ArrowLeft, Loader2 } from 'lucide-react';
 
 const otpSchema = z.object({
   otp: z.string().length(6, 'OTP must be 6 digits').regex(/^[0-9]{6}$/, 'OTP must contain only digits'),
@@ -97,13 +95,14 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl bg-accent/10 border border-accent/20 px-4 py-3 text-sm text-text-secondary">
-        OTP sent to <span className="font-medium text-text-primary">{phone}</span>
+      <div className="rounded-xl bg-[#D97706]/10 border border-[#D97706]/20 px-4 py-3 text-sm text-[#A89F91] flex items-center gap-2">
+        <span className="material-symbols-outlined text-[#D97706] text-[18px]">sms</span>
+        OTP sent to <span className="font-semibold text-[#F5F0E8]">{phone}</span>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        <div className="space-y-1.5">
-          <label htmlFor="otp" className="block text-sm font-medium text-text-primary">6-digit OTP</label>
+      <form onSubmit={onSubmit} className="space-y-5" noValidate>
+        <div className="space-y-2">
+          <label htmlFor="otp" className="block text-sm font-medium text-[#C8BFB5]">Enter 6-digit OTP</label>
           <input
             id="otp"
             type="text"
@@ -111,37 +110,56 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
             autoComplete="one-time-code"
             maxLength={6}
             placeholder="000000"
-            className="w-full h-11 rounded-xl border border-border bg-elevated px-4 text-center text-xl tracking-[0.4em] font-bold text-text-primary placeholder:text-text-tertiary outline-none transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20"
+            className="w-full h-14 rounded-xl border border-[#3A3027] bg-[#211E19] px-4 text-center text-2xl tracking-[0.5em] font-bold text-[#F5F0E8] placeholder:text-[#4A4037] outline-none transition-all duration-200 focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/20"
             {...register('otp')}
           />
-          {errors.otp && <p className="text-xs text-danger font-medium">{errors.otp.message}</p>}
+          {errors.otp && (
+            <p className="text-xs text-red-400 font-medium flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">error</span>
+              {errors.otp.message}
+            </p>
+          )}
         </div>
 
-        <Button type="submit" loading={isSubmitting} className="w-full h-11 rounded-xl">
-          {isSubmitting ? 'Verifying…' : 'Verify OTP'}
-        </Button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full h-12 rounded-xl bg-[#D97706] hover:bg-[#B45309] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors duration-200 flex items-center justify-center gap-2"
+        >
+          {isSubmitting ? (
+            <>
+              <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+              Verifying…
+            </>
+          ) : (
+            <>
+              <span className="material-symbols-outlined text-[18px]">verified</span>
+              Verify OTP
+            </>
+          )}
+        </button>
       </form>
 
-      <div className="flex items-center justify-between border-t border-border-subtle pt-4">
+      <div className="flex items-center justify-between border-t border-[#2A2520] pt-4">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#A89F91] hover:text-[#F5F0E8] transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
           Change number
         </button>
 
         {secondsLeft > 0 ? (
-          <p className="text-sm text-text-tertiary">Resend in {countdown}</p>
+          <p className="text-sm text-[#7A7067]">Resend in {countdown}</p>
         ) : (
           <button
             type="button"
             onClick={handleResend}
             disabled={isResending}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent-hover transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#D97706] hover:text-[#F59E0B] transition-colors disabled:opacity-50"
           >
-            {isResending && <Loader2 className="h-3 w-3 animate-spin" />}
+            {isResending && <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>}
             {isResending ? 'Sending…' : 'Resend OTP'}
           </button>
         )}

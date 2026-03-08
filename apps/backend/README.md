@@ -1,33 +1,65 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# BuildMart — Backend (NestJS)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+REST API powering the BuildMart B2B procurement platform.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- **Base URL (local):** `http://localhost:3001/api/v1`
+- **Swagger UI (dev only):** `http://localhost:3001/api/docs`
 
-## Description
+## Start
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+From the **repo root**:
 
 ```bash
+pnpm dev:backend        # watch mode
+# or with frontend together:
+pnpm dev
+```
+
+From this directory directly:
+
+```bash
+pnpm start:dev          # watch mode
+pnpm start:prod         # production
+pnpm build              # compile TypeScript
+```
+
+## Database
+
+```bash
+# From repo root
+pnpm db:reset           # reset + migrate + seed (dev only)
+pnpm db:seed            # seed only
+
+# From this directory
+npx prisma migrate dev --name <name>    # create a new migration
+npx prisma migrate deploy               # apply migrations (CI/prod)
+npx prisma studio                       # GUI for DB inspection
+```
+
+## Tests
+
+```bash
+pnpm test               # unit tests
+pnpm test:cov           # coverage report
+pnpm test:e2e           # end-to-end tests
+```
+
+## Key Architecture
+
+| Module | Responsibility |
+|--------|---------------|
+| `auth` | OTP send/verify, JWT (HTTP-only cookie), guards |
+| `vendors` | Vendor profiles, onboarding, admin approval |
+| `products` | Catalog CRUD |
+| `rfq` | RFQ creation, product-level vendor matching |
+| `quotes` | Quote submission and buyer comparison |
+| `orders` | State machine enforcement |
+| `payments` | Razorpay order creation, idempotent webhook |
+| `notifications` | Single entry point for all alert dispatch |
+| `admin` | Metrics aggregation, vendor approval queue |
+
+All routes are prefixed `/api/v1/...` via `setGlobalPrefix("api")` + URI versioning.
+
 $ pnpm install
 ```
 

@@ -2,21 +2,22 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Search, Plus } from 'lucide-react';
 import { getCategories, getProducts } from '@/lib/catalog-api';
-import { PageHeader } from '@/components/ui/PageHeader';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { SkeletonCard } from '@/components/ui/Skeleton';
-import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
-
-const pageV = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
-const listV = { visible: { transition: { staggerChildren: 0.07 } } };
-const itemV = { hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] } } };
 
 const PAGE_SIZE = 20;
+
+function getProductImage(name: string, imageUrl?: string | null): string {
+  if (imageUrl) return imageUrl;
+  const lower = name.toLowerCase();
+  if (lower.includes('cement')) return '/images/products/cement-bag.png';
+  if (lower.includes('steel') || lower.includes('tmt') || lower.includes('rod') || lower.includes('bar')) return '/images/products/tmt-bar.png';
+  if (lower.includes('brick') || lower.includes('block')) return '/images/products/brick.png';
+  if (lower.includes('tile') || lower.includes('flooring')) return '/images/products/tile.png';
+  if (lower.includes('pipe') || lower.includes('plumb') || lower.includes('pvc')) return '/images/products/pvc-pipe.png';
+  return '/images/products/placeholder.png';
+}
 
 export default function BuyerCatalogPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function BuyerCatalogPage() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [offset, setOffset] = useState(0);
+  const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const timer = window.setTimeout(() => { setDebouncedSearch(searchInput.trim()); setOffset(0); }, 300);
@@ -35,80 +37,176 @@ export default function BuyerCatalogPage() {
     queryKey: ['catalog-products', selectedCategoryId, debouncedSearch, offset],
     queryFn: () => getProducts({ limit: PAGE_SIZE, offset, ...(selectedCategoryId ? { categoryId: selectedCategoryId } : {}), ...(debouncedSearch ? { search: debouncedSearch } : {}) }),
   });
+  const allProductsCount = useQuery({ queryKey: ['catalog-products-total'], queryFn: () => getProducts({ limit: 1, offset: 0 }) });
 
   const categories = categoriesQuery.data?.items ?? [];
   const products = productsQuery.data?.items ?? [];
   const total = productsQuery.data?.total ?? 0;
+  const totalAll = allProductsCount.data?.total ?? 0;
   const categoryNameMap = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
 
   return (
-    <motion.div className="space-y-6" variants={pageV} initial="hidden" animate="visible">
-      <PageHeader title="Product Catalog" subtitle="Browse products and add them to your RFQ." />
-
-      {/* Filter bar */}
-      <div className="card p-4 space-y-3">
-        <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-text-tertiary"><Search className="h-4 w-4" /></div>
-          <input
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search by product name…"
-            className="w-full h-10 rounded-xl border border-border bg-elevated pl-10 pr-4 text-sm text-text-primary placeholder:text-text-tertiary outline-none transition-all focus:border-accent focus:ring-2 focus:ring-accent/20"
-          />
+    <div className="flex gap-6 max-w-7xl mx-auto">
+      {/* Sidebar filters */}
+      <aside className="hidden lg:block w-64 flex-shrink-0 space-y-4">
+        <div className="bg-[#1A1714] border border-[#2A2520] rounded-2xl p-4">
+          <h3 className="text-sm font-semibold text-[#F5F0E8] mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#D97706] text-[18px]">category</span>
+            Categories
+          </h3>
+          <div className="space-y-1">
+            <button
+              onClick={() => { setSelectedCategoryId(''); setOffset(0); }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-colors ${selectedCategoryId === '' ? 'bg-[#D97706]/15 text-[#F59E0B] font-medium' : 'text-[#A89F91] hover:bg-[#211E19] hover:text-[#F5F0E8]'}`}
+            >
+              All Products
+              <span className="text-xs">{categoriesQuery.isLoading ? '…' : totalAll}</span>
+            </button>
+            {categoriesQuery.isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-8 bg-[#211E19] rounded-xl animate-pulse" />
+              ))
+            ) : (
+              categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => { setSelectedCategoryId(cat.id); setOffset(0); }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-colors ${selectedCategoryId === cat.id ? 'bg-[#D97706]/15 text-[#F59E0B] font-medium' : 'text-[#A89F91] hover:bg-[#211E19] hover:text-[#F5F0E8]'}`}
+                >
+                  {cat.name}
+                </button>
+              ))
+            )}
+          </div>
         </div>
+      </aside>
+
+      {/* Main content */}
+      <div className="flex-1 min-w-0 space-y-5">
+        {/* Header + search */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-[#F5F0E8]">Product Catalog</h1>
+            <p className="text-sm text-[#A89F91] mt-0.5">Browse and add products to your RFQ</p>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#7A7067] text-[20px]">search</span>
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search products…"
+              className="w-full h-10 rounded-xl border border-[#3A3027] bg-[#1A1714] pl-10 pr-4 text-sm text-[#F5F0E8] placeholder:text-[#5A5047] outline-none transition-all focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/20"
+            />
+          </div>
+        </div>
+
+        {/* Mobile category pills */}
         {!categoriesQuery.isLoading && categories.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <button type="button" onClick={() => { setSelectedCategoryId(''); setOffset(0); }}
-              className={cn('shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200', selectedCategoryId === '' ? 'bg-accent/15 text-accent' : 'text-text-secondary hover:text-text-primary hover:bg-elevated')}>
+          <div className="flex lg:hidden gap-2 overflow-x-auto pb-1">
+            <button onClick={() => { setSelectedCategoryId(''); setOffset(0); }}
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all border ${selectedCategoryId === '' ? 'bg-[#D97706]/15 text-[#F59E0B] border-[#D97706]/30' : 'text-[#A89F91] border-[#2A2520] hover:text-[#F5F0E8]'}`}>
               All
             </button>
             {categories.map((cat) => (
-              <button key={cat.id} type="button" onClick={() => { setSelectedCategoryId(cat.id); setOffset(0); }}
-                className={cn('shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all duration-200', selectedCategoryId === cat.id ? 'bg-accent/15 text-accent' : 'text-text-secondary hover:text-text-primary hover:bg-elevated')}>
+              <button key={cat.id} onClick={() => { setSelectedCategoryId(cat.id); setOffset(0); }}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-all border ${selectedCategoryId === cat.id ? 'bg-[#D97706]/15 text-[#F59E0B] border-[#D97706]/30' : 'text-[#A89F91] border-[#2A2520] hover:text-[#F5F0E8]'}`}>
                 {cat.name}
               </button>
             ))}
           </div>
         )}
-      </div>
 
-      {productsQuery.isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}</div>
-      ) : products.length === 0 ? (
-        <EmptyState title="No products found" subtitle="Try adjusting your search or filter criteria." />
-      ) : (
-        <>
-          <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" variants={listV} initial="hidden" animate="visible">
-            {products.map((product) => (
-              <motion.div key={product.id} variants={itemV}>
-                <article className="card group p-5">
-                  <p className="text-base font-semibold text-text-primary">{product.name}</p>
-                  <div className="flex items-center gap-2 text-sm mt-1">
-                    <span className="font-semibold text-text-primary">₹{product.basePrice}</span>
-                    <span className="text-text-tertiary">per {product.unit}</span>
+        {/* Results count */}
+        {!productsQuery.isLoading && (
+          <p className="text-sm text-[#7A7067]">{total} product{total !== 1 ? 's' : ''} found</p>
+        )}
+
+        {/* Product grid */}
+        {productsQuery.isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-[#1A1714] border border-[#2A2520] rounded-2xl overflow-hidden animate-pulse">
+                <div className="h-44 bg-[#211E19]" />
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-[#211E19] rounded-lg w-3/4" />
+                  <div className="h-3 bg-[#211E19] rounded-lg w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <span className="material-symbols-outlined text-[56px] text-[#3A3027] mb-4">inventory_2</span>
+            <p className="text-base font-medium text-[#A89F91]">No products found</p>
+            <p className="text-sm text-[#7A7067] mt-1">Try adjusting your search or category filter</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {products.map((product) => {
+              const imgSrc = getProductImage(product.name, product.imageUrl);
+              return (
+                <article key={product.id} className="bg-[#1A1714] border border-[#2A2520] rounded-2xl overflow-hidden group hover:border-[#D97706]/40 transition-colors">
+                  <div className="relative h-44 bg-[#211E19] overflow-hidden">
+                    <Image
+                      src={imgErrors[product.id] ? '/images/products/placeholder.png' : imgSrc}
+                      alt={product.name}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={() => setImgErrors((prev) => ({ ...prev, [product.id]: true }))}
+                    />
                   </div>
-                  <span className="inline-flex mt-2 rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent border border-accent/20">
-                    {categoryNameMap.get(product.categoryId) ?? 'Category'}
-                  </span>
-                  <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="secondary" size="sm" className="w-full" onClick={() => router.push(`/buyer/rfq/new?productId=${product.id}`)}>
-                      <Plus className="h-4 w-4" />Add to RFQ
-                    </Button>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-[#F5F0E8] text-sm leading-snug">{product.name}</h3>
+                      <span className="shrink-0 text-xs bg-[#D97706]/15 text-[#F59E0B] border border-[#D97706]/20 px-2 py-0.5 rounded-full font-medium">
+                        {categoryNameMap.get(product.categoryId) ?? '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 text-sm mb-4">
+                      <span className="font-bold text-[#F5F0E8]">₹{product.basePrice}</span>
+                      <span className="text-[#7A7067]">/ {product.unit}</span>
+                    </div>
+                    <button
+                      onClick={() => router.push(`/buyer/rfq/new?productId=${product.id}`)}
+                      className="w-full flex items-center justify-center gap-2 bg-[#D97706] hover:bg-[#B45309] text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">add_shopping_cart</span>
+                      Add to RFQ
+                    </button>
                   </div>
                 </article>
-              </motion.div>
-            ))}
-          </motion.div>
+              );
+            })}
+          </div>
+        )}
 
-          <div className="card flex items-center justify-between p-4">
-            <p className="text-sm text-text-secondary">Showing {Math.min(offset + 1, total)}–{Math.min(offset + PAGE_SIZE, total)} of {total}</p>
+        {/* Pagination */}
+        {total > PAGE_SIZE && (
+          <div className="flex items-center justify-between bg-[#1A1714] border border-[#2A2520] rounded-2xl p-4">
+            <p className="text-sm text-[#A89F91]">
+              Showing {Math.min(offset + 1, total)}–{Math.min(offset + PAGE_SIZE, total)} of {total}
+            </p>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setOffset((v) => Math.max(0, v - PAGE_SIZE))} disabled={offset === 0}>Previous</Button>
-              <Button variant="secondary" size="sm" onClick={() => setOffset((v) => v + PAGE_SIZE)} disabled={offset + PAGE_SIZE >= total}>Next</Button>
+              <button
+                onClick={() => setOffset((v) => Math.max(0, v - PAGE_SIZE))}
+                disabled={offset === 0}
+                className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium bg-[#211E19] text-[#A89F91] hover:text-[#F5F0E8] hover:bg-[#2A2520] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+                Prev
+              </button>
+              <button
+                onClick={() => setOffset((v) => v + PAGE_SIZE)}
+                disabled={offset + PAGE_SIZE >= total}
+                className="flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-medium bg-[#D97706] text-white hover:bg-[#B45309] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </button>
             </div>
           </div>
-        </>
-      )}
-    </motion.div>
+        )}
+      </div>
+    </div>
   );
 }
