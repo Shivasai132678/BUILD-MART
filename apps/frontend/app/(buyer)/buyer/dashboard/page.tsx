@@ -2,8 +2,10 @@
 
 import { useQueries, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { fetchBuyerOrders, fetchBuyerRfqs } from '@/lib/buyer-api';
 import { formatIST } from '@/lib/utils/date';
+import { api, refreshAuthToken } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
 
 function getGreeting(): string {
@@ -40,7 +42,35 @@ function StatCard({ icon, label, value, sublabel, color }: { icon: string; label
 }
 
 export default function BuyerDashboardPage() {
+  const router = useRouter();
   const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
+
+  const vendorStatusQuery = useQuery({
+    queryKey: ['onboarding-status'],
+    queryFn: async () => {
+      const res = await api.get('/api/v1/onboarding/status');
+      return (res.data?.data ?? res.data) as {
+        hasVendorProfile: boolean;
+        vendorApproved: boolean;
+        role: string;
+      };
+    },
+    staleTime: 30_000,
+  });
+
+  const hasVendorProfile = vendorStatusQuery.data?.hasVendorProfile ?? false;
+  const vendorApproved = vendorStatusQuery.data?.vendorApproved ?? false;
+
+  const handleActivateVendor = async () => {
+    try {
+      const data = await refreshAuthToken();
+      if (data?.user) setUser(data.user);
+      router.push('/vendor/dashboard');
+    } catch {
+      // ignore
+    }
+  };
 
   const recentRfqsQuery = useQuery({
     queryKey: ['buyer-rfqs', 'recent'],
@@ -87,6 +117,29 @@ export default function BuyerDashboardPage() {
           New RFQ
         </Link>
       </div>
+
+      {/* Vendor application status banner */}
+      {hasVendorProfile && !vendorApproved && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-400">
+          <span className="material-symbols-outlined text-[20px]">schedule</span>
+          Your vendor application is under review. We&apos;ll notify you once it&apos;s approved.
+        </div>
+      )}
+      {hasVendorProfile && vendorApproved && user?.role === 'BUYER' && (
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-green-500/10 border border-green-500/20 rounded-xl">
+          <div className="flex items-center gap-3 text-sm text-green-400">
+            <span className="material-symbols-outlined text-[20px]">check_circle</span>
+            Your vendor account is approved!
+          </div>
+          <button
+            onClick={() => void handleActivateVendor()}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
+          >
+            Activate Vendor Access
+            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </button>
+        </div>
+      )}
 
       {/* Stat cards */}
       {isLoading ? (

@@ -47,12 +47,13 @@ describe('VendorService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (prisma.auditLog.create as jest.Mock).mockResolvedValue({ id: 'audit-1' });
+    (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'user-1', role: UserRole.VENDOR });
     (notificationsService.create as jest.Mock).mockResolvedValue(undefined);
     service = new VendorService(prisma, cloudinaryAdapter, notificationsService);
   });
 
   describe('onboard', () => {
-    it('creates VendorProfile AND updates User.role to VENDOR in a single $transaction', async () => {
+    it('creates VendorProfile in a $transaction and returns the profile', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue(null);
 
       const mockProfile = {
@@ -284,6 +285,7 @@ describe('VendorService', () => {
     it('sets status to APPROVED on VendorProfile', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
+        userId: 'user-1',
         status: VendorStatus.PENDING,
       });
 
@@ -305,11 +307,16 @@ describe('VendorService', () => {
           approvedAt: expect.any(Date),
         },
       });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { role: UserRole.VENDOR },
+      });
     });
 
     it('writes an AuditLog entry on approval', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
+        userId: 'user-1',
         status: VendorStatus.PENDING,
       });
       prisma.vendorProfile.update.mockResolvedValue({
@@ -341,6 +348,7 @@ describe('VendorService', () => {
     it('is idempotent — approving an already-approved vendor does not throw', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
+        userId: 'user-1',
         status: VendorStatus.APPROVED,
         approvedAt: new Date('2026-01-01'),
       });
@@ -358,6 +366,7 @@ describe('VendorService', () => {
     it('does not throw if auditLog.create fails (non-blocking)', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
+        userId: 'user-1',
         status: VendorStatus.PENDING,
       });
       prisma.vendorProfile.update.mockResolvedValue({

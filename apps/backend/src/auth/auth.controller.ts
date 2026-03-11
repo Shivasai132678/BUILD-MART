@@ -48,6 +48,16 @@ export class AuthController {
     return this.authService.verifyOtp(dto, response);
   }
 
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  refresh(
+    @Req() request: Request & { user: JwtTokenPayload },
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.authService.refreshToken(request.user.sub, response);
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   logout(@Res({ passthrough: true }) response: Response) {

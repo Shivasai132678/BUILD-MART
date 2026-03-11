@@ -38,6 +38,19 @@ type LogoutResponse = {
   message: 'Logged out';
 };
 
+type RefreshTokenResponse = {
+  message: 'Refreshed';
+  user: {
+    id: string;
+    phone: string;
+    role: UserRole;
+    name: string | null;
+    displayName: string | null;
+    hasVendorProfile: boolean;
+    vendorApproved: boolean;
+  };
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -179,6 +192,55 @@ export class AuthService {
 
     return {
       message: 'Verified',
+      user: {
+        id: user.id,
+        phone: user.phone,
+        role: user.role,
+        name: user.name,
+        displayName: user.displayName,
+        hasVendorProfile: !!user.vendorProfile,
+        vendorApproved: user.vendorProfile?.status === VendorStatus.APPROVED,
+      },
+    };
+  }
+
+  async refreshToken(
+    userId: string,
+    response: Response,
+  ): Promise<RefreshTokenResponse> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        phone: true,
+        role: true,
+        name: true,
+        displayName: true,
+        vendorProfile: {
+          select: { status: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const payload: JwtTokenPayload = {
+      sub: user.id,
+      phone: user.phone,
+      role: user.role,
+    };
+
+    const token = await this.jwtService.signAsync(payload, {
+      secret: this.getJwtSecret(),
+      expiresIn: (process.env.JWT_EXPIRES_IN ?? '7d') as JwtSignOptions['expiresIn'],
+    });
+
+    response.cookie('access_token', token, this.buildAccessTokenCookieOptions());
+
+    return {
+      message: 'Refreshed',
       user: {
         id: user.id,
         phone: user.phone,

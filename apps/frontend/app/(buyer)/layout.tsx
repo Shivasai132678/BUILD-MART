@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { api, refreshAuthToken } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
 import { Loader2 } from 'lucide-react';
 import { NotificationBell } from '@/components/ui/NotificationBell';
@@ -49,6 +49,16 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
     }
     if (!isAllowedRole(user.role)) router.replace('/login');
   }, [hydrated, router, user, setUser]);
+
+  const handleActivateVendor = async () => {
+    try {
+      const data = await refreshAuthToken();
+      if (data?.user) setUser(data.user);
+      router.push('/vendor/dashboard');
+    } catch {
+      // ignore — user can retry via the dashboard banner
+    }
+  };
 
   const handleLogout = async () => {
     try { await api.post('/api/v1/auth/logout'); } catch { /* ignore */ }
@@ -117,16 +127,31 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
             );
           })}
 
-          {/* Upgrade to Vendor */}
+          {/* Vendor section */}
           <div className="pt-4 mt-4 border-t border-[#2A2520]">
-            <Link
-              href="/vendor/onboarding"
-              onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-blue hover:bg-blue/10 hover:text-[#60A5FA] border border-transparent hover:border-blue/30"
-            >
-              <span className="material-symbols-outlined text-[20px] text-blue">storefront</span>
-              Become a Vendor
-            </Link>
+            {!user.hasVendorProfile ? (
+              <Link
+                href="/onboarding/vendor"
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-blue hover:bg-blue/10 hover:text-[#60A5FA] border border-transparent hover:border-blue/30"
+              >
+                <span className="material-symbols-outlined text-[20px] text-blue">storefront</span>
+                Become a Vendor
+              </Link>
+            ) : !user.vendorApproved ? (
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-[#7A7067] border border-[#2A2520]">
+                <span className="material-symbols-outlined text-[20px] text-amber-500">schedule</span>
+                Application Pending
+              </div>
+            ) : (
+              <button
+                onClick={() => { setSidebarOpen(false); void handleActivateVendor(); }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-green-400 hover:bg-green-500/10 border border-transparent hover:border-green-500/30 transition-all duration-150"
+              >
+                <span className="material-symbols-outlined text-[20px]">storefront</span>
+                Activate Vendor Access
+              </button>
+            )}
           </div>
         </nav>
 

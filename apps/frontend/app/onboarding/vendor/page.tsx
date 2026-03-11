@@ -95,14 +95,14 @@ export default function VendorOnboardingPage() {
         productIds: values.productIds,
       });
 
-      const meRes = await api.get('/api/v1/auth/me');
-      const data = meRes.data?.data ?? meRes.data;
-      if (data) {
-        setUser((prev) => ({ ...(prev ?? {}), ...data }));
+      const statusRes = await api.get('/api/v1/onboarding/status');
+      const statusData = statusRes.data?.data ?? statusRes.data;
+      if (statusData) {
+        setUser((prev) => ({ ...(prev ?? {}), ...statusData }));
       }
 
-      toast.success('Business registered! Your profile is under review.');
-      router.replace('/vendor/dashboard');
+      toast.success("Application submitted! You'll be notified once approved.");
+      router.replace('/buyer/dashboard');
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }

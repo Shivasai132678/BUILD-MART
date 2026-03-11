@@ -67,16 +67,10 @@ export class VendorService {
         this.logger.log(`Created ${dto.productIds.length} vendor products for vendorId=${profile.id}`);
       }
 
-      // Update user role
-      await tx.user.update({
-        where: { id: userId },
-        data: { role: UserRole.VENDOR },
-      });
-
       return profile;
     });
 
-    this.logger.log(`Vendor profile created and role upgraded to VENDOR for userId=${userId}`);
+    this.logger.log(`Vendor profile created for userId=${userId}, pending admin approval`);
 
     return vendorProfile;
   }
@@ -132,6 +126,12 @@ export class VendorService {
         status: VendorStatus.APPROVED,
         approvedAt,
       },
+    });
+
+    // Upgrade user role to VENDOR now that admin has approved
+    await this.prisma.user.update({
+      where: { id: existingProfile.userId },
+      data: { role: UserRole.VENDOR },
     });
 
     await this.recordVendorApprovalAudit(vendorId, adminUserId, approvedAt);

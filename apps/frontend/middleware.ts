@@ -4,7 +4,6 @@ type Role = 'PENDING' | 'BUYER' | 'VENDOR' | 'ADMIN';
 
 // Order matters: more-specific prefixes must come before their parents.
 const PROTECTED_ROUTES: Array<[string, Role[]]> = [
-  ['/vendor/onboarding', ['PENDING', 'BUYER', 'VENDOR', 'ADMIN']], // PENDING/BUYER allowed to reach initial vendor onboarding
   ['/onboarding', ['PENDING', 'BUYER', 'VENDOR', 'ADMIN']],
   ['/buyer', ['BUYER', 'ADMIN']],
   ['/vendor', ['VENDOR', 'ADMIN']],
