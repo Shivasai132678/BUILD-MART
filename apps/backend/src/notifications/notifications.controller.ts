@@ -43,6 +43,11 @@ function getRequestUserId(request: AuthenticatedRequest): string {
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
+  @Get('unread-count')
+  getUnreadCount(@Req() request: AuthenticatedRequest) {
+    return this.notificationsService.getUnreadCount(getRequestUserId(request));
+  }
+
   @Get()
   listNotifications(
     @Req() request: AuthenticatedRequest,

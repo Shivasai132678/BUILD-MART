@@ -1,15 +1,18 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PROTECTED_PREFIXES = {
-  '/buyer': ['BUYER', 'ADMIN'],
-  '/vendor': ['VENDOR', 'ADMIN'],
-  '/admin': ['ADMIN'],
-} as const;
+type Role = 'PENDING' | 'BUYER' | 'VENDOR' | 'ADMIN';
 
-type Role = 'BUYER' | 'VENDOR' | 'ADMIN';
+// Order matters: more-specific prefixes must come before their parents.
+const PROTECTED_ROUTES: Array<[string, Role[]]> = [
+  ['/vendor/onboarding', ['PENDING', 'BUYER', 'VENDOR', 'ADMIN']], // PENDING/BUYER allowed to reach initial vendor onboarding
+  ['/onboarding', ['PENDING', 'BUYER', 'VENDOR', 'ADMIN']],
+  ['/buyer', ['BUYER', 'ADMIN']],
+  ['/vendor', ['VENDOR', 'ADMIN']],
+  ['/admin', ['ADMIN']],
+];
 
-function getAllowedRoles(pathname: string): readonly Role[] | null {
-  for (const [prefix, roles] of Object.entries(PROTECTED_PREFIXES)) {
+function getAllowedRoles(pathname: string): Role[] | null {
+  for (const [prefix, roles] of PROTECTED_ROUTES) {
     if (pathname.startsWith(prefix)) {
       return roles;
     }
@@ -61,8 +64,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   const rawToken =
-    request.cookies.get('token')?.value ??
-    request.cookies.get('access_token')?.value;
+    request.cookies.get('access_token')?.value ??
+    request.cookies.get('token')?.value;
 
   if (!rawToken) {
     return redirectToLogin(request);
@@ -105,5 +108,5 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  matcher: ['/buyer/:path*', '/vendor/:path*', '/admin/:path*'],
+  matcher: ['/buyer/:path*', '/vendor/:path*', '/admin/:path*', '/onboarding/:path*', '/onboarding'],
 };

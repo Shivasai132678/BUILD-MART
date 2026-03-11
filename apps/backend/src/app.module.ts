@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
 import { HealthController } from './health/health.controller';
 import { NotificationsModule } from './notifications/notifications.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -32,6 +33,7 @@ import { VendorModule } from './vendors/vendor.module';
     AddressesModule,
     FilesModule,
     NotificationsModule,
+    OnboardingModule,
     PrismaModule,
     AuthModule,
     VendorModule,

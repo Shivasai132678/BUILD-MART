@@ -78,7 +78,7 @@ export default function BuyerRfqDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#2A2520] text-[#7A7067]">#{rfq.id.slice(0, 8)}</span>
-            <h1 className="mt-2 text-2xl font-bold text-[#F5F0E8]">{rfq.city} procurement request</h1>
+            <h1 className="mt-2 text-2xl font-bold text-[#F5F0E8]">{rfq.title?.trim() || `${rfq.city} procurement request`}</h1>
             <p className="mt-1 text-sm text-[#A89F91]">Created {formatIST(rfq.createdAt)} · Valid until {formatIST(rfq.validUntil)}</p>
           </div>
           <RfqStatusBadge status={rfq.status} />
@@ -95,7 +95,7 @@ export default function BuyerRfqDetailPage() {
           <div className="space-y-2">
             {rfq.items.map((item) => (
               <div key={item.id} className="flex items-center justify-between border border-[#2A2520] rounded-xl px-4 py-2.5 text-sm">
-                <span className="font-mono text-xs text-[#A89F91]">Product #{item.productId.slice(0, 8)}</span>
+                <span className="text-[#F5F0E8]">{item.product?.name ?? `Product #${item.productId.slice(0, 8)}`}</span>
                 <span className="text-[#F5F0E8]">{String(item.quantity)} {item.unit}</span>
               </div>
             ))}

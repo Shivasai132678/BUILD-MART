@@ -34,6 +34,9 @@ export type Address = {
 export type RfqItem = {
   id: string;
   productId: string;
+  product?: {
+    name: string;
+  } | null;
   quantity: number | string;
   unit: string;
   notes?: string | null;
@@ -44,10 +47,12 @@ export type Rfq = {
   buyerId: string;
   addressId: string;
   city: string;
+  title?: string | null;
   status: 'OPEN' | 'QUOTED' | 'CLOSED' | 'EXPIRED';
   notes?: string | null;
   validUntil: string;
   closedAt?: string | null;
+  referenceCode?: string | null;
   createdAt: string;
   updatedAt: string;
   items: RfqItem[];
@@ -80,7 +85,7 @@ export type Quote = {
 export type Payment = {
   id: string;
   orderId: string;
-  status: 'INITIATED' | 'SUCCESS' | 'FAILED';
+  status: 'INITIATED' | 'SUCCESS' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
   amount: string;
   razorpayOrderId?: string | null;
   razorpayPaymentId?: string | null;
@@ -99,6 +104,7 @@ export type Order = {
   totalAmount: string;
   status: 'CONFIRMED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
   paymentMethod?: string;
+  referenceCode?: string | null;
   confirmedAt?: string | null;
   dispatchedAt?: string | null;
   deliveredAt?: string | null;
@@ -116,6 +122,7 @@ export type OrderDetail = Order & {
 
 export type CreateRfqPayload = {
   addressId: string;
+  title?: string;
   notes?: string;
   validUntil: string;
   items: Array<{

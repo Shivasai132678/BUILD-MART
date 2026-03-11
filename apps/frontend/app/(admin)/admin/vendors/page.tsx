@@ -53,7 +53,7 @@ export default function AdminVendorsPage() {
 
   const vendorsEndpointMissing = pendingVendorsQuery.isError;
   const vendors: PendingVendorProfile[] = pendingVendorsQuery.data?.data ?? [];
-  const pendingVendors = vendors.filter((v) => v.isApproved === false);
+  const pendingVendors = vendors.filter((v) => v.status === 'PENDING');
 
   const openApproveDialog = (id: string, businessName: string) => {
     setDialog({ type: 'approve', id, businessName });

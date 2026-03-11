@@ -25,7 +25,7 @@ export default function VendorOrdersPage() {
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#F5F0E8]">My Orders</h1>
+        <h1 className="text-2xl font-bold text-text-primary">My Orders</h1>
         <p className="text-[#8EA5C0] text-sm mt-1">{total} order{total !== 1 ? 's' : ''} total</p>
       </div>
 
@@ -39,7 +39,7 @@ export default function VendorOrdersPage() {
       ) : items.length === 0 ? (
         <div className="bg-[#111827] border border-[#1E2A3A] rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
           <span className="material-symbols-outlined text-[56px] text-[#1E2A3A] mb-4">package_2</span>
-          <p className="text-base font-medium text-[#F5F0E8]">No orders yet</p>
+          <p className="font-medium text-text-primary">No orders yet</p>
           <p className="text-sm text-[#8EA5C0] mt-1">Orders will appear here when buyers accept your quotes.</p>
         </div>
       ) : (
@@ -48,19 +48,19 @@ export default function VendorOrdersPage() {
             <Link
               key={order.id}
               href={`/vendor/orders/${order.id}`}
-              className="bg-[#111827] border border-[#1E2A3A] hover:border-[#3B7FC1]/30 rounded-2xl flex items-center gap-4 px-5 py-4 group transition-colors"
+              className="bg-[#111827] border border-[#1E2A3A] hover:border-blue/30 rounded-2xl flex items-center gap-4 px-5 py-4 group transition-colors"
             >
-              <div className="w-10 h-10 rounded-xl bg-[#3B7FC1]/15 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-[#3B7FC1] text-[20px]">package_2</span>
+              <div className="w-10 h-10 rounded-xl bg-blue/15 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-blue text-[20px]">package_2</span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="font-mono text-xs text-[#3B7FC1]">#{order.id.slice(0, 10)}</span>
+                  <span className="font-mono text-xs text-blue">{order.referenceCode ?? `#${order.id.slice(0, 10)}`}</span>
                   <StatusBadge status={order.status} />
                 </div>
                 <p className="text-sm text-[#8EA5C0]">{formatIST(order.createdAt)}</p>
               </div>
-              <p className="text-lg font-bold text-[#F5F0E8]">₹{order.totalAmount}</p>
+              <p className="text-lg font-bold text-text-primary">₹{order.totalAmount}</p>
             </Link>
           ))}
         </div>

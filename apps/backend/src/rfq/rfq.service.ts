@@ -1,12 +1,14 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType, RFQStatus, UserRole } from '@prisma/client';
-import type { Prisma, RFQ } from '@prisma/client';
+import { NotificationType, Prisma, RFQStatus, UserRole, VendorStatus } from '@prisma/client';
+import type { RFQ } from '@prisma/client';
+import { generateRfqReferenceCode } from '../common/utils/reference-code';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRfqDto } from './dto/create-rfq.dto';
@@ -28,49 +30,87 @@ export class RfqService {
   ) { }
 
   async createRFQ(userId: string, dto: CreateRfqDto): Promise<RFQ> {
-    const createdRfq = await this.prisma.$transaction(async (tx) => {
-      const address = await tx.address.findFirst({
-        where: {
-          id: dto.addressId,
-          userId,
-        },
-        select: { id: true, city: true },
-      });
+    const MAX_REF_RETRIES = 3;
 
-      if (!address) {
-        throw new BadRequestException('Address does not belong to the buyer');
+    let createdRfq: (RFQ & { items: unknown[] }) | null = null;
+
+    for (let attempt = 0; attempt < MAX_REF_RETRIES; attempt++) {
+      try {
+        createdRfq = await this.prisma.$transaction(async (tx) => {
+          const address = await tx.address.findFirst({
+            where: {
+              id: dto.addressId,
+              userId,
+            },
+            select: { id: true, city: true },
+          });
+
+          if (!address) {
+            throw new BadRequestException('Address does not belong to the buyer');
+          }
+
+          const deliveryCity = address.city;
+
+          const referenceCode = await generateRfqReferenceCode(tx);
+
+          const rfq = await tx.rFQ.create({
+            data: {
+              buyerId: userId,
+              addressId: dto.addressId,
+              city: deliveryCity,
+              status: RFQStatus.OPEN,
+              referenceCode,
+              validUntil: new Date(dto.validUntil),
+              ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+              ...(dto.title !== undefined ? { title: dto.title } : {}),
+            },
+          });
+
+          await tx.rFQItem.createMany({
+            data: dto.items.map((item) => ({
+              rfqId: rfq.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              unit: item.unit,
+              ...(item.notes !== undefined ? { notes: item.notes } : {}),
+            })),
+          });
+
+          return tx.rFQ.findUnique({
+            where: { id: rfq.id },
+            include: {
+              items: {
+                include: {
+                  product: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+        });
+
+        break; // success — exit retry loop
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const targets = (error.meta?.target as string[] | string) ?? [];
+          const targetStr = Array.isArray(targets) ? targets.join(',') : targets;
+
+          if (targetStr.includes('referenceCode')) {
+            this.logger.warn(`Reference code collision on RFQ create, attempt ${attempt + 1}/${MAX_REF_RETRIES}`);
+            if (attempt < MAX_REF_RETRIES - 1) continue;
+            throw new ConflictException('Unable to generate unique RFQ reference code, please retry');
+          }
+        }
+
+        throw error;
       }
-
-      const deliveryCity = address.city;
-
-      const rfq = await tx.rFQ.create({
-        data: {
-          buyerId: userId,
-          addressId: dto.addressId,
-          city: deliveryCity,
-          status: RFQStatus.OPEN,
-          validUntil: new Date(dto.validUntil),
-          ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
-        },
-      });
-
-      await tx.rFQItem.createMany({
-        data: dto.items.map((item) => ({
-          rfqId: rfq.id,
-          productId: item.productId,
-          quantity: item.quantity,
-          unit: item.unit,
-          ...(item.notes !== undefined ? { notes: item.notes } : {}),
-        })),
-      });
-
-      return tx.rFQ.findUnique({
-        where: { id: rfq.id },
-        include: {
-          items: true,
-        },
-      });
-    });
+    }
 
     if (!createdRfq) {
       throw new NotFoundException('RFQ creation failed');
@@ -147,7 +187,59 @@ export class RfqService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          items: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.rFQ.count({ where }),
+    ]);
+
+    return { items, total, limit, offset };
+  }
+
+  async browseAllRFQs(
+    limit: number,
+    offset: number,
+    categoryId?: string,
+  ): Promise<PaginatedRfqResponse> {
+    const where: Prisma.RFQWhereInput = {
+      status: RFQStatus.OPEN,
+      ...(categoryId
+        ? {
+            items: {
+              some: {
+                product: {
+                  categoryId,
+                },
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.rFQ.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.rFQ.count({ where }),
@@ -210,7 +302,15 @@ export class RfqService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          items: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.rFQ.count({ where }),
@@ -230,34 +330,19 @@ export class RfqService {
     } else if (role === UserRole.VENDOR) {
       const vendorProfile = await this.prisma.vendorProfile.findUnique({
         where: { userId },
-        select: {
-          products: {
-            select: { productId: true },
-          },
-        },
+        select: { id: true },
       });
 
       if (!vendorProfile) {
         throw new NotFoundException('Vendor profile not found');
       }
 
-      const productIds = Array.from(new Set(vendorProfile.products.map((p) => p.productId)));
-
-      if (productIds.length === 0) {
-        throw new NotFoundException('RFQ not found');
-      }
-
+      // Vendors can view any OPEN or QUOTED RFQ (not restricted to product-matching)
+      // This enables browsing all RFQs and quoting on any of them
       where = {
         id,
         status: {
           in: [RFQStatus.OPEN, RFQStatus.QUOTED],
-        },
-        items: {
-          some: {
-            productId: {
-              in: productIds,
-            },
-          },
         },
       };
     } else {
@@ -267,7 +352,15 @@ export class RfqService {
     const rfq = await this.prisma.rFQ.findFirst({
       where,
       include: {
-        items: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -302,7 +395,15 @@ export class RfqService {
         closedAt: new Date(),
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -324,7 +425,7 @@ export class RfqService {
     const vendors = await this.prisma.vendorProfile.findMany({
       where: {
         city,
-        isApproved: true,
+        status: VendorStatus.APPROVED,
         deletedAt: null,
         products: {
           some: {

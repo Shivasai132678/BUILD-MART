@@ -185,7 +185,31 @@ CONFIRMED → CANCELLED
 ```
 Any invalid transition throws a `400 Bad Request` with a descriptive message.
 
-### Auth Flow
+### Notification Events
+
+All notifications are persisted in the DB and delivered via the `NotificationsService` exclusively.
+
+| Event | Type | Recipient(s) |
+|-------|------|--------------|
+| RFQ created | `RFQ_CREATED` | Matched vendors (product-level) |
+| Quote received | `QUOTE_RECEIVED` | Buyer |
+| Order confirmed | `ORDER_CONFIRMED` | Buyer |
+| Order status changed | `STATUS_UPDATED` | Buyer (OUT_FOR_DELIVERY / DELIVERED); Buyer + Vendor (CANCELLED) |
+| Payment initiated | `PAYMENT_INITIATED` | Vendor |
+| Payment succeeded | `PAYMENT_SUCCESS` | Buyer + Vendor |
+| Payment failed | `PAYMENT_FAILED` | Buyer + Vendor |
+| Vendor approved | `VENDOR_APPROVED` | Vendor |
+| Vendor rejected | `VENDOR_REJECTED` | Vendor |
+
+The `NotificationBell` component polls unread count every 30 s and shows a live dropdown.
+
+### Payment Flow
+1. Buyer hits **Pay Now** → backend creates a Razorpay order, upserts `Payment` record with `status: INITIATED`, and notifies the vendor.
+2. Razorpay checkout modal opens in the browser.
+3. On success, Razorpay fires a signed webhook → backend verifies HMAC, marks `Payment.status = SUCCESS` (idempotent: returns HTTP 200 immediately if already `SUCCESS`), notifies buyer + vendor.
+4. Frontend polls `payment.status` every 3 s (60 s cap) and redirects on confirmation.
+5. COD path: `paymentMethod: COD` stored on the Order; no Razorpay order is created.
+
 1. Buyer/Vendor submits phone number
 2. Backend sends OTP via MSG91 (or prints to console in dev)
 3. OTP stored as SHA-256 hash with 5-minute expiry and `isUsed` guard
@@ -241,6 +265,9 @@ After deploying backend (Render) and frontend (Vercel), run this minimum staging
 - WhatsApp/SMS delivery requires real provider credentials (`WHATSAPP_API_KEY`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`) in `apps/backend/.env`.
 - Cloudinary uploads require valid `CLOUDINARY_*` keys in `apps/backend/.env`. In dev mode, missing keys are handled gracefully.
 - Vendor document file upload UI (multipart upload from frontend) is Phase 2; current onboarding uses URL fields.
+- New phone numbers are stored with `role: BUYER` in the DB during OTP send. The frontend redirects them to `/onboarding` (role selection) because `user.name` is null at that point. A dedicated `PENDING` role state is a planned but deferred schema change.
+- RFQ cards do not display a free-text `title` field — the model uses `referenceCode` + item list as the primary identifier. A `title` field can be added via a named migration when needed.
+- `VendorProfile.isApproved` is a boolean (not an enum). The `SUSPENDED` vendor state is not yet implemented.
 
 ## API Usage & Swagger Policy
 - Backend API routes are versioned under `/api/v1/*` with a health route at `/api/health`.

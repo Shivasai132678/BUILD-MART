@@ -28,6 +28,7 @@ const rfqItemSchema = z.object({
 
 const rfqFormSchema = z.object({
   addressId: z.string().min(1, 'Select an address'),
+  title: z.string().max(200, 'Title is too long').optional(),
   validUntil: z.string().min(1, 'Valid until date is required'),
   notes: z.string().optional(),
   items: z.array(rfqItemSchema).min(1, 'Add at least one item'),
@@ -77,6 +78,7 @@ export default function BuyerNewRfqPage() {
     resolver: zodResolver(rfqFormSchema),
     defaultValues: {
       addressId: '',
+      title: '',
       validUntil: '',
       notes: '',
       items: [{ productId: '', quantity: 1, unit: '', notes: '' }],
@@ -175,6 +177,7 @@ export default function BuyerNewRfqPage() {
     await createRfqMutation.mutateAsync({
       addressId: values.addressId,
       validUntil,
+      ...(values.title?.trim() ? { title: values.title.trim() } : {}),
       ...(values.notes?.trim() ? { notes: values.notes.trim() } : {}),
       items: values.items.map((item) => ({
         productId: item.productId,
@@ -413,6 +416,21 @@ export default function BuyerNewRfqPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="block text-xs font-medium text-[#A89F91]" htmlFor="rfq-title">Title (optional)</label>
+                  <input
+                    id="rfq-title"
+                    type="text"
+                    className={inputCls}
+                    placeholder="e.g. Phase 2 cement & steel"
+                    maxLength={200}
+                    {...register('title')}
+                  />
+                  {errors.title && (
+                    <p className="text-xs text-red-400">{errors.title.message}</p>
+                  )}
+                </div>
+
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-[#A89F91]" htmlFor="rfq-valid-until">Valid Until</label>
                   <input

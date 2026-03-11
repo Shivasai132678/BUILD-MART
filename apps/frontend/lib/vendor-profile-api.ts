@@ -9,7 +9,7 @@ export type VendorProfile = {
   businessLicenseUrl?: string | null;
   city: string;
   serviceableAreas: string[];
-  isApproved: boolean;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   approvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -20,6 +20,7 @@ export type OnboardVendorPayload = {
   gstNumber: string;
   city: string;
   serviceableAreas: string[];
+  productIds?: string[];
   gstDocumentUrl?: string;
   businessLicenseUrl?: string;
 };

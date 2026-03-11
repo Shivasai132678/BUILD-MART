@@ -40,7 +40,7 @@ export default function BuyerRfqListPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#F5F0E8]">My RFQs</h1>
+          <h1 className="text-2xl font-bold text-text-primary">My RFQs</h1>
           <p className="text-sm text-[#A89F91] mt-0.5">Manage your requests for quote</p>
         </div>
         <Link
@@ -53,7 +53,7 @@ export default function BuyerRfqListPage() {
       </div>
 
       {/* Content */}
-      <div className="bg-[#1A1714] border border-[#2A2520] rounded-2xl overflow-hidden">
+      <div className="bg-surface border border-[#2A2520] rounded-2xl overflow-hidden">
         {/* Table header */}
         <div className="hidden md:grid grid-cols-[1fr_120px_80px_100px_160px] gap-4 px-5 py-3 border-b border-[#2A2520] text-xs font-semibold text-[#7A7067] uppercase tracking-wide">
           <span>RFQ</span>
@@ -66,19 +66,19 @@ export default function BuyerRfqListPage() {
         {rfqQuery.isLoading ? (
           <div className="p-5 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-14 bg-[#211E19] rounded-xl animate-pulse" />
+              <div key={i} className="h-14 bg-elevated rounded-xl animate-pulse" />
             ))}
           </div>
         ) : rfqQuery.isError ? (
           <div className="p-12 text-center">
             <span className="material-symbols-outlined text-4xl text-[#7A7067]">error</span>
-            <p className="mt-3 font-semibold text-[#F5F0E8]">Failed to load RFQs</p>
+            <p className="mt-3 font-semibold text-text-primary">Failed to load RFQs</p>
             <p className="text-sm text-[#A89F91] mt-1">Please try again later.</p>
           </div>
         ) : rfqs.length === 0 ? (
           <div className="p-12 text-center">
             <span className="material-symbols-outlined text-5xl text-[#3A3027]">description</span>
-            <p className="mt-3 font-semibold text-[#F5F0E8]">No RFQs yet</p>
+            <p className="mt-3 font-semibold text-text-primary">No RFQs yet</p>
             <p className="text-sm text-[#A89F91] mt-1">Create your first RFQ to get quotes from vendors.</p>
             <Link
               href="/buyer/rfq/new"
@@ -94,16 +94,16 @@ export default function BuyerRfqListPage() {
               <Link
                 key={rfq.id}
                 href={`/buyer/rfq/${rfq.id}`}
-                className="flex flex-col md:grid md:grid-cols-[1fr_120px_80px_100px_160px] gap-2 md:gap-4 items-start md:items-center px-5 py-4 hover:bg-[#211E19] transition-colors group"
+                className="flex flex-col md:grid md:grid-cols-[1fr_120px_80px_100px_160px] gap-2 md:gap-4 items-start md:items-center px-5 py-4 hover:bg-elevated transition-colors group"
               >
                 {/* RFQ ID */}
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="material-symbols-outlined text-[#D97706] text-[18px] shrink-0">request_quote</span>
                   <span className="text-sm font-mono text-[#D97706] group-hover:text-[#F59E0B] transition-colors truncate">
-                    #{rfq.id.slice(0, 10)}
+                    {rfq.referenceCode ?? `#${rfq.id.slice(0, 10)}`}
                   </span>
-                  {rfq.notes && (
-                    <span className="hidden lg:block text-xs text-[#7A7067] truncate ml-1">— {rfq.notes}</span>
+                  {rfq.title && (
+                    <span className="hidden lg:block text-sm text-[#C8BFB5] truncate ml-1">— {rfq.title}</span>
                   )}
                 </div>
 
@@ -143,7 +143,7 @@ export default function BuyerRfqListPage() {
             <button
               onClick={() => setOffset((p) => Math.max(0, p - LIMIT))}
               disabled={currentPage === 1}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium bg-[#1A1714] border border-[#2A2520] text-[#A89F91] hover:text-[#F5F0E8] hover:border-[#3A3027] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium bg-surface border border-[#2A2520] text-[#A89F91] hover:text-text-primary hover:border-[#3A3027] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <span className="material-symbols-outlined text-[16px]">chevron_left</span>
               Prev
@@ -154,7 +154,7 @@ export default function BuyerRfqListPage() {
             <button
               onClick={() => setOffset((p) => p + LIMIT)}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium bg-[#1A1714] border border-[#2A2520] text-[#A89F91] hover:text-[#F5F0E8] hover:border-[#3A3027] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-medium bg-surface border border-[#2A2520] text-[#A89F91] hover:text-text-primary hover:border-[#3A3027] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Next
               <span className="material-symbols-outlined text-[16px]">chevron_right</span>

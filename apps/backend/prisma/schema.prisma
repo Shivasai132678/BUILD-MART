@@ -17,6 +17,7 @@ datasource db {
 // ─── ENUMS ──────────────────────────────────────────────────
 
 enum UserRole {
+  PENDING
   BUYER
   VENDOR
   ADMIN
@@ -40,6 +41,8 @@ enum PaymentStatus {
   INITIATED
   SUCCESS
   FAILED
+  CANCELLED
+  REFUNDED
 }
 
 enum PaymentMethod {
@@ -47,24 +50,35 @@ enum PaymentMethod {
   COD
 }
 
+enum VendorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
 enum NotificationType {
   RFQ_CREATED
   QUOTE_RECEIVED
   ORDER_CONFIRMED
   STATUS_UPDATED
+  PAYMENT_INITIATED
   PAYMENT_SUCCESS
   PAYMENT_FAILED
+  VENDOR_APPROVED
+  VENDOR_REJECTED
 }
 
 // ─── USERS ──────────────────────────────────────────────────
 
 model User {
-  id        String    @id @default(cuid())
-  phone     String    @unique
-  email     String?   @unique
-  name      String?
-  role      UserRole  @default(BUYER)
-  isActive  Boolean   @default(true)
+  id          String    @id @default(cuid())
+  phone       String    @unique
+  email       String?   @unique
+  name        String?
+  displayName String?
+  role        UserRole  @default(BUYER)
+  isActive    Boolean   @default(true)
   deletedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -106,7 +120,7 @@ model VendorProfile {
   businessLicenseUrl String?
   city               String    @default("Hyderabad")
   serviceableAreas   String[]
-  isApproved         Boolean   @default(false)
+  status             VendorStatus @default(PENDING)
   approvedAt         DateTime?
   rejectedAt         DateTime?
   rejectionReason    String?
@@ -122,7 +136,7 @@ model VendorProfile {
   orders   Order[]         @relation("VendorOrders")
   reviews  Review[]
 
-  @@index([city, isApproved])
+  @@index([city, status])
   @@index([deletedAt])
 }
 
@@ -206,13 +220,15 @@ model Address {
 // ─── RFQ ────────────────────────────────────────────────────
 
 model RFQ {
-  id         String    @id @default(cuid())
-  buyerId    String
-  addressId  String
-  city       String    @default("Hyderabad")
-  status     RFQStatus @default(OPEN)
-  notes      String?
-  validUntil DateTime
+  id            String    @id @default(cuid())
+  referenceCode String?   @unique
+  buyerId       String
+  addressId     String
+  city          String    @default("Hyderabad")
+  title         String?
+  status        RFQStatus @default(OPEN)
+  notes         String?
+  validUntil    DateTime
   closedAt   DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -247,9 +263,10 @@ model RFQItem {
 // ─── QUOTES ─────────────────────────────────────────────────
 
 model Quote {
-  id          String   @id @default(cuid())
-  rfqId       String
-  vendorId    String
+  id            String   @id @default(cuid())
+  referenceCode String?  @unique
+  rfqId         String
+  vendorId      String
   subtotal    Decimal  @db.Decimal(10, 2)
   taxAmount   Decimal  @db.Decimal(10, 2)
   deliveryFee Decimal  @db.Decimal(10, 2)
@@ -289,6 +306,7 @@ model QuoteItem {
 
 model Order {
   id            String        @id @default(cuid())
+  referenceCode String?       @unique
   rfqId         String        @unique
   quoteId       String        @unique
   buyerId       String

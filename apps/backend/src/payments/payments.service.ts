@@ -80,6 +80,7 @@ export class PaymentsService {
       where: { id: dto.orderId },
       include: {
         payment: true,
+        vendor: { select: { userId: true } },
       },
     });
 
@@ -127,6 +128,24 @@ export class PaymentsService {
     });
 
     this.logger.log(`Razorpay order created for orderId=${order.id}`);
+
+    if (order.vendor?.userId) {
+      const orderRef = order.referenceCode ?? `#${order.id.slice(0, 8)}`;
+      this.notificationsService
+        .create({
+          userId: order.vendor.userId,
+          type: NotificationType.PAYMENT_INITIATED,
+          title: 'Payment initiated',
+          message: `The buyer has initiated payment for order ${orderRef}.`,
+          metadata: { orderId: order.id },
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Unknown error';
+          this.logger.error(
+            `Failed to send PAYMENT_INITIATED notification for orderId=${order.id}: ${message}`,
+          );
+        });
+    }
 
     return {
       razorpayOrderId: createdOrder.id,
@@ -332,6 +351,9 @@ export class PaymentsService {
       select: {
         id: true,
         buyerId: true,
+        vendorId: true,
+        referenceCode: true,
+        vendor: { select: { userId: true } },
       },
     });
 
@@ -342,12 +364,14 @@ export class PaymentsService {
       return;
     }
 
+    const orderRef = order.referenceCode ?? `#${order.id.slice(0, 8)}`;
+
     try {
       await this.notificationsService.create({
         userId: order.buyerId,
         type: NotificationType.PAYMENT_SUCCESS,
         title: 'Payment confirmed',
-        message: `Your payment for order #${order.id.slice(0, 8)} was successful.`,
+        message: `Your payment for order ${orderRef} was successful.`,
         metadata: { orderId: order.id, paymentId },
       });
     } catch (error: unknown) {
@@ -356,6 +380,24 @@ export class PaymentsService {
       this.logger.error(
         `Failed to send payment success notification for orderId=${order.id}: ${message}`,
       );
+    }
+
+    if (order.vendor?.userId) {
+      try {
+        await this.notificationsService.create({
+          userId: order.vendor.userId,
+          type: NotificationType.PAYMENT_SUCCESS,
+          title: 'Payment received',
+          message: `Payment for order ${orderRef} has been received.`,
+          metadata: { orderId: order.id, paymentId },
+        });
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown notification error';
+        this.logger.error(
+          `Failed to send vendor payment success notification for orderId=${order.id}: ${message}`,
+        );
+      }
     }
   }
 
@@ -368,6 +410,9 @@ export class PaymentsService {
       select: {
         id: true,
         buyerId: true,
+        vendorId: true,
+        referenceCode: true,
+        vendor: { select: { userId: true } },
       },
     });
 
@@ -378,12 +423,14 @@ export class PaymentsService {
       return;
     }
 
+    const orderRef = order.referenceCode ?? `#${order.id.slice(0, 8)}`;
+
     try {
       await this.notificationsService.create({
         userId: order.buyerId,
         type: NotificationType.PAYMENT_FAILED,
         title: 'Payment failed',
-        message: `Your payment for order #${order.id.slice(0, 8)} failed. Please retry.`,
+        message: `Your payment for order ${orderRef} failed. Please retry.`,
         metadata: { orderId: order.id, paymentId },
       });
     } catch (error: unknown) {
@@ -392,6 +439,24 @@ export class PaymentsService {
       this.logger.error(
         `Failed to send payment failure notification for orderId=${order.id}: ${message}`,
       );
+    }
+
+    if (order.vendor?.userId) {
+      try {
+        await this.notificationsService.create({
+          userId: order.vendor.userId,
+          type: NotificationType.PAYMENT_FAILED,
+          title: 'Payment failed',
+          message: `Payment for order ${orderRef} has failed. The buyer has been asked to retry.`,
+          metadata: { orderId: order.id, paymentId },
+        });
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error ? error.message : 'Unknown notification error';
+        this.logger.error(
+          `Failed to send vendor payment failure notification for orderId=${order.id}: ${message}`,
+        );
+      }
     }
   }
 }

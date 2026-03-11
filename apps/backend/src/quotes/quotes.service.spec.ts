@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType, RFQStatus } from '@prisma/client';
+import { NotificationType, RFQStatus, VendorStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -67,7 +67,7 @@ describe('QuotesService', () => {
 
   describe('createQuote', () => {
     it('successfully creates a quote for a valid vendor + RFQ', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1' });
+      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1', status: VendorStatus.APPROVED });
       prisma.rFQ.findUnique.mockResolvedValue({
         id: 'rfq-1',
         buyerId: 'buyer-1',
@@ -85,6 +85,8 @@ describe('QuotesService', () => {
 
       (prisma.$transaction as jest.Mock).mockImplementation(async (callback: Function) => {
         const tx = {
+          $executeRaw: jest.fn().mockResolvedValue(undefined),
+          $queryRaw: jest.fn().mockResolvedValue([{ referenceCode: 'QUO-00001' }]),
           quote: {
             create: jest.fn().mockResolvedValue({ id: 'quote-1' }),
             findUnique: jest.fn().mockResolvedValue(createdQuote),
@@ -100,7 +102,7 @@ describe('QuotesService', () => {
       expect(result).toEqual(createdQuote);
       expect(prisma.vendorProfile.findUnique).toHaveBeenCalledWith({
         where: { userId: 'vendor-user-1' },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       expect(notificationsService.createNotification).toHaveBeenCalledWith(
         'buyer-1',
@@ -112,7 +114,7 @@ describe('QuotesService', () => {
     });
 
     it('throws ConflictException if vendor already submitted a quote for the same RFQ', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1' });
+      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1', status: VendorStatus.APPROVED });
       prisma.rFQ.findUnique.mockResolvedValue({
         id: 'rfq-1',
         buyerId: 'buyer-1',
@@ -126,7 +128,7 @@ describe('QuotesService', () => {
     });
 
     it('throws NotFoundException if RFQ does not exist', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1' });
+      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1', status: VendorStatus.APPROVED });
       prisma.rFQ.findUnique.mockResolvedValue(null);
 
       await expect(service.createQuote('vendor-user-1', mockDto)).rejects.toThrow(
@@ -134,12 +136,12 @@ describe('QuotesService', () => {
       );
     });
 
-    it('throws BadRequestException if RFQ is not OPEN status', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1' });
+    it('throws BadRequestException if RFQ is CLOSED status', async () => {
+      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1', status: VendorStatus.APPROVED });
       prisma.rFQ.findUnique.mockResolvedValue({
         id: 'rfq-1',
         buyerId: 'buyer-1',
-        status: RFQStatus.QUOTED,
+        status: RFQStatus.CLOSED,
       });
 
       await expect(service.createQuote('vendor-user-1', mockDto)).rejects.toThrow(
@@ -156,7 +158,7 @@ describe('QuotesService', () => {
     });
 
     it('throws ConflictException on Prisma P2002 unique constraint violation', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1' });
+      prisma.vendorProfile.findUnique.mockResolvedValue({ id: 'vendor-profile-1', status: VendorStatus.APPROVED });
       prisma.rFQ.findUnique.mockResolvedValue({
         id: 'rfq-1',
         buyerId: 'buyer-1',

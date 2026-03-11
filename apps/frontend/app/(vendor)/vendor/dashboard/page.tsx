@@ -28,7 +28,7 @@ export default function VendorDashboardPage() {
   const rfqsQuery = useQuery({ queryKey: ['vendor-available-rfqs-dash'], queryFn: () => getAvailableRfqs(5, 0) });
   const ordersQuery = useQuery({ queryKey: ['vendor-orders-dash'], queryFn: () => getVendorOrders(1, 0) });
 
-  const isApproved = profileQuery.data?.isApproved ?? false;
+  const isApproved = profileQuery.data?.status === 'APPROVED';
   const rfqTotal = rfqsQuery.data?.total ?? 0;
   const orderTotal = ordersQuery.data?.total ?? 0;
   const recentRfqs = rfqsQuery.data?.items ?? [];

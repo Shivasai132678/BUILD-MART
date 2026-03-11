@@ -10,7 +10,7 @@ export type VendorProfile = {
   businessLicenseUrl?: string | null;
   city: string;
   serviceableAreas: string[];
-  isApproved: boolean;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   approvedAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -47,6 +47,18 @@ export async function getVendorProfile() {
 export async function getAvailableRfqs(limit: number, offset: number) {
   const response = await api.get('/api/v1/rfq/available', {
     params: { limit, offset },
+  });
+
+  return unwrapApiData<PaginatedResponse<Rfq>>(response.data);
+}
+
+export async function browseAllRfqs(limit: number, offset: number, categoryId?: string) {
+  const response = await api.get('/api/v1/rfq/browse', {
+    params: {
+      limit,
+      offset,
+      ...(categoryId ? { categoryId } : {}),
+    },
   });
 
   return unwrapApiData<PaginatedResponse<Rfq>>(response.data);
@@ -89,5 +101,30 @@ export async function updateOrderStatus(
 ) {
   const response = await api.patch(`/api/v1/orders/${id}/status`, body);
   return unwrapApiData<Order>(response.data);
+}
+
+export type VendorProduct = {
+  id: string;
+  productId: string;
+  name: string;
+  unit: string;
+  category: { id: string; name: string };
+  stockAvailable: boolean;
+  customPrice: string | null;
+};
+
+export async function getVendorProducts() {
+  const response = await api.get('/api/v1/vendors/products');
+  return unwrapApiData<{ items: VendorProduct[] }>(response.data);
+}
+
+export async function addVendorProducts(productIds: string[]) {
+  const response = await api.post('/api/v1/vendors/products', { productIds });
+  return unwrapApiData<{ added: number }>(response.data);
+}
+
+export async function removeVendorProduct(productId: string) {
+  const response = await api.delete(`/api/v1/vendors/products/${productId}`);
+  return unwrapApiData<{ removed: boolean }>(response.data);
 }
 

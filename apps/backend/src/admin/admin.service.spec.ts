@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { OrderStatus, Prisma, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminService } from './admin.service';
 
@@ -35,8 +35,8 @@ describe('AdminService', () => {
     it('returns correct counts for users, vendors, RFQs, orders', async () => {
       prisma.user.count.mockResolvedValue(50);
       prisma.vendorProfile.count
-        .mockResolvedValueOnce(10) // totalVendors (isApproved: true)
-        .mockResolvedValueOnce(3); // pendingVendors (isApproved: false)
+        .mockResolvedValueOnce(10) // totalVendors (status: APPROVED)
+        .mockResolvedValueOnce(3); // pendingVendors (status: PENDING)
       prisma.rFQ.count.mockResolvedValue(25);
       prisma.order.count.mockResolvedValue(12);
       prisma.order.aggregate.mockResolvedValue({
@@ -76,10 +76,10 @@ describe('AdminService', () => {
       // vendorProfile.count called with deletedAt: null for both approved and pending
       const vpCountCalls = (prisma.vendorProfile.count as jest.Mock).mock.calls;
       expect(vpCountCalls[0][0]).toEqual({
-        where: { isApproved: true, deletedAt: null },
+        where: { status: VendorStatus.APPROVED, deletedAt: null },
       });
       expect(vpCountCalls[1][0]).toEqual({
-        where: { isApproved: false, deletedAt: null, rejectedAt: null },
+        where: { status: VendorStatus.PENDING, deletedAt: null },
       });
     });
 
@@ -125,12 +125,12 @@ describe('AdminService', () => {
   });
 
   describe('getPendingVendors', () => {
-    it('returns only vendors where isApproved = false', async () => {
+    it('returns only vendors where status = PENDING', async () => {
       const pendingVendors = [
         {
           id: 'vp-1',
           businessName: 'Test Vendor',
-          isApproved: false,
+          status: VendorStatus.PENDING,
           user: { name: 'Vendor User', phone: '+919000000004', email: null },
         },
       ];
@@ -145,9 +145,8 @@ describe('AdminService', () => {
 
       const findManyCall = (prisma.vendorProfile.findMany as jest.Mock).mock.calls[0][0];
       expect(findManyCall.where).toEqual({
-        isApproved: false,
+        status: VendorStatus.PENDING,
         deletedAt: null,
-        rejectedAt: null,
       });
     });
 

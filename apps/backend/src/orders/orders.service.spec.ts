@@ -74,7 +74,7 @@ describe('OrdersService', () => {
         'buyer-1',
         NotificationType.STATUS_UPDATED,
         'Order status updated',
-        expect.stringContaining('OUT_FOR_DELIVERY'),
+        expect.stringContaining('out for delivery'),
         expect.objectContaining({ status: OrderStatus.OUT_FOR_DELIVERY }),
       );
     });
@@ -100,7 +100,7 @@ describe('OrdersService', () => {
         'buyer-1',
         NotificationType.STATUS_UPDATED,
         'Order status updated',
-        expect.stringContaining('DELIVERED'),
+        expect.stringContaining('delivered'),
         expect.objectContaining({ status: OrderStatus.DELIVERED }),
       );
     });

@@ -44,11 +44,12 @@ export class NotificationsService {
 
     this.logger.log(
       `Notification created — id: ${notification.id}, ` +
-      `type: ${type}, userId: ${userId}`,
+        `type: ${type}, userId: ${userId}`,
     );
 
-    this.safeDispatch(userId, notification.id, type, message)
-      .catch(() => {/* already logged inside safeDispatch */});
+    this.safeDispatch(userId, notification.id, type, message).catch(() => {
+      /* already logged inside safeDispatch */
+    });
 
     return notification;
   }
@@ -99,13 +100,22 @@ export class NotificationsService {
     }
 
     if (notification.userId !== userId) {
-      throw new ForbiddenException('You are not allowed to modify this notification');
+      throw new ForbiddenException(
+        'You are not allowed to modify this notification',
+      );
     }
 
     return this.prisma.notification.update({
       where: { id },
       data: { isRead: true },
     });
+  }
+
+  async getUnreadCount(userId: string): Promise<{ count: number }> {
+    const count = await this.prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+    return { count };
   }
 
   async markAllAsRead(userId: string): Promise<{ count: number }> {
@@ -119,7 +129,9 @@ export class NotificationsService {
       },
     });
 
-    this.logger.log(`Notifications marked read count=${result.count} userId=${userId}`);
+    this.logger.log(
+      `Notifications marked read count=${result.count} userId=${userId}`,
+    );
 
     return { count: result.count };
   }
@@ -135,9 +147,9 @@ export class NotificationsService {
     } catch (err) {
       this.logger.error(
         `External notification dispatch failed — ` +
-        `notificationId: ${notificationId}, ` +
-        `userId: ${userId}, ` +
-        `error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          `notificationId: ${notificationId}, ` +
+          `userId: ${userId}, ` +
+          `error: ${err instanceof Error ? err.message : 'Unknown error'}`,
       );
       // Do NOT re-throw — notification failure must never
       // block the main operation (Rule 15)
@@ -172,20 +184,24 @@ export class NotificationsService {
   }
 
   private shouldSendExternalNotifications(type: NotificationType): boolean {
-    return [
+    const externalTypes = new Set<NotificationType>([
       NotificationType.RFQ_CREATED,
       NotificationType.QUOTE_RECEIVED,
       NotificationType.ORDER_CONFIRMED,
       NotificationType.STATUS_UPDATED,
+      NotificationType.PAYMENT_INITIATED,
       NotificationType.PAYMENT_SUCCESS,
       NotificationType.PAYMENT_FAILED,
-    ].includes(type);
+    ]);
+    return externalTypes.has(type);
   }
 
   private async sendWhatsApp(phone: string, message: string): Promise<void> {
     const apiKey = process.env.WHATSAPP_API_KEY;
     if (!apiKey) {
-      this.logger.warn('WHATSAPP_API_KEY not set — WhatsApp notification skipped');
+      this.logger.warn(
+        'WHATSAPP_API_KEY not set — WhatsApp notification skipped',
+      );
       return;
     }
     try {
@@ -234,7 +250,8 @@ export class NotificationsService {
         },
       );
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown SMS error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown SMS error';
       this.logger.error(`SMS send failed for ${phone}: ${errorMessage}`);
     }
   }

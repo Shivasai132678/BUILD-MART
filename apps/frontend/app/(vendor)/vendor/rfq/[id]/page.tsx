@@ -86,7 +86,7 @@ export default function VendorRfqDetailPage() {
     if (!rfqQuery.data) return;
     reset({
       items: rfqQuery.data.items.map((item) => ({
-        productName: item.productId,
+        productName: item.product?.name ?? item.productId,
         quantity: String(item.quantity),
         unit: item.unit,
         unitPrice: '0.00',
@@ -204,7 +204,7 @@ export default function VendorRfqDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#253347] text-[#4A6080]">RFQ #{rfq.id.slice(0, 8)}</span>
-            <h1 className="mt-2 text-2xl font-bold text-[#E2EAF4]">{rfq.city} request</h1>
+            <h1 className="mt-2 text-2xl font-bold text-[#E2EAF4]">{rfq.title?.trim() || `${rfq.city} request`}</h1>
             <p className="mt-1 text-sm text-[#8EA5C0]">Created {formatIST(rfq.createdAt)} · Valid until {formatIST(rfq.validUntil)}</p>
           </div>
           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${rfq.status === 'OPEN' ? 'bg-[#3B7FC1]/15 text-[#60A5FA] border border-[#3B7FC1]/30' : 'bg-[#253347] text-[#8EA5C0]'}`}>
@@ -222,7 +222,7 @@ export default function VendorRfqDetailPage() {
           <h3 className="text-sm font-semibold text-[#E2EAF4]">Requested Items</h3>
           {rfq.items.map((item) => (
             <div key={item.id} className="flex items-center justify-between border border-[#253347] rounded-xl px-4 py-2.5 text-sm">
-              <span className="font-mono text-xs text-[#8EA5C0]">Product #{item.productId.slice(0, 8)}</span>
+              <span className="text-[#E2EAF4]">{item.product?.name ?? `Product #${item.productId.slice(0, 8)}`}</span>
               <span className="text-[#E2EAF4]">{String(item.quantity)} {item.unit}</span>
             </div>
           ))}

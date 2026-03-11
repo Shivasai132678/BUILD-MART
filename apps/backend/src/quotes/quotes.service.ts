@@ -6,8 +6,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationType, RFQStatus } from '@prisma/client';
+import { NotificationType, RFQStatus, VendorStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import { generateQuoteReferenceCode } from '../common/utils/reference-code';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateQuoteDto } from './dto/create-quote.dto';
@@ -28,6 +29,11 @@ export class QuotesService {
 
   async createQuote(vendorUserId: string, dto: CreateQuoteDto): Promise<QuoteWithItems> {
     const vendorProfile = await this.getVendorProfileByUserId(vendorUserId);
+
+    if (vendorProfile.status !== VendorStatus.APPROVED) {
+      throw new ForbiddenException('Vendor must be approved before submitting quotes');
+    }
+
     const rfq = await this.prisma.rFQ.findUnique({
       where: { id: dto.rfqId },
       select: {
@@ -41,8 +47,8 @@ export class QuotesService {
       throw new NotFoundException('RFQ not found');
     }
 
-    if (rfq.status !== RFQStatus.OPEN) {
-      throw new BadRequestException('Quotes can only be submitted for OPEN RFQs');
+    if (rfq.status !== RFQStatus.OPEN && rfq.status !== RFQStatus.QUOTED) {
+      throw new BadRequestException('Quotes can only be submitted for OPEN or QUOTED RFQs');
     }
 
     const existingQuote = await this.prisma.quote.findUnique({
@@ -61,8 +67,13 @@ export class QuotesService {
 
     try {
       const createdQuote = await this.prisma.$transaction(async (tx) => {
+        const referenceCode = await generateQuoteReferenceCode(tx);
+
         const quote = await tx.quote.create({
-          data: this.buildCreateQuoteData(dto, vendorProfile.id),
+          data: {
+            ...this.buildCreateQuoteData(dto, vendorProfile.id),
+            referenceCode,
+          },
         });
 
         await tx.quoteItem.createMany({
@@ -117,6 +128,13 @@ export class QuotesService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
+        const targets = (error.meta?.target as string[] | string) ?? [];
+        const targetStr = Array.isArray(targets) ? targets.join(',') : targets;
+
+        if (targetStr.includes('referenceCode')) {
+          throw new ConflictException('Reference code collision, please retry');
+        }
+
         throw new ConflictException('Vendor has already submitted a quote for this RFQ');
       }
 
@@ -260,7 +278,7 @@ export class QuotesService {
   private async getVendorProfileByUserId(vendorUserId: string) {
     const vendorProfile = await this.prisma.vendorProfile.findUnique({
       where: { userId: vendorUserId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!vendorProfile) {

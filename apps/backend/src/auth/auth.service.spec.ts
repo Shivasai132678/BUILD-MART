@@ -53,7 +53,7 @@ describe('AuthService', () => {
       prisma.user.upsert.mockResolvedValue({
         id: 'user-1',
         phone: '+919000000099',
-        role: UserRole.BUYER,
+        role: UserRole.PENDING,
       });
       prisma.oTPRecord.count.mockResolvedValue(0);
       prisma.oTPRecord.create.mockResolvedValue({ id: 'otp-1' });
@@ -92,7 +92,7 @@ describe('AuthService', () => {
       prisma.user.upsert.mockResolvedValue({
         id: 'user-2',
         phone: '+919000000098',
-        role: UserRole.BUYER,
+        role: UserRole.PENDING,
       });
       prisma.oTPRecord.count.mockResolvedValue(0);
       prisma.oTPRecord.create.mockResolvedValue({ id: 'otp-2' });
@@ -113,7 +113,7 @@ describe('AuthService', () => {
       prisma.user.upsert.mockResolvedValue({
         id: 'user-3',
         phone: '+919000000097',
-        role: UserRole.BUYER,
+        role: UserRole.PENDING,
       });
       prisma.oTPRecord.count.mockResolvedValue(5);
 
@@ -125,11 +125,11 @@ describe('AuthService', () => {
       expect(msg91Adapter.sendOtp).not.toHaveBeenCalled();
     });
 
-    it('creates user as BUYER for first login phone number', async () => {
+    it('creates user as PENDING for first login phone number', async () => {
       prisma.user.upsert.mockResolvedValue({
         id: 'user-4',
         phone: '+919000000096',
-        role: UserRole.BUYER,
+        role: UserRole.PENDING,
       });
       prisma.oTPRecord.count.mockResolvedValue(0);
       prisma.oTPRecord.create.mockResolvedValue({ id: 'otp-4' });
@@ -142,7 +142,7 @@ describe('AuthService', () => {
         update: {},
         create: {
           phone: '+919000000096',
-          role: UserRole.BUYER,
+          role: UserRole.PENDING,
         },
       });
     });
@@ -174,6 +174,9 @@ describe('AuthService', () => {
           id: 'user-10',
           phone: '+919000000090',
           role: UserRole.BUYER,
+          name: null,
+          displayName: null,
+          vendorProfile: null,
         },
       });
       prisma.oTPRecord.updateMany.mockResolvedValue({ count: 1 });
@@ -192,6 +195,10 @@ describe('AuthService', () => {
           id: 'user-10',
           phone: '+919000000090',
           role: UserRole.BUYER,
+          name: null,
+          displayName: null,
+          hasVendorProfile: false,
+          vendorApproved: false,
         },
       });
 

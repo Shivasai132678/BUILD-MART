@@ -128,7 +128,7 @@ export default function BuyerDashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#2A2520]">
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#7A7067] uppercase tracking-wide">RFQ ID</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-[#7A7067] uppercase tracking-wide">RFQ</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-[#7A7067] uppercase tracking-wide">Location</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-[#7A7067] uppercase tracking-wide">Items</th>
                     <th className="text-left px-5 py-3 text-xs font-semibold text-[#7A7067] uppercase tracking-wide">Status</th>
@@ -139,8 +139,13 @@ export default function BuyerDashboardPage() {
                   {recentRfqsQuery.data.items.map((rfq) => (
                     <tr key={rfq.id} className="border-b border-[#2A2520] hover:bg-[#211E19] transition-colors">
                       <td className="px-5 py-3.5">
-                        <Link href={`/buyer/rfq/${rfq.id}`} className="font-mono text-xs text-[#D97706] hover:text-[#F59E0B]">
-                          #{rfq.id.slice(0, 8)}
+                        <Link href={`/buyer/rfq/${rfq.id}`} className="block min-w-0">
+                          <p className="font-mono text-xs text-[#D97706] hover:text-[#F59E0B] transition-colors truncate">
+                            {rfq.referenceCode ?? `#${rfq.id.slice(0, 8)}`}
+                          </p>
+                          {rfq.title && (
+                            <p className="mt-1 text-xs text-[#C8BFB5] truncate">{rfq.title}</p>
+                          )}
                         </Link>
                       </td>
                       <td className="px-5 py-3.5 text-[#A89F91]">{rfq.city}</td>

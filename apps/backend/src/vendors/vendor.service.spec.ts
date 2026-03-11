@@ -3,8 +3,9 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { UserRole, VendorStatus } from '@prisma/client';
 import { CloudinaryAdapter } from '../files/cloudinary.adapter';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { VendorService } from './vendor.service';
 
@@ -31,6 +32,11 @@ describe('VendorService', () => {
     getPrivateFolder: jest.fn().mockReturnValue('buildmart-vendor-docs'),
   } as unknown as CloudinaryAdapter;
 
+  const notificationsService = {
+    create: jest.fn().mockResolvedValue(undefined),
+    createNotification: jest.fn().mockResolvedValue(undefined),
+  } as unknown as NotificationsService;
+
   const baseDto = {
     businessName: 'Test Trading Co',
     gstNumber: '29ABCDE1234F1Z5',
@@ -41,7 +47,8 @@ describe('VendorService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (prisma.auditLog.create as jest.Mock).mockResolvedValue({ id: 'audit-1' });
-    service = new VendorService(prisma, cloudinaryAdapter);
+    (notificationsService.create as jest.Mock).mockResolvedValue(undefined);
+    service = new VendorService(prisma, cloudinaryAdapter, notificationsService);
   });
 
   describe('onboard', () => {
@@ -52,23 +59,29 @@ describe('VendorService', () => {
         id: 'vp-1',
         userId: 'user-1',
         businessName: 'Test Trading Co',
-        isApproved: false,
+        status: VendorStatus.PENDING,
       };
 
-      (prisma.$transaction as jest.Mock).mockResolvedValue([
-        mockProfile,
-        { id: 'user-1', role: UserRole.VENDOR },
-      ]);
+      // Mock the transaction to return the profile directly (new async function pattern)
+      (prisma.$transaction as jest.Mock).mockImplementation(async (fn) => {
+        const mockTx = {
+          vendorProfile: {
+            create: jest.fn().mockResolvedValue(mockProfile),
+          },
+          vendorProduct: {
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          user: {
+            update: jest.fn().mockResolvedValue({ id: 'user-1', role: UserRole.VENDOR }),
+          },
+        };
+        return await fn(mockTx);
+      });
 
       const result = await service.onboard('user-1', baseDto);
 
       expect(result).toEqual(mockProfile);
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-
-      // Verify transaction received an array with both operations
-      const transactionArg = (prisma.$transaction as jest.Mock).mock.calls[0][0];
-      expect(Array.isArray(transactionArg)).toBe(true);
-      expect(transactionArg).toHaveLength(2);
     });
 
     it('throws ConflictException if vendor profile already exists', async () => {
@@ -162,10 +175,20 @@ describe('VendorService', () => {
         businessName: 'Test Trading Co',
       };
 
-      (prisma.$transaction as jest.Mock).mockResolvedValue([
-        mockProfile,
-        { id: 'user-2', role: UserRole.VENDOR },
-      ]);
+      (prisma.$transaction as jest.Mock).mockImplementation(async (fn) => {
+        const mockTx = {
+          vendorProfile: {
+            create: jest.fn().mockResolvedValue(mockProfile),
+          },
+          vendorProduct: {
+            createMany: jest.fn().mockResolvedValue({ count: 0 }),
+          },
+          user: {
+            update: jest.fn().mockResolvedValue({ id: 'user-2', role: UserRole.VENDOR }),
+          },
+        };
+        return await fn(mockTx);
+      });
 
       const result = await service.onboard('user-2', dtoWithValidUrl);
       expect(result).toEqual(mockProfile);
@@ -178,7 +201,7 @@ describe('VendorService', () => {
         id: 'vp-1',
         userId: 'user-1',
         businessName: 'Test Trading Co',
-        isApproved: true,
+        status: VendorStatus.APPROVED,
       };
 
       prisma.vendorProfile.findUnique.mockResolvedValue(mockProfile);
@@ -252,21 +275,21 @@ describe('VendorService', () => {
 
       const updateCall = (prisma.vendorProfile.update as jest.Mock).mock.calls[0][0];
       expect(updateCall.data).toEqual({ businessName: 'Updated' });
-      expect(updateCall.data).not.toHaveProperty('isApproved');
+      expect(updateCall.data).not.toHaveProperty('status');
       expect(updateCall.data).not.toHaveProperty('userId');
     });
   });
 
   describe('approveVendor', () => {
-    it('sets isApproved = true on VendorProfile', async () => {
+    it('sets status to APPROVED on VendorProfile', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
-        isApproved: false,
+        status: VendorStatus.PENDING,
       });
 
       const approvedProfile = {
         id: 'vp-1',
-        isApproved: true,
+        status: VendorStatus.APPROVED,
         approvedAt: expect.any(Date),
       };
 
@@ -274,11 +297,11 @@ describe('VendorService', () => {
 
       const result = await service.approveVendor('vp-1', 'admin-1');
 
-      expect(result.isApproved).toBe(true);
+      expect(result.status).toBe(VendorStatus.APPROVED);
       expect(prisma.vendorProfile.update).toHaveBeenCalledWith({
         where: { id: 'vp-1' },
         data: {
-          isApproved: true,
+          status: VendorStatus.APPROVED,
           approvedAt: expect.any(Date),
         },
       });
@@ -287,11 +310,11 @@ describe('VendorService', () => {
     it('writes an AuditLog entry on approval', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
-        isApproved: false,
+        status: VendorStatus.PENDING,
       });
       prisma.vendorProfile.update.mockResolvedValue({
         id: 'vp-1',
-        isApproved: true,
+        status: VendorStatus.APPROVED,
       });
 
       await service.approveVendor('vp-1', 'admin-1');
@@ -318,13 +341,13 @@ describe('VendorService', () => {
     it('is idempotent — approving an already-approved vendor does not throw', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
-        isApproved: true,
+        status: VendorStatus.APPROVED,
         approvedAt: new Date('2026-01-01'),
       });
 
       prisma.vendorProfile.update.mockResolvedValue({
         id: 'vp-1',
-        isApproved: true,
+        status: VendorStatus.APPROVED,
       });
 
       await expect(
@@ -335,11 +358,11 @@ describe('VendorService', () => {
     it('does not throw if auditLog.create fails (non-blocking)', async () => {
       prisma.vendorProfile.findUnique.mockResolvedValue({
         id: 'vp-1',
-        isApproved: false,
+        status: VendorStatus.PENDING,
       });
       prisma.vendorProfile.update.mockResolvedValue({
         id: 'vp-1',
-        isApproved: true,
+        status: VendorStatus.APPROVED,
       });
       (prisma.auditLog.create as jest.Mock).mockRejectedValue(
         new Error('DB write failed'),
@@ -347,7 +370,7 @@ describe('VendorService', () => {
 
       const result = await service.approveVendor('vp-1', 'admin-1');
 
-      expect(result.isApproved).toBe(true);
+      expect(result.status).toBe(VendorStatus.APPROVED);
     });
   });
 });

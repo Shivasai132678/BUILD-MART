@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
 import { Loader2 } from 'lucide-react';
+import { NotificationBell } from '@/components/ui/NotificationBell';
 
 const navItems = [
   { href: '/buyer/dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -57,7 +58,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
 
   if (!hydrated || !user || !isAllowedRole(user.role)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#141210]">
+      <div className="flex min-h-screen items-center justify-center bg-base">
         <div className="flex items-center gap-3 text-sm text-[#7A7067]">
           <Loader2 className="h-5 w-5 animate-spin text-[#D97706]" />
           Loading…
@@ -67,7 +68,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#141210]">
+    <div className="flex min-h-screen bg-base">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -81,14 +82,14 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed top-0 left-0 z-30 h-full w-64 bg-[#1A1714] border-r border-[#2A2520] flex flex-col transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:static lg:flex`}>
+      <aside className={`fixed top-0 left-0 z-30 h-full w-64 bg-surface border-r border-[#2A2520] flex flex-col transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:static lg:flex`}>
         {/* Logo */}
         <div className="flex items-center gap-3 px-6 py-5 border-b border-[#2A2520]">
           <div className="w-8 h-8 rounded-lg bg-[#D97706] flex items-center justify-center">
             <span className="material-symbols-outlined text-white text-[18px]">construction</span>
           </div>
           <div>
-            <div className="text-[15px] font-bold text-[#F5F0E8]">
+            <div className="text-[15px] font-bold text-text-primary">
               Build<span className="text-[#D97706]">Mart</span>
             </div>
             <div className="text-[10px] text-[#7A7067] uppercase tracking-widest font-medium">Buyer Portal</div>
@@ -107,7 +108,7 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                   isActive
                     ? 'bg-[#D97706]/15 text-[#F59E0B] border border-[#D97706]/20'
-                    : 'text-[#A89F91] hover:bg-[#211E19] hover:text-[#F5F0E8]'
+                    : 'text-[#A89F91] hover:bg-elevated hover:text-text-primary'
                 }`}
               >
                 <span className={`material-symbols-outlined text-[20px] ${isActive ? 'text-[#F59E0B]' : 'text-[#7A7067]'}`}>{item.icon}</span>
@@ -115,18 +116,31 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+
+          {/* Upgrade to Vendor */}
+          <div className="pt-4 mt-4 border-t border-[#2A2520]">
+            <Link
+              href="/vendor/onboarding"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 text-blue hover:bg-blue/10 hover:text-[#60A5FA] border border-transparent hover:border-blue/30"
+            >
+              <span className="material-symbols-outlined text-[20px] text-blue">storefront</span>
+              Become a Vendor
+            </Link>
+          </div>
         </nav>
 
         {/* User */}
         <div className="px-3 py-4 border-t border-[#2A2520]">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#211E19] mb-2">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-elevated mb-2">
             <div className="w-8 h-8 rounded-lg bg-[#D97706]/20 flex items-center justify-center">
               <span className="material-symbols-outlined text-[#D97706] text-[18px]">person</span>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-[#F5F0E8] truncate">{user.name ?? 'Buyer'}</div>
+              <div className="text-sm font-medium text-text-primary truncate">{user.displayName ?? user.name ?? 'Buyer'}</div>
               <div className="text-xs text-[#7A7067] truncate">{user.phone}</div>
             </div>
+              <NotificationBell accentColor="#D97706" hoverBg="hover:bg-[#2A2520]" dropdownPosition="up" dropdownAlign="left" />
           </div>
           <button
             onClick={handleLogout}
@@ -141,16 +155,17 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="lg:hidden sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-[#1A1714] border-b border-[#2A2520]">
+        <header className="lg:hidden sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-surface border-b border-[#2A2520]">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-1.5 rounded-lg text-[#A89F91] hover:bg-[#211E19] hover:text-[#F5F0E8] transition-colors"
+            className="p-1.5 rounded-lg text-[#A89F91] hover:bg-elevated hover:text-text-primary transition-colors"
           >
             <span className="material-symbols-outlined text-[22px]">menu</span>
           </button>
-          <div className="text-[15px] font-bold text-[#F5F0E8]">
+          <div className="flex-1 text-[15px] font-bold text-text-primary">
             Build<span className="text-[#D97706]">Mart</span>
           </div>
+          <NotificationBell accentColor="#D97706" hoverBg="hover:bg-[#211E19]" dropdownPosition="down" />
         </header>
 
         <main className="flex-1 p-6 xl:p-8">{children}</main>

@@ -71,7 +71,7 @@ export default function VendorRfqListPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="font-mono text-xs text-[#3B7FC1]">#{rfq.id.slice(0, 8)}</span>
+                  <span className="font-mono text-xs text-[#3B7FC1]">{rfq.referenceCode ?? `#${rfq.id.slice(0, 8)}`}</span>
                   <StatusBadge status={rfq.status} />
                 </div>
                 <p className="text-sm text-[#8EA5C0]">

@@ -28,7 +28,7 @@ export type PendingVendorProfile = {
   businessName: string;
   gstNumber: string;
   city: string;
-  isApproved: boolean;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   createdAt: string;
   user?: {
     name?: string | null;

@@ -38,6 +38,11 @@ export class OnboardVendorDto {
   serviceableAreas!: string[];
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  productIds?: string[];
+
+  @IsOptional()
   @IsUrl()
   gstDocumentUrl?: string;
 

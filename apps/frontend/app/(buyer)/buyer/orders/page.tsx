@@ -105,7 +105,7 @@ export default function BuyerOrdersPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="font-mono text-xs text-[#D97706]">#{order.id.slice(0, 10)}</span>
+                  <span className="font-mono text-xs text-[#D97706]">{order.referenceCode || `#${order.id.slice(0, 10)}`}</span>
                   <StatusBadge status={order.status} />
                 </div>
                 <p className="text-sm text-[#A89F91]">{formatIST(order.createdAt)}</p>

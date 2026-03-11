@@ -155,8 +155,8 @@ export default function VendorProfilePage() {
           <h1 className="text-2xl font-bold text-[#E2EAF4] tracking-tight">Vendor Profile</h1>
           <p className="mt-1 text-sm text-[#8EA5C0]">Manage your business details.</p>
         </div>
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${profile.isApproved ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'}`}>
-          {profile.isApproved ? 'APPROVED' : 'PENDING'}
+        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${profile.status === 'APPROVED' ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'}`}>
+          {profile.status === 'APPROVED' ? 'APPROVED' : 'PENDING'}
         </span>
       </div>
 

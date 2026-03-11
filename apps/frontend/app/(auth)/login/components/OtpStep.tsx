@@ -15,7 +15,7 @@ const otpSchema = z.object({
 
 type OtpFormValues = z.infer<typeof otpSchema>;
 
-type LoginUser = { id: string; phone: string; role: string; name?: string };
+type LoginUser = { id: string; phone: string; role: string; name?: string | null; displayName?: string | null; hasVendorProfile?: boolean; vendorApproved?: boolean };
 
 type OtpStepProps = { phone: string; onBack: () => void };
 
@@ -36,6 +36,7 @@ function getRedirectPath(role: string): string {
   switch (role) {
     case 'ADMIN': return '/admin/dashboard';
     case 'VENDOR': return '/vendor/dashboard';
+    case 'PENDING': return '/onboarding';
     default: return '/buyer/dashboard';
   }
 }
@@ -75,7 +76,11 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
       setUser(user);
       toast.success('Logged in successfully!');
       const redirect = searchParams.get('redirect');
-      router.replace(redirect ?? getRedirectPath(user.role));
+      if (!user.name) {
+        router.replace('/onboarding');
+      } else {
+        router.replace(redirect ?? getRedirectPath(user.role));
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
@@ -97,7 +102,7 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
     <div className="space-y-5">
       <div className="rounded-xl bg-[#D97706]/10 border border-[#D97706]/20 px-4 py-3 text-sm text-[#A89F91] flex items-center gap-2">
         <span className="material-symbols-outlined text-[#D97706] text-[18px]">sms</span>
-        OTP sent to <span className="font-semibold text-[#F5F0E8]">{phone}</span>
+        OTP sent to <span className="font-semibold text-text-primary">{phone}</span>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-5" noValidate>
@@ -110,7 +115,7 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
             autoComplete="one-time-code"
             maxLength={6}
             placeholder="000000"
-            className="w-full h-14 rounded-xl border border-[#3A3027] bg-[#211E19] px-4 text-center text-2xl tracking-[0.5em] font-bold text-[#F5F0E8] placeholder:text-[#4A4037] outline-none transition-all duration-200 focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/20"
+            className="w-full h-14 rounded-xl border border-[#3A3027] bg-elevated px-4 text-center text-2xl tracking-[0.5em] font-bold text-text-primary placeholder:text-[#4A4037] outline-none transition-all duration-200 focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/20"
             {...register('otp')}
           />
           {errors.otp && (
@@ -144,7 +149,7 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#A89F91] hover:text-[#F5F0E8] transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-[#A89F91] hover:text-text-primary transition-colors"
         >
           <span className="material-symbols-outlined text-[16px]">arrow_back</span>
           Change number

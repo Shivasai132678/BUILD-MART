@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Order, OrderStatus, Prisma } from '@prisma/client';
+import { Order, OrderStatus, Prisma, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 type AdminMetricsResponse = {
@@ -63,15 +63,14 @@ export class AdminService {
       }),
       this.prisma.vendorProfile.count({
         where: {
-          isApproved: true,
+          status: VendorStatus.APPROVED,
           deletedAt: null,
         },
       }),
       this.prisma.vendorProfile.count({
         where: {
-          isApproved: false,
+          status: VendorStatus.PENDING,
           deletedAt: null,
-          rejectedAt: null,
         },
       }),
       this.prisma.rFQ.count(),
@@ -108,9 +107,8 @@ export class AdminService {
     const safeOffset = Math.max(0, offset);
 
     const where: Prisma.VendorProfileWhereInput = {
-      isApproved: false,
+      status: VendorStatus.PENDING,
       deletedAt: null,
-      rejectedAt: null,
     };
 
     const [data, total] = await Promise.all([

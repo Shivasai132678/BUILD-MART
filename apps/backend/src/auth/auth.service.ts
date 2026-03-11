@@ -8,8 +8,8 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtSignOptions } from '@nestjs/jwt';
-import { UserRole } from '@prisma/client';
-import { createHash, randomInt } from 'node:crypto';
+import { UserRole, VendorStatus } from '@prisma/client';
+import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import type { CookieOptions, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendOtpDto } from './dto/send-otp.dto';
@@ -27,6 +27,10 @@ type VerifyOtpResponse = {
     id: string;
     phone: string;
     role: UserRole;
+    name: string | null;
+    displayName: string | null;
+    hasVendorProfile: boolean;
+    vendorApproved: boolean;
   };
 };
 
@@ -50,7 +54,7 @@ export class AuthService {
       update: {},
       create: {
         phone,
-        role: UserRole.BUYER,
+        role: UserRole.PENDING,
       },
     });
 
@@ -118,6 +122,11 @@ export class AuthService {
             id: true,
             phone: true,
             role: true,
+            name: true,
+            displayName: true,
+            vendorProfile: {
+              select: { status: true },
+            },
           },
         },
       },
@@ -128,7 +137,12 @@ export class AuthService {
     }
 
     const incomingOtpHash = createHash('sha256').update(otp).digest('hex');
-    if (incomingOtpHash !== latestOtpRecord.otpHash) {
+    if (
+      !timingSafeEqual(
+        Buffer.from(incomingOtpHash, 'hex'),
+        Buffer.from(latestOtpRecord.otpHash, 'hex'),
+      )
+    ) {
       throw new UnauthorizedException('Invalid OTP');
     }
 
@@ -165,7 +179,15 @@ export class AuthService {
 
     return {
       message: 'Verified',
-      user,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        role: user.role,
+        name: user.name,
+        displayName: user.displayName,
+        hasVendorProfile: !!user.vendorProfile,
+        vendorApproved: user.vendorProfile?.status === VendorStatus.APPROVED,
+      },
     };
   }
 

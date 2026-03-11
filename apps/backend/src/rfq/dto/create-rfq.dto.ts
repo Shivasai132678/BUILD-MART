@@ -18,6 +18,11 @@ export class CreateRfqDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(1000)
   notes?: string;
 

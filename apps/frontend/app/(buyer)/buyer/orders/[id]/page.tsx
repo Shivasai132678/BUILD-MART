@@ -188,7 +188,7 @@ export default function BuyerOrderDetailPage() {
         },
         prefill: {
           contact: user?.phone,
-          name: user?.name,
+          name: user?.name ?? undefined,
         },
       });
 

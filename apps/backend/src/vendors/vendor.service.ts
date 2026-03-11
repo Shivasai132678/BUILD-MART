@@ -5,9 +5,10 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { UserRole, NotificationType, VendorStatus } from '@prisma/client';
 import type { Prisma, VendorProfile } from '@prisma/client';
 import { CloudinaryAdapter } from '../files/cloudinary.adapter';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OnboardVendorDto } from './dto/onboard-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -19,6 +20,7 @@ export class VendorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cloudinaryAdapter: CloudinaryAdapter,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
   async onboard(userId: string, dto: OnboardVendorDto): Promise<VendorProfile> {
@@ -30,15 +32,49 @@ export class VendorService {
       throw new ConflictException('Vendor profile already exists for this user');
     }
 
-    const [vendorProfile, _user] = await this.prisma.$transaction([
-      this.prisma.vendorProfile.create({
-        data: await this.buildCreateData(userId, dto),
-      }),
-      this.prisma.user.update({
+    // Validate productIds if provided
+    if (dto.productIds && dto.productIds.length > 0) {
+      const existingProducts = await this.prisma.product.findMany({
+        where: { id: { in: dto.productIds } },
+        select: { id: true },
+      });
+      const existingIds = new Set(existingProducts.map(p => p.id));
+      const invalidIds = dto.productIds.filter(id => !existingIds.has(id));
+      if (invalidIds.length > 0) {
+        throw new BadRequestException(`Invalid product IDs: ${invalidIds.join(', ')}`);
+      }
+    }
+
+    // Resolve document URLs before the transaction to avoid external I/O inside a DB transaction
+    const createData = await this.buildCreateData(userId, dto);
+
+    const vendorProfile = await this.prisma.$transaction(async (tx) => {
+      // Create vendor profile (data resolved outside transaction to avoid external I/O inside tx)
+      const profile = await tx.vendorProfile.create({
+        data: createData,
+      });
+
+      // Create vendor products if provided
+      if (dto.productIds && dto.productIds.length > 0) {
+        await tx.vendorProduct.createMany({
+          data: dto.productIds.map(productId => ({
+            vendorId: profile.id,
+            productId,
+            stockAvailable: true,
+          })),
+          skipDuplicates: true,
+        });
+        this.logger.log(`Created ${dto.productIds.length} vendor products for vendorId=${profile.id}`);
+      }
+
+      // Update user role
+      await tx.user.update({
         where: { id: userId },
         data: { role: UserRole.VENDOR },
-      }),
-    ]);
+      });
+
+      return profile;
+    });
 
     this.logger.log(`Vendor profile created and role upgraded to VENDOR for userId=${userId}`);
 
@@ -93,7 +129,7 @@ export class VendorService {
     const approvedProfile = await this.prisma.vendorProfile.update({
       where: { id: vendorId },
       data: {
-        isApproved: true,
+        status: VendorStatus.APPROVED,
         approvedAt,
       },
     });
@@ -101,6 +137,16 @@ export class VendorService {
     await this.recordVendorApprovalAudit(vendorId, adminUserId, approvedAt);
 
     this.logger.log(`Vendor profile approved id=${vendorId}`);
+
+    await this.notificationsService.create({
+      userId: existingProfile.userId,
+      type: NotificationType.VENDOR_APPROVED,
+      title: 'Vendor profile approved',
+      message: 'Your vendor profile has been approved. You can now submit quotes.',
+      metadata: { vendorProfileId: vendorId },
+    }).catch((err: unknown) => {
+      this.logger.error(`Failed to notify vendor approval userId=${existingProfile.userId}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    });
 
     return approvedProfile;
   }
@@ -118,7 +164,7 @@ export class VendorService {
       throw new NotFoundException('Vendor profile not found');
     }
 
-    if (existingProfile.isApproved) {
+    if (existingProfile.status === VendorStatus.APPROVED) {
       throw new BadRequestException('Cannot reject an already approved vendor');
     }
 
@@ -127,7 +173,7 @@ export class VendorService {
     const rejectedProfile = await this.prisma.vendorProfile.update({
       where: { id: vendorId },
       data: {
-        isApproved: false,
+        status: VendorStatus.REJECTED,
         rejectedAt,
         ...(rejectionReason !== undefined ? { rejectionReason } : {}),
       },
@@ -137,7 +183,135 @@ export class VendorService {
 
     this.logger.log(`Vendor profile rejected id=${vendorId}`);
 
+    await this.notificationsService.create({
+      userId: existingProfile.userId,
+      type: NotificationType.VENDOR_REJECTED,
+      title: 'Vendor profile requires changes',
+      message: rejectionReason
+        ? `Your vendor profile was not approved: ${rejectionReason}`
+        : 'Your vendor profile was not approved. Please update and resubmit.',
+      metadata: {
+        vendorProfileId: vendorId,
+        ...(rejectionReason !== undefined ? { rejectionReason } : {}),
+      },
+    }).catch((err: unknown) => {
+      this.logger.error(`Failed to notify vendor rejection userId=${existingProfile.userId}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    });
+
     return rejectedProfile;
+  }
+
+  async getVendorProducts(userId: string) {
+    const vendorProfile = await this.prisma.vendorProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!vendorProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const vendorProducts = await this.prisma.vendorProduct.findMany({
+      where: { vendorId: vendorProfile.id },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            unit: true,
+            category: {
+              select: { id: true, name: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      items: vendorProducts.map((vp) => ({
+        id: vp.id,
+        productId: vp.productId,
+        name: vp.product.name,
+        unit: vp.product.unit,
+        category: vp.product.category,
+        stockAvailable: vp.stockAvailable,
+        customPrice: vp.customPrice?.toString() ?? null,
+      })),
+    };
+  }
+
+  async addVendorProducts(userId: string, productIds: string[]) {
+    if (!productIds || productIds.length === 0) {
+      throw new BadRequestException('No products to add');
+    }
+
+    const vendorProfile = await this.prisma.vendorProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!vendorProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    // Validate product IDs
+    const existingProducts = await this.prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existingProducts.map((p) => p.id));
+    const invalidIds = productIds.filter((id) => !existingIds.has(id));
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        `Invalid product IDs: ${invalidIds.join(', ')}`,
+      );
+    }
+
+    // Create vendor products (skip duplicates)
+    const created = await this.prisma.vendorProduct.createMany({
+      data: productIds.map((productId) => ({
+        vendorId: vendorProfile.id,
+        productId,
+        stockAvailable: true,
+      })),
+      skipDuplicates: true,
+    });
+
+    this.logger.log(
+      `Added ${created.count} products to vendorId=${vendorProfile.id}`,
+    );
+
+    return { added: created.count };
+  }
+
+  async removeVendorProduct(userId: string, productId: string) {
+    const vendorProfile = await this.prisma.vendorProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!vendorProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    // Atomically delete the vendor product entry to avoid the findFirst → delete race
+    const result = await this.prisma.vendorProduct.deleteMany({
+      where: {
+        vendorId: vendorProfile.id,
+        productId,
+      },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException('Product not found in vendor profile');
+    }
+
+    this.logger.log(
+      `Removed product ${productId} from vendorId=${vendorProfile.id}`,
+    );
+
+    return { removed: true };
   }
 
   private async buildCreateData(

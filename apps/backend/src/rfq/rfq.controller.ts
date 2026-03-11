@@ -88,6 +88,18 @@ export class RfqController {
     return this.rfqService.getAvailableRFQs(userId, limit, offset);
   }
 
+  @Get('browse')
+  @Roles(UserRole.VENDOR)
+  browseAllRFQs(
+    @Req() request: AuthenticatedRequest,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    getRequestUser(request); // validates auth
+    return this.rfqService.browseAllRFQs(limit, offset, categoryId);
+  }
+
   @Get(':id')
   @Roles(UserRole.BUYER, UserRole.VENDOR)
   getRFQ(@Param('id') id: string, @Req() request: AuthenticatedRequest) {

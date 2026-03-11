@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Patch,
   Post,
   Req,
@@ -15,6 +17,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { UserRole } from '@prisma/client';
 import { OnboardVendorDto } from './dto/onboard-vendor.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
+import { ManageVendorProductsDto } from './dto/manage-vendor-products.dto';
 import { VendorService } from './vendor.service';
 
 type AuthenticatedRequest = Request & {
@@ -33,7 +36,7 @@ export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
 
   @Post('onboard')
-  @Roles(UserRole.BUYER)
+  @Roles(UserRole.BUYER, UserRole.PENDING)
   onboard(
     @Req() request: AuthenticatedRequest,
     @Body() dto: OnboardVendorDto,
@@ -57,6 +60,33 @@ export class VendorController {
   ) {
     const userId = this.getAuthenticatedUserId(request);
     return this.vendorService.updateProfile(userId, dto);
+  }
+
+  @Get('products')
+  @Roles(UserRole.VENDOR)
+  getVendorProducts(@Req() request: AuthenticatedRequest) {
+    const userId = this.getAuthenticatedUserId(request);
+    return this.vendorService.getVendorProducts(userId);
+  }
+
+  @Post('products')
+  @Roles(UserRole.VENDOR)
+  addVendorProducts(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: ManageVendorProductsDto,
+  ) {
+    const userId = this.getAuthenticatedUserId(request);
+    return this.vendorService.addVendorProducts(userId, dto.productIds);
+  }
+
+  @Delete('products/:productId')
+  @Roles(UserRole.VENDOR)
+  removeVendorProduct(
+    @Req() request: AuthenticatedRequest,
+    @Param('productId') productId: string,
+  ) {
+    const userId = this.getAuthenticatedUserId(request);
+    return this.vendorService.removeVendorProduct(userId, productId);
   }
 
   private getAuthenticatedUserId(request: AuthenticatedRequest): string {

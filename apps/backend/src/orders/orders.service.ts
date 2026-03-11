@@ -15,6 +15,7 @@ import {
   UserRole,
 } from '@prisma/client';
 import { isValidOrderStatusTransition } from '../common/constants/status-transitions';
+import { generateOrderReferenceCode } from '../common/utils/reference-code';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -66,6 +67,10 @@ export class OrdersService {
       throw new BadRequestException('Quote has expired');
     }
 
+    if (quote.isWithdrawn) {
+      throw new BadRequestException('Quote has been withdrawn');
+    }
+
     if (quote.rfq.status !== RFQStatus.OPEN && quote.rfq.status !== RFQStatus.QUOTED) {
       throw new BadRequestException('RFQ status must be OPEN or QUOTED');
     }
@@ -79,64 +84,83 @@ export class OrdersService {
       throw new ConflictException('Order already exists for this RFQ');
     }
 
-    try {
-      const createdOrder = await this.prisma.$transaction(async (tx) => {
-        const now = new Date();
+    const MAX_REF_RETRIES = 3;
 
-        const order = await tx.order.create({
-          data: {
-            rfqId: quote.rfqId,
-            quoteId: quote.id,
+    for (let attempt = 0; attempt < MAX_REF_RETRIES; attempt++) {
+      try {
+        const createdOrder = await this.prisma.$transaction(async (tx) => {
+          const now = new Date();
+          const referenceCode = await generateOrderReferenceCode(tx);
+
+          const order = await tx.order.create({
+            data: {
+              rfqId: quote.rfqId,
+              quoteId: quote.id,
+              buyerId,
+              vendorId: quote.vendorId,
+              totalAmount: quote.totalAmount,
+              status: OrderStatus.CONFIRMED,
+              referenceCode,
+              confirmedAt: now,
+            },
+          });
+
+          await tx.rFQ.update({
+            where: { id: quote.rfqId },
+            data: {
+              status: RFQStatus.CLOSED,
+              closedAt: now,
+            },
+          });
+
+          return order;
+        });
+
+        this.logger.log(`Order created id=${createdOrder.id} rfqId=${quote.rfqId}`);
+
+        try {
+          const orderRef = createdOrder.referenceCode ?? `#${createdOrder.id.slice(0, 8)}`;
+          await this.notificationsService.createNotification(
             buyerId,
-            vendorId: quote.vendorId,
-            totalAmount: quote.totalAmount,
-            status: OrderStatus.CONFIRMED,
-            confirmedAt: now,
-          },
-        });
+            NotificationType.ORDER_CONFIRMED,
+            'Order confirmed',
+            `Your order ${orderRef} has been confirmed.`,
+            {
+              orderId: createdOrder.id,
+              rfqId: quote.rfqId,
+            },
+          );
+        } catch (notifError) {
+          this.logger.error(
+            `Failed to send ORDER_CONFIRMED notification for orderId=${createdOrder.id} rfqId=${quote.rfqId}`,
+            notifError instanceof Error ? notifError.stack : notifError,
+          );
+        }
 
-        await tx.rFQ.update({
-          where: { id: quote.rfqId },
-          data: {
-            status: RFQStatus.CLOSED,
-            closedAt: now,
-          },
-        });
+        return createdOrder;
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const targets = (error.meta?.target as string[] | string) ?? [];
+          const targetStr = Array.isArray(targets) ? targets.join(',') : targets;
 
-        await tx.quote.update({
-          where: { id: quote.id },
-          data: {
-            isWithdrawn: false,
-          },
-        });
+          if (targetStr.includes('referenceCode')) {
+            this.logger.warn(`Reference code collision on order create, attempt ${attempt + 1}/${MAX_REF_RETRIES}`);
+            if (attempt < MAX_REF_RETRIES - 1) continue;
+            throw new ConflictException('Unable to generate unique order reference code, please retry');
+          }
 
-        return order;
-      });
+          throw new ConflictException('Order already exists for this RFQ');
+        }
 
-      this.logger.log(`Order created id=${createdOrder.id} rfqId=${quote.rfqId}`);
-
-      await this.notificationsService.createNotification(
-        buyerId,
-        NotificationType.ORDER_CONFIRMED,
-        'Order confirmed',
-        `Your order ${createdOrder.id} has been confirmed.`,
-        {
-          orderId: createdOrder.id,
-          rfqId: quote.rfqId,
-        },
-      );
-
-      return createdOrder;
-    } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('Order already exists for this RFQ');
+        throw error;
       }
-
-      throw error;
     }
+
+    // Unreachable, but satisfies TypeScript
+    throw new ConflictException('Unable to create order');
   }
 
   async listOrders(
@@ -213,11 +237,13 @@ export class OrdersService {
       dto.status === OrderStatus.OUT_FOR_DELIVERY ||
       dto.status === OrderStatus.DELIVERED
     ) {
+      const orderRef = updatedOrder.referenceCode ?? `#${updatedOrder.id.slice(0, 8)}`;
+      const statusLabel = dto.status === OrderStatus.OUT_FOR_DELIVERY ? 'out for delivery' : 'delivered';
       await this.notificationsService.createNotification(
         updatedOrder.buyerId,
         NotificationType.STATUS_UPDATED,
         'Order status updated',
-        `Your order ${updatedOrder.id} is now ${dto.status}.`,
+        `Your order ${orderRef} is now ${statusLabel}.`,
         {
           orderId: updatedOrder.id,
           status: dto.status,
@@ -271,13 +297,14 @@ export class OrdersService {
     const vendorUserId = await this.getVendorUserIdByVendorProfileId(existingOrder.vendorId);
     const recipientIds = Array.from(new Set([existingOrder.buyerId, vendorUserId]));
 
-    await Promise.all(
+    const cancelledOrderRef = cancelledOrder.referenceCode ?? `#${cancelledOrder.id.slice(0, 8)}`;
+    await Promise.allSettled(
       recipientIds.map((recipientId) =>
         this.notificationsService.createNotification(
           recipientId,
           NotificationType.STATUS_UPDATED,
           'Order cancelled',
-          `Order ${cancelledOrder.id} was cancelled.`,
+          `Order ${cancelledOrderRef} was cancelled.`,
           {
             orderId: cancelledOrder.id,
             status: OrderStatus.CANCELLED,
