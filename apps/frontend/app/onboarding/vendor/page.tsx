@@ -102,7 +102,7 @@ export default function VendorOnboardingPage() {
       }
 
       toast.success("Application submitted! You'll be notified once approved.");
-      router.replace('/buyer/dashboard');
+      router.replace('/vendor/dashboard');
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }

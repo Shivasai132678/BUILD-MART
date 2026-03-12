@@ -125,6 +125,46 @@ export default function VendorOrderDetailPage() {
                 <span className="text-[#8EA5C0]">Buyer</span>
                 <span className="text-xs font-mono text-[#4A6080]">#{order.buyerId.slice(0, 8)}</span>
               </div>
+              {order.payment && (
+                <>
+                  <div className="border-t border-[#253347] my-2" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#8EA5C0]">Payment</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                      order.payment.status === 'SUCCESS'
+                        ? 'bg-green-500/15 text-green-400 border-green-500/30'
+                        : order.payment.status === 'FAILED'
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                        : order.payment.status === 'INITIATED'
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : 'bg-[#253347] text-[#8EA5C0] border-[#253347]'
+                    }`}>
+                      {order.payment.status}
+                    </span>
+                  </div>
+                  {order.paymentMethod && (
+                    <div className="flex justify-between">
+                      <span className="text-[#8EA5C0]">Method</span>
+                      <span className="text-[#E2EAF4] text-xs font-medium">{order.paymentMethod}</span>
+                    </div>
+                  )}
+                  {order.payment.razorpayPaymentId && (
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-[#8EA5C0] shrink-0">Txn ID</span>
+                      <span className="text-xs font-mono text-[#4A6080] break-all text-right">{order.payment.razorpayPaymentId}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {!order.payment && (
+                <>
+                  <div className="border-t border-[#253347] my-2" />
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#8EA5C0]">Payment</span>
+                    <span className="text-xs text-[#4A6080]">No payment record</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {order.status === 'CONFIRMED' && (

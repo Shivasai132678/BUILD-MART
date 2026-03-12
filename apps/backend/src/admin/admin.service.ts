@@ -1,5 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Order, OrderStatus, Prisma, VendorStatus } from '@prisma/client';
+import { Order, OrderStatus, Prisma, RFQ, User, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 type AdminMetricsResponse = {
@@ -40,6 +40,35 @@ type AdminOrderListResponse = {
 type AdminOrderDetail = Prisma.OrderGetPayload<{
   include: { quote: { include: { items: true } }; rfq: true; payment: true };
 }>;
+
+type AdminUserListResponse = {
+  items: User[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+type AdminVendorListItem = Prisma.VendorProfileGetPayload<{
+  include: {
+    user: {
+      select: { name: true; phone: true; email: true };
+    };
+  };
+}>;
+
+type AdminVendorListResponse = {
+  items: AdminVendorListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+type AdminRfqListResponse = {
+  items: RFQ[];
+  total: number;
+  limit: number;
+  offset: number;
+};
 
 @Injectable()
 export class AdminService {
@@ -187,5 +216,68 @@ export class AdminService {
 
     this.logger.log(`Admin fetched order id=${id}`);
     return order;
+  }
+
+  async getAllUsers(
+    limit: number,
+    offset: number,
+  ): Promise<AdminUserListResponse> {
+    const safeLimit = Math.max(1, limit);
+    const safeOffset = Math.max(0, offset);
+    const where: Prisma.UserWhereInput = { deletedAt: null };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        skip: safeOffset,
+        take: safeLimit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    this.logger.log(`Admin users listed count=${items.length} total=${total}`);
+    return { items, total, limit: safeLimit, offset: safeOffset };
+  }
+
+  async getAllVendors(
+    limit: number,
+    offset: number,
+    status?: VendorStatus,
+  ): Promise<AdminVendorListResponse> {
+    const safeLimit = Math.max(1, limit);
+    const safeOffset = Math.max(0, offset);
+    const where: Prisma.VendorProfileWhereInput = {
+      deletedAt: null,
+      ...(status !== undefined ? { status } : {}),
+    };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.vendorProfile.findMany({
+        where,
+        include: { user: { select: { name: true, phone: true, email: true } } },
+        skip: safeOffset,
+        take: safeLimit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.vendorProfile.count({ where }),
+    ]);
+    this.logger.log(`Admin vendors listed count=${items.length} total=${total}`);
+    return { items, total, limit: safeLimit, offset: safeOffset };
+  }
+
+  async getAllRfqs(
+    limit: number,
+    offset: number,
+  ): Promise<AdminRfqListResponse> {
+    const safeLimit = Math.max(1, limit);
+    const safeOffset = Math.max(0, offset);
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.rFQ.findMany({
+        skip: safeOffset,
+        take: safeLimit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.rFQ.count(),
+    ]);
+    this.logger.log(`Admin rfqs listed count=${items.length} total=${total}`);
+    return { items, total, limit: safeLimit, offset: safeOffset };
   }
 }

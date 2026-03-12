@@ -45,6 +45,37 @@ export type AdminUser = {
   createdAt?: string;
 };
 
+export type AdminVendorProfile = {
+  id: string;
+  businessName: string;
+  gstNumber: string;
+  city: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  createdAt: string;
+  user?: {
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  };
+};
+
+export type AdminOrder = {
+  id: string;
+  status: string;
+  totalAmount: string | number;
+  createdAt: string;
+  buyerId?: string;
+  vendorProfileId?: string;
+};
+
+export type AdminRfq = {
+  id: string;
+  status: string;
+  createdAt: string;
+  buyerId?: string;
+  city?: string;
+};
+
 export async function getMetrics() {
   const response = await api.get('/api/v1/admin/metrics');
   return unwrapApiData<AdminMetrics>(response.data);
@@ -79,4 +110,25 @@ export async function getUsers(limit: number, offset: number) {
   });
 
   return unwrapApiData<PaginatedResponse<AdminUser>>(response.data);
+}
+
+export async function getAllVendors(limit: number, offset: number, status?: string) {
+  const response = await api.get('/api/v1/admin/vendors', {
+    params: { limit, offset, ...(status ? { status } : {}) },
+  });
+  return unwrapApiData<PaginatedResponse<AdminVendorProfile>>(response.data);
+}
+
+export async function getAllRfqs(limit: number, offset: number) {
+  const response = await api.get('/api/v1/admin/rfqs', {
+    params: { limit, offset },
+  });
+  return unwrapApiData<PaginatedResponse<AdminRfq>>(response.data);
+}
+
+export async function getAllOrders(limit: number, offset: number, status?: string) {
+  const response = await api.get('/api/v1/admin/orders', {
+    params: { limit, offset, ...(status ? { status } : {}) },
+  });
+  return unwrapApiData<PaginatedResponse<AdminOrder>>(response.data);
 }

@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { OrderStatus, UserRole } from '@prisma/client';
+import { OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -52,5 +52,34 @@ export class AdminController {
   @Roles(UserRole.ADMIN)
   getOrderById(@Param('id') id: string) {
     return this.adminService.getOrderById(id);
+  }
+
+  @Get('users')
+  @Roles(UserRole.ADMIN)
+  getAllUsers(
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+  ) {
+    return this.adminService.getAllUsers(limit, offset);
+  }
+
+  @Get('vendors')
+  @Roles(UserRole.ADMIN)
+  getAllVendors(
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+    @Query('status', new ParseEnumPipe(VendorStatus, { optional: true }))
+    status?: VendorStatus,
+  ) {
+    return this.adminService.getAllVendors(limit, offset, status);
+  }
+
+  @Get('rfqs')
+  @Roles(UserRole.ADMIN)
+  getAllRfqs(
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+  ) {
+    return this.adminService.getAllRfqs(limit, offset);
   }
 }

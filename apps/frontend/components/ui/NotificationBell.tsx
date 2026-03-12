@@ -2,8 +2,17 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useRef, useEffect } from 'react';
-import { fetchNotifications, getUnreadCount, markAllNotificationsRead } from '@/lib/notification-api';
+import { useRouter } from 'next/navigation';
+import {
+  fetchNotifications,
+  getUnreadCount,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type AppNotification,
+  type NotificationMetadata,
+} from '@/lib/notification-api';
 import { formatIST } from '@/lib/utils/date';
+import { useUserStore } from '@/store/user.store';
 
 interface NotificationBellProps {
   accentColor?: string;
@@ -12,6 +21,52 @@ interface NotificationBellProps {
   dropdownPosition?: 'up' | 'down';
   /** 'right' aligns dropdown to button's right edge (default); 'left' aligns to left edge (use in left-side sidebars) */
   dropdownAlign?: 'left' | 'right';
+}
+
+function getNotificationUrl(
+  type: string,
+  metadata: NotificationMetadata | null | undefined,
+  role: string | undefined,
+): string | null {
+  const isVendor = role === 'VENDOR';
+  const isBuyer = role === 'BUYER';
+
+  switch (type) {
+    case 'ORDER_CONFIRMED':
+    case 'STATUS_UPDATED': {
+      const orderId = metadata?.orderId;
+      if (!orderId) return null;
+      if (isVendor) return `/vendor/orders/${orderId}`;
+      if (isBuyer) return `/buyer/orders/${orderId}`;
+      return null;
+    }
+    case 'QUOTE_RECEIVED': {
+      const rfqId = metadata?.rfqId;
+      if (!rfqId) return null;
+      if (isBuyer) return `/buyer/rfq/${rfqId}`;
+      return null;
+    }
+    case 'RFQ_CREATED': {
+      const rfqId = metadata?.rfqId;
+      if (!rfqId) return null;
+      if (isVendor) return `/vendor/rfq/${rfqId}`;
+      return null;
+    }
+    case 'PAYMENT_SUCCESS':
+    case 'PAYMENT_FAILED':
+    case 'PAYMENT_INITIATED': {
+      const orderId = metadata?.orderId;
+      if (!orderId) return null;
+      if (isBuyer) return `/buyer/orders/${orderId}`;
+      if (isVendor) return `/vendor/orders/${orderId}`;
+      return null;
+    }
+    case 'VENDOR_APPROVED':
+    case 'VENDOR_REJECTED':
+      return `/vendor/dashboard`;
+    default:
+      return null;
+  }
 }
 
 export function NotificationBell({
@@ -23,6 +78,8 @@ export function NotificationBell({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const user = useUserStore((s) => s.user);
 
   useEffect(() => {
     if (!open) return;
@@ -54,6 +111,25 @@ export function NotificationBell({
       void queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
     },
   });
+
+  const markOneMutation = useMutation({
+    mutationFn: markNotificationRead,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+      void queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+    },
+  });
+
+  const handleNotificationClick = (n: AppNotification) => {
+    const url = getNotificationUrl(n.type, n.metadata, user?.role);
+    if (!n.isRead) {
+      markOneMutation.mutate(n.id);
+    }
+    setOpen(false);
+    if (url) {
+      router.push(url);
+    }
+  };
 
   const count = unreadQuery.data?.count ?? 0;
   const items = listQuery.data?.items ?? [];
@@ -130,24 +206,39 @@ export function NotificationBell({
               </div>
             ) : (
               <div className="divide-y divide-[#2A2520]">
-                {items.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`px-4 py-3 flex gap-2.5 ${n.isRead ? 'opacity-60' : ''}`}
-                  >
-                    {!n.isRead && (
-                      <div
-                        className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: accentColor }}
-                      />
-                    )}
-                    <div className={n.isRead ? 'pl-4' : ''}>
-                      <p className="text-xs font-semibold text-text-primary">{n.title}</p>
-                      <p className="text-xs text-[#A89F91] mt-0.5 line-clamp-2">{n.message}</p>
-                      <p className="text-[10px] text-[#7A7067] mt-1">{formatIST(n.createdAt)}</p>
-                    </div>
-                  </div>
-                ))}
+                {items.map((n) => {
+                  const url = getNotificationUrl(n.type, n.metadata, user?.role);
+                  const isClickable = !!url;
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => handleNotificationClick(n)}
+                      className={`w-full text-left px-4 py-3 flex gap-2.5 transition-colors ${
+                        n.isRead ? 'opacity-60' : ''
+                      } ${isClickable ? 'hover:bg-[#2A2520] cursor-pointer' : 'cursor-default'}`}
+                    >
+                      {!n.isRead && (
+                        <div
+                          className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: accentColor }}
+                        />
+                      )}
+                      <div className={n.isRead ? 'pl-4' : ''}>
+                        <p className="text-xs font-semibold text-text-primary">{n.title}</p>
+                        <p className="text-xs text-[#A89F91] mt-0.5 line-clamp-2">{n.message}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-[10px] text-[#7A7067]">{formatIST(n.createdAt)}</p>
+                          {isClickable && (
+                            <span className="text-[10px]" style={{ color: accentColor }}>
+                              View →
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
