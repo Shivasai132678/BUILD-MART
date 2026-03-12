@@ -4,199 +4,249 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api';
-import { approveVendor, getPendingVendors, rejectVendor, type PendingVendorProfile } from '@/lib/admin-api';
+import {
+  getAllVendors,
+  updateVendorStatus,
+  type AdminVendorProfile,
+  type VendorStatusValue,
+} from '@/lib/admin-api';
 import { formatIST } from '@/lib/utils/date';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
-type DialogState =
-  | { type: 'closed' }
-  | { type: 'approve'; id: string; businessName: string }
-  | { type: 'reject'; id: string; businessName: string };
+const STATUS_STYLES: Record<string, string> = {
+  APPROVED:  'bg-green-500/15 text-green-400 border border-green-500/30',
+  PENDING:   'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  REJECTED:  'bg-red-500/10 text-red-400 border border-red-500/20',
+  SUSPENDED: 'bg-orange-500/10 text-orange-400 border border-orange-500/20',
+};
+
+const FILTERS: Array<{ label: string; value: VendorStatusValue | 'ALL' }> = [
+  { label: 'All', value: 'ALL' },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Approved', value: 'APPROVED' },
+  { label: 'Rejected', value: 'REJECTED' },
+  { label: 'Suspended', value: 'SUSPENDED' },
+];
+
+type ConfirmState =
+  | { open: false }
+  | { open: true; vendor: AdminVendorProfile; nextStatus: VendorStatusValue };
 
 export default function AdminVendorsPage() {
   const queryClient = useQueryClient();
-  const [dialog, setDialog] = useState<DialogState>({ type: 'closed' });
-  const [rejectReason, setRejectReason] = useState('');
+  const [statusFilter, setStatusFilter] = useState<VendorStatusValue | 'ALL'>('ALL');
+  const [confirm, setConfirm] = useState<ConfirmState>({ open: false });
 
-  const pendingVendorsQuery = useQuery({
-    queryKey: ['admin-pending-vendors'],
-    queryFn: getPendingVendors,
-    retry: false,
+  const vendorsQuery = useQuery({
+    queryKey: ['admin-all-vendors', statusFilter],
+    queryFn: () =>
+      getAllVendors(100, 0, statusFilter === 'ALL' ? undefined : statusFilter),
   });
 
-  const approveVendorMutation = useMutation({
-    mutationFn: (id: string) => approveVendor(id),
-    onSuccess: async () => {
-      toast.success('Vendor approved successfully!');
-      setDialog({ type: 'closed' });
-      await queryClient.invalidateQueries({ queryKey: ['admin-pending-vendors'] });
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: VendorStatusValue }) =>
+      updateVendorStatus(id, status),
+    onSuccess: (_, variables) => {
+      toast.success(`Vendor ${variables.status.toLowerCase()} successfully.`);
+      setConfirm({ open: false });
+      void queryClient.invalidateQueries({ queryKey: ['admin-all-vendors'] });
     },
     onError: (error) => {
-      toast.error(getApiErrorMessage(error, 'Failed to approve vendor.'));
+      toast.error(getApiErrorMessage(error, 'Failed to update vendor status.'));
     },
   });
 
-  const rejectVendorMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) => rejectVendor(id, reason),
-    onSuccess: async () => {
-      toast.success('Vendor rejected.');
-      setDialog({ type: 'closed' });
-      setRejectReason('');
-      await queryClient.invalidateQueries({ queryKey: ['admin-pending-vendors'] });
-    },
-    onError: (error) => {
-      toast.error(getApiErrorMessage(error, 'Failed to reject vendor.'));
-    },
-  });
+  const vendors: AdminVendorProfile[] = vendorsQuery.data?.items ?? [];
 
-  const isMutating = approveVendorMutation.isPending || rejectVendorMutation.isPending;
-
-  const vendorsEndpointMissing = pendingVendorsQuery.isError;
-  const vendors: PendingVendorProfile[] = pendingVendorsQuery.data?.data ?? [];
-  const pendingVendors = vendors.filter((v) => v.status === 'PENDING');
-
-  const openApproveDialog = (id: string, businessName: string) => {
-    setDialog({ type: 'approve', id, businessName });
+  const openConfirm = (vendor: AdminVendorProfile, nextStatus: VendorStatusValue) => {
+    setConfirm({ open: true, vendor, nextStatus });
   };
 
-  const openRejectDialog = (id: string, businessName: string) => {
-    setRejectReason('');
-    setDialog({ type: 'reject', id, businessName });
+  const ACTION_BUTTONS: Record<
+    string,
+    Array<{ label: string; nextStatus: VendorStatusValue; cls: string; icon: string }>
+  > = {
+    PENDING: [
+      { label: 'Approve', nextStatus: 'APPROVED', icon: 'check_circle', cls: 'bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/30' },
+      { label: 'Reject',  nextStatus: 'REJECTED',  icon: 'cancel',       cls: 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' },
+    ],
+    APPROVED: [
+      { label: 'Suspend', nextStatus: 'SUSPENDED', icon: 'block',        cls: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20' },
+      { label: 'Reject',  nextStatus: 'REJECTED',  icon: 'cancel',       cls: 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' },
+    ],
+    REJECTED: [
+      { label: 'Approve', nextStatus: 'APPROVED', icon: 'check_circle',  cls: 'bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/30' },
+    ],
+    SUSPENDED: [
+      { label: 'Restore', nextStatus: 'APPROVED', icon: 'restart_alt',   cls: 'bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/30' },
+      { label: 'Reject',  nextStatus: 'REJECTED',  icon: 'cancel',       cls: 'bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20' },
+    ],
   };
 
-  const closeDialog = () => {
-    if (!isMutating) {
-      setDialog({ type: 'closed' });
-      setRejectReason('');
-    }
+  const ACTION_LABELS: Record<VendorStatusValue, string> = {
+    APPROVED:  'approve',
+    REJECTED:  'reject',
+    SUSPENDED: 'suspend',
+    PENDING:   'set to pending',
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-[#F5F0E8]">Vendor Approvals</h1>
-        <p className="text-[#8A9BC0] text-sm mt-1">Review and manage pending vendor onboarding applications</p>
+        <h1 className="text-2xl font-bold text-[#F5F0E8]">Vendor Management</h1>
+        <p className="text-[#8A9BC0] text-sm mt-1">
+          View all vendors and manage their status. Changes take effect immediately.
+        </p>
       </div>
 
-      {/* Error alert */}
-      {vendorsEndpointMissing && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl px-5 py-4 flex items-center gap-3">
-          <span className="material-symbols-outlined text-amber-400 text-[20px]">warning</span>
-          <p className="text-sm text-[#F5F0E8]">The pending vendor list endpoint is not available. The approval action is wired, but the queue depends on a backend endpoint.</p>
-        </div>
-      )}
+      {/* Status filter tabs */}
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setStatusFilter(f.value)}
+            className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-colors ${
+              statusFilter === f.value
+                ? 'bg-[#6764f2] text-white'
+                : 'bg-[#12152A] text-[#8A9BC0] hover:text-[#F5F0E8] border border-[#1E2238]'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+        <span className="ml-auto text-xs text-[#4A5A80] self-center">
+          {vendorsQuery.data?.total ?? 0} vendor{(vendorsQuery.data?.total ?? 0) !== 1 ? 's' : ''}
+        </span>
+      </div>
 
       {/* List */}
-      {pendingVendorsQuery.isLoading ? (
+      {vendorsQuery.isLoading ? (
         <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-[#12152A] border border-[#1E2238] rounded-2xl h-24 animate-pulse" />
           ))}
         </div>
-      ) : !vendorsEndpointMissing && pendingVendors.length === 0 ? (
+      ) : vendors.length === 0 ? (
         <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
-          <span className="material-symbols-outlined text-[56px] text-[#1E2238] mb-4">verified_user</span>
-          <p className="text-base font-medium text-[#F5F0E8]">All caught up!</p>
-          <p className="text-sm text-[#8A9BC0] mt-1">No pending vendor approvals at the moment.</p>
+          <span className="material-symbols-outlined text-[56px] text-[#1E2238] mb-4">store</span>
+          <p className="text-base font-medium text-[#F5F0E8]">No vendors found</p>
+          <p className="text-sm text-[#8A9BC0] mt-1">
+            {statusFilter === 'ALL' ? 'No vendors have registered yet.' : `No vendors with status "${statusFilter}".`}
+          </p>
         </div>
-      ) : !vendorsEndpointMissing && pendingVendors.length > 0 ? (
+      ) : (
         <div className="space-y-3">
-          {pendingVendors.map((vendor) => (
-            <div key={vendor.id} className="bg-[#12152A] border border-[#1E2238] rounded-2xl p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <p className="text-base font-semibold text-[#F5F0E8]">{vendor.businessName}</p>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                      Pending
-                    </span>
+          {vendors.map((vendor) => {
+            const actions = ACTION_BUTTONS[vendor.status] ?? [];
+            const isMutatingThis =
+              statusMutation.isPending &&
+              confirm.open &&
+              confirm.vendor.id === vendor.id;
+
+            return (
+              <div key={vendor.id} className="bg-[#12152A] border border-[#1E2238] rounded-2xl p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="text-base font-semibold text-[#F5F0E8]">{vendor.businessName}</p>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_STYLES[vendor.status] ?? ''}`}>
+                        {vendor.status.charAt(0) + vendor.status.slice(1).toLowerCase()}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-4 text-sm text-[#8A9BC0]">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">person</span>
+                        {vendor.user?.name ?? '—'}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">phone</span>
+                        {vendor.user?.phone ?? '—'}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">location_on</span>
+                        {vendor.city}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">receipt</span>
+                        {vendor.gstNumber}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">calendar_today</span>
+                        {formatIST(vendor.createdAt)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-4 text-sm text-[#8A9BC0]">
-                    <span className="inline-flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">location_on</span>
-                      {vendor.city}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">receipt</span>
-                      GST: {vendor.gstNumber}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">calendar_today</span>
-                      {formatIST(vendor.createdAt)}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openApproveDialog(vendor.id, vendor.businessName)}
-                    disabled={isMutating}
-                    className="inline-flex items-center gap-1.5 bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/30 hover:border-green-500/50 px-3 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {approveVendorMutation.isPending && approveVendorMutation.variables === vendor.id ? (
-                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                    ) : (
-                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                    )}
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => openRejectDialog(vendor.id, vendor.businessName)}
-                    disabled={isMutating}
-                    className="inline-flex items-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 hover:border-red-500/40 px-3 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {rejectVendorMutation.isPending && rejectVendorMutation.variables?.id === vendor.id ? (
-                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                    ) : (
-                      <span className="material-symbols-outlined text-[16px]">cancel</span>
-                    )}
-                    Reject
-                  </button>
+
+                  {/* Action buttons */}
+                  {actions.length > 0 && (
+                    <div className="flex gap-2">
+                      {actions.map((action) => (
+                        <button
+                          key={action.nextStatus}
+                          onClick={() => openConfirm(vendor, action.nextStatus)}
+                          disabled={isMutatingThis}
+                          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${action.cls}`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">{action.icon}</span>
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Confirmation overlay */}
+      {confirm.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h2 className="text-base font-bold text-[#F5F0E8] mb-2">
+              {confirm.nextStatus === 'APPROVED' && confirm.vendor.status !== 'APPROVED' ? 'Approve' : ''}
+              {confirm.nextStatus === 'SUSPENDED' ? 'Suspend' : ''}
+              {confirm.nextStatus === 'REJECTED' ? 'Reject' : ''}
+              {confirm.nextStatus === 'APPROVED' && confirm.vendor.status === 'SUSPENDED' ? 'Restore' : ''}{' '}
+              {confirm.vendor.businessName}?
+            </h2>
+            <p className="text-sm text-[#8A9BC0] mb-6">
+              {confirm.nextStatus === 'APPROVED'
+                ? 'This vendor will be able to receive RFQs and submit quotes.'
+                : confirm.nextStatus === 'SUSPENDED'
+                  ? 'The vendor will lose access to submit quotes and browse RFQs immediately.'
+                  : 'The vendor will lose selling access and be notified of this change.'}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirm({ open: false })}
+                disabled={statusMutation.isPending}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-[#8A9BC0] hover:text-[#F5F0E8] border border-[#1E2238] bg-[#0C0F1A] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() =>
+                  confirm.open &&
+                  statusMutation.mutate({ id: confirm.vendor.id, status: confirm.nextStatus })
+                }
+                disabled={statusMutation.isPending}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5 ${
+                  confirm.nextStatus === 'APPROVED'
+                    ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
+                    : 'bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/25'
+                }`}
+              >
+                {statusMutation.isPending && (
+                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                )}
+                Confirm {ACTION_LABELS[confirm.nextStatus]}
+              </button>
             </div>
-          ))}
+          </div>
         </div>
-      ) : null}
-
-      {/* Approve confirmation dialog */}
-      <ConfirmDialog
-        open={dialog.type === 'approve'}
-        onClose={closeDialog}
-        onConfirm={() => { if (dialog.type === 'approve') approveVendorMutation.mutate(dialog.id); }}
-        title={dialog.type === 'approve' ? `Approve ${dialog.businessName}?` : ''}
-        description="This vendor will be able to receive RFQs and submit quotes."
-        confirmLabel="Approve"
-        variant="admin"
-        loading={approveVendorMutation.isPending}
-      />
-
-      {/* Reject dialog with optional reason */}
-      <ConfirmDialog
-        open={dialog.type === 'reject'}
-        onClose={closeDialog}
-        onConfirm={() => { if (dialog.type === 'reject') rejectVendorMutation.mutate({ id: dialog.id, reason: rejectReason || undefined }); }}
-        title={dialog.type === 'reject' ? `Reject ${dialog.businessName}?` : ''}
-        description="The vendor application will be rejected."
-        confirmLabel="Reject"
-        variant="danger"
-        loading={rejectVendorMutation.isPending}
-      >
-        <div className="space-y-1.5">
-          <label htmlFor="reject-reason" className="block text-sm font-medium text-[#F5F0E8]">
-            Reason (optional)
-          </label>
-          <textarea
-            id="reject-reason"
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Enter a reason for rejection…"
-            rows={3}
-            disabled={rejectVendorMutation.isPending}
-            className="w-full rounded-xl border border-[#1E2238] bg-[#0C0F1A] px-4 py-2.5 text-sm text-[#F5F0E8] placeholder:text-[#4A5A80] transition-all focus:ring-2 focus:ring-[#6764f2]/20 focus:border-[#6764f2] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-          />
-        </div>
-      </ConfirmDialog>
+      )}
     </div>
   );
 }

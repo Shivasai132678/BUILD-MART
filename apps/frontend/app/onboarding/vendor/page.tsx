@@ -3,12 +3,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { api, getApiErrorMessage } from '@/lib/api';
-import { onboardVendor } from '@/lib/vendor-profile-api';
+import { onboardVendor, getVendorProfile } from '@/lib/vendor-profile-api';
 import { useUserStore } from '@/store/user.store';
 import { getCategories, getProducts } from '@/lib/catalog-api';
 import { useQuery } from '@tanstack/react-query';
@@ -35,6 +35,13 @@ export default function VendorOnboardingPage() {
   const router = useRouter();
   const setUser = useUserStore((s) => s.setUser);
   const [step, setStep] = useState<Step>('business');
+
+  // If a vendor profile already exists, skip the form and go to pending
+  useEffect(() => {
+    getVendorProfile()
+      .then(() => router.replace('/onboarding/pending'))
+      .catch(() => {}); // no profile yet — stay on page
+  }, [router]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const {
@@ -104,6 +111,11 @@ export default function VendorOnboardingPage() {
       toast.success("Application submitted! You'll be notified once approved.");
       router.replace('/onboarding/pending');
     } catch (error) {
+      // 409 means profile already exists — redirect to pending instead of showing error
+      if ((error as { response?: { status?: number } }).response?.status === 409) {
+        router.replace('/onboarding/pending');
+        return;
+      }
       toast.error(getApiErrorMessage(error));
     }
   });

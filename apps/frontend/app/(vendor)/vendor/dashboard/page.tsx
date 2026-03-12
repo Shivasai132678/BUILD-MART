@@ -28,7 +28,10 @@ export default function VendorDashboardPage() {
   const rfqsQuery = useQuery({ queryKey: ['vendor-available-rfqs-dash'], queryFn: () => getAvailableRfqs(5, 0) });
   const ordersQuery = useQuery({ queryKey: ['vendor-orders-dash'], queryFn: () => getVendorOrders(1, 0) });
 
-  const isApproved = profileQuery.data?.status === 'APPROVED';
+  const vendorStatus = profileQuery.data?.status ?? null;
+  const isApproved = vendorStatus === 'APPROVED';
+  const isRejected = vendorStatus === 'REJECTED';
+  const isSuspended = vendorStatus === 'SUSPENDED';
   const rfqTotal = rfqsQuery.data?.total ?? 0;
   const orderTotal = ordersQuery.data?.total ?? 0;
   const recentRfqs = rfqsQuery.data?.items ?? [];
@@ -54,13 +57,35 @@ export default function VendorDashboardPage() {
         </Link>
       </div>
 
-      {/* Approval warning */}
+      {/* Status banner — only shown when not approved */}
       {!isApproved && !profileQuery.isLoading && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl px-5 py-4 flex items-start gap-3">
-          <span className="material-symbols-outlined text-amber-400 text-[20px] mt-0.5">pending</span>
+        <div className={`rounded-2xl px-5 py-4 flex items-start gap-3 border ${
+          isSuspended
+            ? 'bg-orange-500/10 border-orange-500/20'
+            : isRejected
+              ? 'bg-red-500/10 border-red-500/20'
+              : 'bg-amber-500/10 border-amber-500/20'
+        }`}>
+          <span className={`material-symbols-outlined text-[20px] mt-0.5 ${
+            isSuspended ? 'text-orange-400' : isRejected ? 'text-red-400' : 'text-amber-400'
+          }`}>
+            {isSuspended ? 'block' : isRejected ? 'cancel' : 'pending'}
+          </span>
           <div>
-            <p className="text-sm font-semibold text-[#F5F0E8]">Profile Pending Approval</p>
-            <p className="text-sm text-[#8EA5C0] mt-0.5">Your vendor profile is under review. RFQs will match once your profile is approved.</p>
+            <p className="text-sm font-semibold text-[#F5F0E8]">
+              {isSuspended
+                ? 'Account Suspended'
+                : isRejected
+                  ? 'Application Not Approved'
+                  : 'Profile Pending Approval'}
+            </p>
+            <p className="text-sm text-[#8EA5C0] mt-0.5">
+              {isSuspended
+                ? 'Your account has been suspended by an admin. You cannot submit quotes or browse RFQs. Please contact support.'
+                : isRejected
+                  ? 'Your vendor application was not approved. Please contact support to resubmit or resolve any issues.'
+                  : 'Your vendor profile is under review. RFQs will match once your profile is approved.'}
+            </p>
           </div>
         </div>
       )}
@@ -77,7 +102,12 @@ export default function VendorDashboardPage() {
           {[
             { icon: 'request_quote', label: 'Available RFQs', value: rfqTotal, color: 'bg-[#3B7FC1]/15 text-[#3B7FC1]' },
             { icon: 'package_2', label: 'Total Orders', value: orderTotal, color: 'bg-green-500/15 text-green-400' },
-            { icon: isApproved ? 'verified' : 'pending', label: 'Account Status', value: isApproved ? 'Approved' : 'Pending', color: isApproved ? 'bg-green-500/15 text-green-400' : 'bg-amber-500/15 text-amber-400' },
+            {
+              icon: isApproved ? 'verified' : isSuspended ? 'block' : isRejected ? 'cancel' : 'pending',
+              label: 'Account Status',
+              value: isApproved ? 'Approved' : isSuspended ? 'Suspended' : isRejected ? 'Rejected' : 'Pending',
+              color: isApproved ? 'bg-green-500/15 text-green-400' : isSuspended ? 'bg-orange-500/15 text-orange-400' : isRejected ? 'bg-red-500/15 text-red-400' : 'bg-amber-500/15 text-amber-400',
+            },
           ].map((s) => (
             <div key={s.label} className="bg-[#111827] border border-[#1E2A3A] rounded-2xl p-5 flex items-start gap-4">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${s.color}`}>

@@ -201,6 +201,76 @@ export class VendorService {
     return rejectedProfile;
   }
 
+  async updateVendorStatus(
+    vendorId: string,
+    newStatus: VendorStatus,
+    adminUserId?: string,
+  ): Promise<VendorProfile> {
+    const existingProfile = await this.prisma.vendorProfile.findUnique({
+      where: { id: vendorId },
+    });
+
+    if (!existingProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const updatedProfile = await this.prisma.vendorProfile.update({
+      where: { id: vendorId },
+      data: {
+        status: newStatus,
+        ...(newStatus === VendorStatus.APPROVED ? { approvedAt: new Date() } : {}),
+        ...(newStatus === VendorStatus.REJECTED ? { rejectedAt: new Date() } : {}),
+      },
+    });
+
+    // Sync user role: APPROVED → VENDOR, anything else → PENDING
+    const targetRole =
+      newStatus === VendorStatus.APPROVED ? UserRole.VENDOR : UserRole.PENDING;
+    await this.prisma.user.update({
+      where: { id: existingProfile.userId },
+      data: { role: targetRole },
+    });
+
+    this.logger.log(
+      `Vendor status updated id=${vendorId} status=${newStatus} by admin=${adminUserId ?? 'unknown'}`,
+    );
+
+    const notifType =
+      newStatus === VendorStatus.APPROVED
+        ? NotificationType.VENDOR_APPROVED
+        : NotificationType.VENDOR_REJECTED;
+
+    const notifTitle =
+      newStatus === VendorStatus.APPROVED
+        ? 'Vendor profile approved'
+        : newStatus === VendorStatus.SUSPENDED
+          ? 'Vendor account suspended'
+          : 'Vendor profile status changed';
+
+    const notifMessage =
+      newStatus === VendorStatus.APPROVED
+        ? 'Your vendor profile has been approved. You can now submit quotes.'
+        : newStatus === VendorStatus.SUSPENDED
+          ? 'Your vendor account has been suspended. Please contact support.'
+          : 'Your vendor profile status has been updated.';
+
+    await this.notificationsService
+      .create({
+        userId: existingProfile.userId,
+        type: notifType,
+        title: notifTitle,
+        message: notifMessage,
+        metadata: { vendorProfileId: vendorId },
+      })
+      .catch((err: unknown) => {
+        this.logger.error(
+          `Failed to notify vendor status change userId=${existingProfile.userId}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        );
+      });
+
+    return updatedProfile;
+  }
+
   async getVendorProducts(userId: string) {
     const vendorProfile = await this.prisma.vendorProfile.findUnique({
       where: { userId },

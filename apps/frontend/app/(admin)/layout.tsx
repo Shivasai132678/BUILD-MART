@@ -9,7 +9,7 @@ import { useUserStore } from '@/store/user.store';
 
 const navItems = [
   { href: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { href: '/admin/vendors', icon: 'verified_user', label: 'Vendor Approvals' },
+  { href: '/admin/vendors', icon: 'verified_user', label: 'Vendor Management' },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

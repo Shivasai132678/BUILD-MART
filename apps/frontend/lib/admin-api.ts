@@ -132,3 +132,10 @@ export async function getAllOrders(limit: number, offset: number, status?: strin
   });
   return unwrapApiData<PaginatedResponse<AdminOrder>>(response.data);
 }
+
+export type VendorStatusValue = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
+export async function updateVendorStatus(id: string, status: VendorStatusValue) {
+  const response = await api.patch(`/api/v1/admin/vendors/${id}/status`, { status });
+  return unwrapApiData<AdminVendorProfile>(response.data);
+}

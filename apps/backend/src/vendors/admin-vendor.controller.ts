@@ -1,10 +1,11 @@
 import { Body, Controller, Param, Patch, Req, UseGuards } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { UserRole, VendorStatus } from '@prisma/client';
 import type { Request } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { RejectVendorDto } from './dto/reject-vendor.dto';
+import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { VendorService } from './vendor.service';
 
 type AuthenticatedRequest = Request & {
@@ -40,5 +41,16 @@ export class AdminVendorController {
   ) {
     const adminUserId = request.user?.sub;
     return this.vendorService.rejectVendor(vendorId, dto.rejectionReason, adminUserId);
+  }
+
+  @Patch(':id/status')
+  @Roles(UserRole.ADMIN)
+  updateVendorStatus(
+    @Param('id') vendorId: string,
+    @Body() dto: UpdateVendorStatusDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    const adminUserId = request.user?.sub;
+    return this.vendorService.updateVendorStatus(vendorId, dto.status as VendorStatus, adminUserId);
   }
 }
