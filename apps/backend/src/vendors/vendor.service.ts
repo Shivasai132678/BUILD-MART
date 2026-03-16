@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole, NotificationType, VendorStatus } from '@prisma/client';
 import type { Prisma, VendorProfile } from '@prisma/client';
+import { AuditLogService } from '../common/audit/audit.service';
 import { CloudinaryAdapter } from '../files/cloudinary.adapter';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,6 +23,7 @@ export class VendorService {
     private readonly prisma: PrismaService,
     private readonly cloudinaryAdapter: CloudinaryAdapter,
     private readonly notificationsService: NotificationsService,
+    private readonly auditLogService: AuditLogService,
   ) { }
 
   async onboard(userId: string, dto: OnboardVendorDto): Promise<VendorProfile> {
@@ -223,9 +226,19 @@ export class VendorService {
       },
     });
 
-    // Sync user role: APPROVED → VENDOR, anything else → PENDING
-    const targetRole =
-      newStatus === VendorStatus.APPROVED ? UserRole.VENDOR : UserRole.PENDING;
+    // Sync user role:
+    //   APPROVED  → VENDOR
+    //   SUSPENDED → keep VENDOR (suspended vendors retain their role; guards check VendorStatus)
+    //   REJECTED  → PENDING (account not yet approved)
+    //   PENDING   → PENDING
+    let targetRole: UserRole;
+    if (newStatus === VendorStatus.APPROVED) {
+      targetRole = UserRole.VENDOR;
+    } else if (newStatus === VendorStatus.SUSPENDED) {
+      targetRole = UserRole.VENDOR; // keep role; product/quote guards check VendorStatus.APPROVED
+    } else {
+      targetRole = UserRole.PENDING;
+    }
     await this.prisma.user.update({
       where: { id: existingProfile.userId },
       data: { role: targetRole },
@@ -238,7 +251,9 @@ export class VendorService {
     const notifType =
       newStatus === VendorStatus.APPROVED
         ? NotificationType.VENDOR_APPROVED
-        : NotificationType.VENDOR_REJECTED;
+        : newStatus === VendorStatus.SUSPENDED
+          ? NotificationType.VENDOR_SUSPENDED
+          : NotificationType.VENDOR_REJECTED;
 
     const notifTitle =
       newStatus === VendorStatus.APPROVED
@@ -269,6 +284,54 @@ export class VendorService {
       });
 
     return updatedProfile;
+  }
+
+  async getVendorStats(userId: string) {
+    const vendorProfile = await this.prisma.vendorProfile.findUnique({
+      where: { userId },
+      select: { id: true, averageRating: true, totalReviews: true },
+    });
+
+    if (!vendorProfile) {
+      throw new NotFoundException('Vendor profile not found');
+    }
+
+    const [totalRfqs, activeRfqs, totalOrders, pendingOrders, gmvAggregate] =
+      await Promise.all([
+        this.prisma.quote.count({ where: { vendorId: vendorProfile.id } }),
+        this.prisma.quote.count({
+          where: {
+            vendorId: vendorProfile.id,
+            rfq: { status: { in: ['OPEN', 'QUOTED'] } },
+            isWithdrawn: false,
+          },
+        }),
+        this.prisma.order.count({ where: { vendorId: vendorProfile.id } }),
+        this.prisma.order.count({
+          where: {
+            vendorId: vendorProfile.id,
+            status: { in: ['CONFIRMED', 'OUT_FOR_DELIVERY'] },
+          },
+        }),
+        this.prisma.order.aggregate({
+          where: { vendorId: vendorProfile.id, status: { not: 'CANCELLED' } },
+          _sum: { totalAmount: true },
+        }),
+      ]);
+
+    const gmv = gmvAggregate._sum.totalAmount?.toString() ?? '0.00';
+
+    this.logger.log(`Vendor stats fetched for userId=${userId} vendorId=${vendorProfile.id}`);
+
+    return {
+      totalQuotesSubmitted: totalRfqs,
+      activeQuotes: activeRfqs,
+      totalOrders,
+      pendingOrders,
+      gmv,
+      averageRating: vendorProfile.averageRating.toString(),
+      totalReviews: vendorProfile.totalReviews,
+    };
   }
 
   async getVendorProducts(userId: string) {
@@ -318,11 +381,15 @@ export class VendorService {
 
     const vendorProfile = await this.prisma.vendorProfile.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!vendorProfile) {
       throw new NotFoundException('Vendor profile not found');
+    }
+
+    if (vendorProfile.status !== VendorStatus.APPROVED) {
+      throw new ForbiddenException('Vendor must be approved to manage products');
     }
 
     // Validate product IDs
@@ -358,11 +425,15 @@ export class VendorService {
   async removeVendorProduct(userId: string, productId: string) {
     const vendorProfile = await this.prisma.vendorProfile.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!vendorProfile) {
       throw new NotFoundException('Vendor profile not found');
+    }
+
+    if (vendorProfile.status !== VendorStatus.APPROVED) {
+      throw new ForbiddenException('Vendor must be approved to manage products');
     }
 
     // Atomically delete the vendor product entry to avoid the findFirst → delete race
@@ -447,11 +518,10 @@ export class VendorService {
 
     this.validateDocumentUrl(documentUrl);
 
-    if (
-      documentUrl.startsWith('http://') ||
-      documentUrl.startsWith('https://')
-    ) {
-      // TODO: file upload via multipart/form-data is a Phase 2 frontend task.
+    // validateDocumentUrl enforces HTTPS, so only https:// URLs reach here.
+    // TODO: Phase 2 — replace with multipart/form-data upload to Cloudinary
+    //       instead of accepting raw URLs from the client.
+    if (documentUrl.startsWith('https://')) {
       return documentUrl;
     }
 
@@ -502,27 +572,13 @@ export class VendorService {
     adminUserId: string | undefined,
     approvedAt: Date,
   ): Promise<void> {
-    try {
-      await this.prisma.auditLog.create({
-        data: {
-          userId: adminUserId ?? null,
-          action: 'VENDOR_APPROVED',
-          entityType: 'VendorProfile',
-          entityId: vendorId,
-          newValue: { approvedAt: approvedAt.toISOString() },
-        },
-      });
-
-      this.logger.log(
-        `Audit log created for vendor approval vendorId=${vendorId} by userId=${adminUserId ?? 'unknown'}`,
-      );
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown audit log error';
-      this.logger.error(
-        `Failed to create vendor approval audit log for vendorId=${vendorId}: ${message}`,
-      );
-    }
+    await this.auditLogService.log({
+      userId: adminUserId ?? null,
+      action: 'VENDOR_APPROVED',
+      entityType: 'VendorProfile',
+      entityId: vendorId,
+      newValue: { approvedAt: approvedAt.toISOString() },
+    });
   }
 
   private async recordVendorRejectionAudit(
@@ -531,29 +587,144 @@ export class VendorService {
     rejectedAt: Date,
     rejectionReason: string | undefined,
   ): Promise<void> {
-    try {
-      await this.prisma.auditLog.create({
-        data: {
-          userId: adminUserId ?? null,
-          action: 'VENDOR_REJECTED',
-          entityType: 'VendorProfile',
-          entityId: vendorId,
-          newValue: {
-            rejectedAt: rejectedAt.toISOString(),
-            ...(rejectionReason !== undefined ? { rejectionReason } : {}),
+    await this.auditLogService.log({
+      userId: adminUserId ?? null,
+      action: 'VENDOR_REJECTED',
+      entityType: 'VendorProfile',
+      entityId: vendorId,
+      newValue: {
+        rejectedAt: rejectedAt.toISOString(),
+        ...(rejectionReason !== undefined ? { rejectionReason } : {}),
+      },
+    });
+  }
+
+  async getPublicVendorProfile(vendorId: string) {
+    const profile = await this.prisma.vendorProfile.findUnique({
+      where: { id: vendorId, status: VendorStatus.APPROVED, deletedAt: null },
+      select: {
+        id: true,
+        businessName: true,
+        city: true,
+        serviceableAreas: true,
+        averageRating: true,
+        totalReviews: true,
+        approvedAt: true,
+        _count: { select: { products: true } },
+        user: { select: { name: true } },
+        reviews: {
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          select: {
+            id: true,
+            rating: true,
+            comment: true,
+            createdAt: true,
+            buyer: { select: { name: true } },
           },
         },
-      });
+      },
+    });
 
-      this.logger.log(
-        `Audit log created for vendor rejection vendorId=${vendorId} by userId=${adminUserId ?? 'unknown'}`,
-      );
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown audit log error';
-      this.logger.error(
-        `Failed to create vendor rejection audit log for vendorId=${vendorId}: ${message}`,
-      );
+    if (!profile) {
+      throw new NotFoundException('Vendor not found');
     }
+
+    return {
+      ...profile,
+      averageRating: profile.averageRating.toString(),
+    };
+  }
+
+  async getPublicVendorProducts(vendorId: string) {
+    const profile = await this.prisma.vendorProfile.findUnique({
+      where: { id: vendorId, status: VendorStatus.APPROVED, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Vendor not found');
+    }
+
+    const vendorProducts = await this.prisma.vendorProduct.findMany({
+      where: { vendorId, stockAvailable: true, product: { isActive: true, deletedAt: null } },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            unit: true,
+            basePrice: true,
+            description: true,
+            imageUrl: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      items: vendorProducts.map((vp) => ({
+        vendorProductId: vp.id,
+        productId: vp.productId,
+        name: vp.product.name,
+        unit: vp.product.unit,
+        description: vp.product.description ?? null,
+        imageUrl: vp.product.imageUrl ?? null,
+        category: vp.product.category,
+        price: (vp.customPrice ?? vp.product.basePrice).toString(),
+        stockAvailable: vp.stockAvailable,
+      })),
+    };
+  }
+
+  async discoverVendors(params: {
+    city?: string;
+    categoryId?: string;
+    minRating?: number;
+    limit: number;
+    offset: number;
+  }) {
+    const { city, categoryId, minRating, limit, offset } = params;
+
+    const where: Prisma.VendorProfileWhereInput = {
+      status: VendorStatus.APPROVED,
+      deletedAt: null,
+      ...(city ? { city: { contains: city, mode: 'insensitive' } } : {}),
+      ...(minRating ? { averageRating: { gte: minRating } } : {}),
+      ...(categoryId
+        ? {
+            products: {
+              some: {
+                product: { categoryId },
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.vendorProfile.findMany({
+        where,
+        skip: offset,
+        take: limit,
+        orderBy: { averageRating: 'desc' },
+        select: {
+          id: true,
+          businessName: true,
+          city: true,
+          serviceableAreas: true,
+          averageRating: true,
+          totalReviews: true,
+          approvedAt: true,
+          _count: { select: { products: true } },
+          user: { select: { name: true } },
+        },
+      }),
+      this.prisma.vendorProfile.count({ where }),
+    ]);
+
+    return { items, total, limit, offset };
   }
 }

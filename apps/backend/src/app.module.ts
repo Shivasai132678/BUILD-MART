@@ -4,10 +4,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AddressesModule } from './addresses/addresses.module';
 import { AdminModule } from './admin/admin.module';
+import { CronModule } from './common/cron/cron.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { DisputesModule } from './disputes/disputes.module';
 import { FilesModule } from './files/files.module';
+import { GatewayModule } from './gateway/gateway.module';
 import { HealthController } from './health/health.controller';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
@@ -31,7 +34,10 @@ import { VendorModule } from './vendors/vendor.module';
     ]),
     AdminModule,
     AddressesModule,
+    CronModule,
+    DisputesModule,
     FilesModule,
+    GatewayModule,
     NotificationsModule,
     OnboardingModule,
     PrismaModule,

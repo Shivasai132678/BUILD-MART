@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { fetchBuyerOrders, fetchBuyerRfqs } from '@/lib/buyer-api';
 import { formatIST } from '@/lib/utils/date';
-import { api, refreshAuthToken } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
 
 function getGreeting(): string {
@@ -64,8 +64,9 @@ export default function BuyerDashboardPage() {
 
   const handleActivateVendor = async () => {
     try {
-      const data = await refreshAuthToken();
-      if (data?.user) setUser(data.user);
+      const res = await api.get('/api/v1/auth/me');
+      const data = res.data?.data ?? res.data;
+      if (data) setUser(data);
       router.push('/vendor/dashboard');
     } catch {
       // ignore

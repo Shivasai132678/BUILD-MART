@@ -2,12 +2,10 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
-  InternalServerErrorException,
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { JwtSignOptions } from '@nestjs/jwt';
 import { UserRole, VendorStatus } from '@prisma/client';
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import type { CookieOptions, Response } from 'express';
@@ -177,16 +175,18 @@ export class AuthService {
     }
 
     const user = latestOtpRecord.user;
+    const hasVendorProfile = !!user.vendorProfile;
+    const vendorApproved = user.vendorProfile?.status === VendorStatus.APPROVED;
     const payload: JwtTokenPayload = {
       sub: user.id,
       phone: user.phone,
       role: user.role,
+      hasVendorProfile,
+      vendorApproved,
     };
 
-    const token = await this.jwtService.signAsync(payload, {
-      secret: this.getJwtSecret(),
-      expiresIn: (process.env.JWT_EXPIRES_IN ?? '7d') as JwtSignOptions['expiresIn'],
-    });
+    // Use module-level JWT config (secret + expiresIn set in JwtModule.registerAsync)
+    const token = await this.jwtService.signAsync(payload);
 
     response.cookie('access_token', token, this.buildAccessTokenCookieOptions());
 
@@ -198,8 +198,8 @@ export class AuthService {
         role: user.role,
         name: user.name,
         displayName: user.displayName,
-        hasVendorProfile: !!user.vendorProfile,
-        vendorApproved: user.vendorProfile?.status === VendorStatus.APPROVED,
+        hasVendorProfile,
+        vendorApproved,
       },
     };
   }
@@ -226,16 +226,18 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    const hasVendorProfile = !!user.vendorProfile;
+    const vendorApproved = user.vendorProfile?.status === VendorStatus.APPROVED;
     const payload: JwtTokenPayload = {
       sub: user.id,
       phone: user.phone,
       role: user.role,
+      hasVendorProfile,
+      vendorApproved,
     };
 
-    const token = await this.jwtService.signAsync(payload, {
-      secret: this.getJwtSecret(),
-      expiresIn: (process.env.JWT_EXPIRES_IN ?? '7d') as JwtSignOptions['expiresIn'],
-    });
+    // Use module-level JWT config (secret + expiresIn set in JwtModule.registerAsync)
+    const token = await this.jwtService.signAsync(payload);
 
     response.cookie('access_token', token, this.buildAccessTokenCookieOptions());
 
@@ -247,8 +249,8 @@ export class AuthService {
         role: user.role,
         name: user.name,
         displayName: user.displayName,
-        hasVendorProfile: !!user.vendorProfile,
-        vendorApproved: user.vendorProfile?.status === VendorStatus.APPROVED,
+        hasVendorProfile,
+        vendorApproved,
       },
     };
   }
@@ -264,16 +266,6 @@ export class AuthService {
 
   private isE2ETestOtpEnabled(): boolean {
     return process.env.NODE_ENV !== 'production' && !!process.env.E2E_TEST_OTP;
-  }
-
-  private getJwtSecret(): string {
-    const secret = process.env.JWT_SECRET;
-
-    if (!secret) {
-      throw new InternalServerErrorException('JWT_SECRET is not configured');
-    }
-
-    return secret;
   }
 
   private buildBaseCookieOptions(): CookieOptions {

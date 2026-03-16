@@ -1,5 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { OrderStatus, Prisma, VendorStatus } from '@prisma/client';
+import { AuditLogService } from '../common/audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminService } from './admin.service';
 
@@ -26,20 +28,28 @@ describe('AdminService', () => {
     $transaction: jest.fn(),
   } as unknown as jest.Mocked<PrismaService>;
 
+  const auditLogService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AuditLogService;
+
+  const notificationsService = {
+    create: jest.fn().mockResolvedValue(undefined),
+  } as unknown as NotificationsService;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new AdminService(prisma);
+    service = new AdminService(prisma, auditLogService, notificationsService);
   });
 
   describe('getMetrics', () => {
     it('returns correct counts for users, vendors, RFQs, orders', async () => {
-      prisma.user.count.mockResolvedValue(50);
-      prisma.vendorProfile.count
+      (prisma.user.count as jest.Mock).mockResolvedValue(50);
+      (prisma.vendorProfile.count as jest.Mock)
         .mockResolvedValueOnce(10) // totalVendors (status: APPROVED)
         .mockResolvedValueOnce(3); // pendingVendors (status: PENDING)
-      prisma.rFQ.count.mockResolvedValue(25);
-      prisma.order.count.mockResolvedValue(12);
-      prisma.order.aggregate.mockResolvedValue({
+      (prisma.rFQ.count as jest.Mock).mockResolvedValue(25);
+      (prisma.order.count as jest.Mock).mockResolvedValue(12);
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
         _sum: { totalAmount: new Prisma.Decimal('150000.50') },
       });
 
@@ -56,13 +66,13 @@ describe('AdminService', () => {
     });
 
     it('filters out soft-deleted records (deletedAt: null)', async () => {
-      prisma.user.count.mockResolvedValue(5);
-      prisma.vendorProfile.count
+      (prisma.user.count as jest.Mock).mockResolvedValue(5);
+      (prisma.vendorProfile.count as jest.Mock)
         .mockResolvedValueOnce(2)
         .mockResolvedValueOnce(1);
-      prisma.rFQ.count.mockResolvedValue(3);
-      prisma.order.count.mockResolvedValue(1);
-      prisma.order.aggregate.mockResolvedValue({
+      (prisma.rFQ.count as jest.Mock).mockResolvedValue(3);
+      (prisma.order.count as jest.Mock).mockResolvedValue(1);
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
         _sum: { totalAmount: new Prisma.Decimal('5000.00') },
       });
 
@@ -84,13 +94,13 @@ describe('AdminService', () => {
     });
 
     it('returns GMV as sum of order amounts as a string', async () => {
-      prisma.user.count.mockResolvedValue(0);
-      prisma.vendorProfile.count
+      (prisma.user.count as jest.Mock).mockResolvedValue(0);
+      (prisma.vendorProfile.count as jest.Mock)
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      prisma.rFQ.count.mockResolvedValue(0);
-      prisma.order.count.mockResolvedValue(3);
-      prisma.order.aggregate.mockResolvedValue({
+      (prisma.rFQ.count as jest.Mock).mockResolvedValue(0);
+      (prisma.order.count as jest.Mock).mockResolvedValue(3);
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
         _sum: { totalAmount: new Prisma.Decimal('99999.99') },
       });
 
@@ -101,13 +111,13 @@ describe('AdminService', () => {
     });
 
     it('returns zero values when no data exists (empty DB)', async () => {
-      prisma.user.count.mockResolvedValue(0);
-      prisma.vendorProfile.count
+      (prisma.user.count as jest.Mock).mockResolvedValue(0);
+      (prisma.vendorProfile.count as jest.Mock)
         .mockResolvedValueOnce(0)
         .mockResolvedValueOnce(0);
-      prisma.rFQ.count.mockResolvedValue(0);
-      prisma.order.count.mockResolvedValue(0);
-      prisma.order.aggregate.mockResolvedValue({
+      (prisma.rFQ.count as jest.Mock).mockResolvedValue(0);
+      (prisma.order.count as jest.Mock).mockResolvedValue(0);
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
         _sum: { totalAmount: null },
       });
 
@@ -135,8 +145,8 @@ describe('AdminService', () => {
         },
       ];
 
-      prisma.vendorProfile.findMany.mockResolvedValue(pendingVendors);
-      prisma.vendorProfile.count.mockResolvedValue(1);
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue(pendingVendors);
+      (prisma.vendorProfile.count as jest.Mock).mockResolvedValue(1);
 
       const result = await service.getPendingVendors(20, 0);
 
@@ -151,8 +161,8 @@ describe('AdminService', () => {
     });
 
     it('returns empty array if no pending vendors', async () => {
-      prisma.vendorProfile.findMany.mockResolvedValue([]);
-      prisma.vendorProfile.count.mockResolvedValue(0);
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.vendorProfile.count as jest.Mock).mockResolvedValue(0);
 
       const result = await service.getPendingVendors(20, 0);
 
@@ -162,8 +172,8 @@ describe('AdminService', () => {
     });
 
     it('returns paginated results with correct limit and offset', async () => {
-      prisma.vendorProfile.findMany.mockResolvedValue([]);
-      prisma.vendorProfile.count.mockResolvedValue(50);
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.vendorProfile.count as jest.Mock).mockResolvedValue(50);
 
       const result = await service.getPendingVendors(10, 20);
 
@@ -176,8 +186,8 @@ describe('AdminService', () => {
     });
 
     it('sanitizes negative limit and offset to safe values', async () => {
-      prisma.vendorProfile.findMany.mockResolvedValue([]);
-      prisma.vendorProfile.count.mockResolvedValue(0);
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.vendorProfile.count as jest.Mock).mockResolvedValue(0);
 
       const result = await service.getPendingVendors(-5, -10);
 
@@ -190,8 +200,8 @@ describe('AdminService', () => {
     });
 
     it('includes user relation with name, phone, email', async () => {
-      prisma.vendorProfile.findMany.mockResolvedValue([]);
-      prisma.vendorProfile.count.mockResolvedValue(0);
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.vendorProfile.count as jest.Mock).mockResolvedValue(0);
 
       await service.getPendingVendors(20, 0);
 
@@ -208,8 +218,8 @@ describe('AdminService', () => {
     });
 
     it('orders results by createdAt ascending', async () => {
-      prisma.vendorProfile.findMany.mockResolvedValue([]);
-      prisma.vendorProfile.count.mockResolvedValue(0);
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.vendorProfile.count as jest.Mock).mockResolvedValue(0);
 
       await service.getPendingVendors(20, 0);
 

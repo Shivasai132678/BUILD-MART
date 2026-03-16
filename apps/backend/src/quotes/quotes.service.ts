@@ -11,11 +11,16 @@ import { Prisma } from '@prisma/client';
 import { generateQuoteReferenceCode } from '../common/utils/reference-code';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { CounterOfferQuoteDto } from './dto/counter-offer-quote.dto';
 import { CreateQuoteDto } from './dto/create-quote.dto';
 import { UpdateQuoteDto } from './dto/update-quote.dto';
 
 type QuoteWithItems = Prisma.QuoteGetPayload<{
   include: { items: true };
+}>;
+
+type QuoteWithItemsAndVendor = Prisma.QuoteGetPayload<{
+  include: { items: true; vendor: { select: { businessName: true } } };
 }>;
 
 @Injectable()
@@ -111,16 +116,16 @@ export class QuotesService {
 
       this.logger.log(`Quote created id=${createdQuote.id} rfqId=${dto.rfqId}`);
 
-      await this.notificationsService.createNotification(
-        rfq.buyerId,
-        NotificationType.QUOTE_RECEIVED,
-        'New quote received',
-        `A vendor submitted a quote for RFQ ${dto.rfqId}.`,
-        {
+      await this.notificationsService.create({
+        userId: rfq.buyerId,
+        type: NotificationType.QUOTE_RECEIVED,
+        title: 'New quote received',
+        message: `A vendor submitted a quote for RFQ ${dto.rfqId}.`,
+        metadata: {
           rfqId: dto.rfqId,
           quoteId: createdQuote.id,
         },
-      );
+      });
 
       return createdQuote;
     } catch (error: unknown) {
@@ -147,7 +152,7 @@ export class QuotesService {
     buyerId: string,
     limit: number = 20,
     offset: number = 0,
-  ): Promise<{ data: QuoteWithItems[]; total: number; limit: number; offset: number }> {
+  ): Promise<{ data: QuoteWithItemsAndVendor[]; total: number; limit: number; offset: number }> {
     const rfq = await this.prisma.rFQ.findUnique({
       where: { id: rfqId },
       select: {
@@ -169,7 +174,14 @@ export class QuotesService {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.quote.findMany({
         where,
-        include: { items: true },
+        include: {
+          items: true,
+          vendor: {
+            select: {
+              businessName: true,
+            },
+          },
+        },
         orderBy: {
           totalAmount: 'asc',
         },
@@ -190,7 +202,10 @@ export class QuotesService {
     const vendorProfile = await this.getVendorProfileByUserId(vendorUserId);
     const existingQuote = await this.prisma.quote.findUnique({
       where: { id: quoteId },
-      include: { items: true },
+      include: {
+        items: true,
+        rfq: { select: { buyerId: true } },
+      },
     });
 
     if (!existingQuote) {
@@ -243,11 +258,183 @@ export class QuotesService {
 
     this.logger.log(`Quote updated id=${quoteId}`);
 
+    // Notify the buyer that their quote has been revised
+    const buyerId = existingQuote.rfq?.buyerId;
+    if (buyerId) {
+      await this.notificationsService.create({
+        userId: buyerId,
+        type: NotificationType.QUOTE_RECEIVED,
+        title: 'Quote updated',
+        message: `A vendor has revised their quote for your RFQ.`,
+        metadata: {
+          rfqId: existingQuote.rfqId,
+          quoteId,
+        },
+      });
+    }
+
     return updatedQuote;
   }
 
-  async deleteQuote(quoteId: string, vendorUserId: string): Promise<{ message: string }> {
+  async getVendorQuoteForRfq(
+    rfqId: string,
+    vendorUserId: string,
+  ): Promise<QuoteWithItems | null> {
     const vendorProfile = await this.getVendorProfileByUserId(vendorUserId);
+
+    const quote = await this.prisma.quote.findUnique({
+      where: {
+        rfqId_vendorId: {
+          rfqId,
+          vendorId: vendorProfile.id,
+        },
+      },
+      include: { items: true },
+    });
+
+    return quote;
+  }
+
+  async counterOfferQuote(
+    buyerUserId: string,
+    quoteId: string,
+    dto: CounterOfferQuoteDto,
+  ): Promise<{ id: string; counterOfferPrice: string; counterOfferNote: string | null; counterStatus: string }> {
+    const quote = await this.prisma.quote.findUnique({
+      where: { id: quoteId },
+      include: {
+        rfq: { select: { buyerId: true, status: true } },
+        vendor: { select: { userId: true } },
+      },
+    });
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (quote.rfq.buyerId !== buyerUserId) {
+      throw new ForbiddenException('Only the RFQ buyer can submit a counter-offer');
+    }
+
+    if (quote.isWithdrawn) {
+      throw new BadRequestException('Cannot counter-offer a withdrawn quote');
+    }
+
+    const rfqStatus = quote.rfq.status;
+    if (rfqStatus !== RFQStatus.OPEN && rfqStatus !== RFQStatus.QUOTED) {
+      throw new BadRequestException('Counter-offers can only be sent for OPEN or QUOTED RFQs');
+    }
+
+    if (quote.counterStatus === 'PENDING') {
+      throw new BadRequestException('A counter-offer is already pending on this quote');
+    }
+
+    await this.ensureNoOrderExistsForQuote(quoteId);
+
+    const updated = await this.prisma.quote.update({
+      where: { id: quoteId },
+      data: {
+        counterOfferPrice: new Prisma.Decimal(dto.counterOfferPrice),
+        counterOfferNote: dto.counterOfferNote ?? null,
+        counterStatus: 'PENDING',
+      },
+      select: {
+        id: true,
+        counterOfferPrice: true,
+        counterOfferNote: true,
+        counterStatus: true,
+      },
+    });
+
+    this.logger.log(`Counter-offer sent quoteId=${quoteId} price=${dto.counterOfferPrice}`);
+
+    await this.notificationsService.create({
+      userId: quote.vendor.userId,
+      type: NotificationType.QUOTE_COUNTER_OFFER,
+      title: 'Buyer sent a counter-offer',
+      message: `The buyer has proposed a counter-offer of ₹${dto.counterOfferPrice} for your quote.`,
+      metadata: { quoteId, rfqId: quote.rfqId, counterOfferPrice: dto.counterOfferPrice },
+    });
+
+    return {
+      id: updated.id,
+      counterOfferPrice: updated.counterOfferPrice!.toFixed(2),
+      counterOfferNote: updated.counterOfferNote,
+      counterStatus: updated.counterStatus!,
+    };
+  }
+
+  async respondToCounterOffer(
+    vendorUserId: string,
+    quoteId: string,
+    accept: boolean,
+  ): Promise<{ id: string; counterStatus: string }> {
+    const vendorProfile = await this.getVendorProfileByUserId(vendorUserId);
+
+    const quote = await this.prisma.quote.findUnique({
+      where: { id: quoteId },
+      include: { rfq: { select: { buyerId: true } } },
+    });
+
+    if (!quote) {
+      throw new NotFoundException('Quote not found');
+    }
+
+    if (quote.vendorId !== vendorProfile.id) {
+      throw new ForbiddenException('You are not allowed to respond to this counter-offer');
+    }
+
+    if (quote.counterStatus !== 'PENDING') {
+      throw new BadRequestException('No pending counter-offer to respond to');
+    }
+
+    await this.ensureNoOrderExistsForQuote(quoteId);
+
+    const newStatus = accept ? 'ACCEPTED' : 'REJECTED';
+
+    const updateData: Prisma.QuoteUncheckedUpdateInput = { counterStatus: newStatus };
+
+    // When vendor accepts the counter-offer, update totalAmount to match counterOfferPrice
+    if (accept && quote.counterOfferPrice !== null) {
+      const counterPrice = new Prisma.Decimal(quote.counterOfferPrice);
+      const diff = counterPrice.minus(new Prisma.Decimal(quote.totalAmount));
+      updateData.totalAmount = counterPrice;
+      // Adjust subtotal by the diff; keep tax and delivery unchanged
+      updateData.subtotal = new Prisma.Decimal(quote.subtotal).plus(diff);
+    }
+
+    const updated = await this.prisma.quote.update({
+      where: { id: quoteId },
+      data: updateData,
+      select: { id: true, counterStatus: true },
+    });
+
+    this.logger.log(`Counter-offer ${newStatus} quoteId=${quoteId} by vendorId=${vendorProfile.id}`);
+
+    const notificationType = accept
+      ? NotificationType.QUOTE_COUNTER_ACCEPTED
+      : NotificationType.QUOTE_COUNTER_REJECTED;
+
+    const notificationTitle = accept
+      ? 'Counter-offer accepted'
+      : 'Counter-offer rejected';
+
+    const notificationMessage = accept
+      ? 'The vendor has accepted your counter-offer. You can now place an order.'
+      : 'The vendor has rejected your counter-offer.';
+
+    await this.notificationsService.create({
+      userId: quote.rfq.buyerId,
+      type: notificationType,
+      title: notificationTitle,
+      message: notificationMessage,
+      metadata: { quoteId, rfqId: quote.rfqId },
+    });
+
+    return { id: updated.id, counterStatus: updated.counterStatus! };
+  }
+
+  async deleteQuote(quoteId: string, vendorUserId: string): Promise<{ message: string }> {    const vendorProfile = await this.getVendorProfileByUserId(vendorUserId);
     const existingQuote = await this.prisma.quote.findUnique({
       where: { id: quoteId },
       select: {

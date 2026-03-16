@@ -10,17 +10,21 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { OrderStatus, UserRole } from '@prisma/client';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CancelOrderDto } from './dto/cancel-order.dto';
+import { CreateDirectOrderDto } from './dto/create-direct-order.dto';
+import { InvoiceService } from './invoice.service';
 import { OrdersService } from './orders.service';
 
 type AuthenticatedRequest = Request & {
@@ -50,7 +54,17 @@ function getRequestUser(request: AuthenticatedRequest): {
 })
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly invoiceService: InvoiceService,
+  ) {}
+
+  @Post('direct')
+  @Roles(UserRole.BUYER)
+  createDirectOrder(@Req() request: AuthenticatedRequest, @Body() dto: CreateDirectOrderDto) {
+    const { userId } = getRequestUser(request);
+    return this.ordersService.createDirectOrder(userId, dto);
+  }
 
   @Post()
   @Roles(UserRole.BUYER)
@@ -99,5 +113,33 @@ export class OrdersController {
   ) {
     const { userId, role } = getRequestUser(request);
     return this.ordersService.cancelOrder(id, userId, role, body.cancelReason);
+  }
+
+  @Post(':id/review')
+  @Roles(UserRole.BUYER)
+  submitReview(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreateReviewDto,
+  ) {
+    const { userId } = getRequestUser(request);
+    return this.ordersService.submitReview(id, userId, dto);
+  }
+
+  @Get(':id/invoice')
+  @Roles(UserRole.BUYER, UserRole.VENDOR)
+  async downloadInvoice(
+    @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const { userId, role } = getRequestUser(request);
+    const buffer = await this.invoiceService.generateInvoice(id, userId, role);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="invoice-${id}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    res.end(buffer);
   }
 }

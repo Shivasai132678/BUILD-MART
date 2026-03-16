@@ -15,6 +15,7 @@ import {
   type AdminUser,
 } from '@/lib/admin-api';
 import { formatIST } from '@/lib/utils/date';
+import { formatINR } from '@/lib/utils/money';
 
 function getMetricValue(key: string, metrics?: AdminMetrics): string | number {
   if (!metrics) return '—';
@@ -24,7 +25,7 @@ function getMetricValue(key: string, metrics?: AdminMetrics): string | number {
     case 'pendingVendors': return metrics.pendingVendors ?? '—';
     case 'rfqs': return metrics.totalRfqs ?? '—';
     case 'orders': return metrics.totalOrders ?? '—';
-    case 'gmv': return metrics.gmv != null ? `₹${Number(metrics.gmv).toLocaleString('en-IN')}` : '—';
+    case 'gmv': return metrics.gmv != null ? formatINR(metrics.gmv) : '—';
     default: return '—';
   }
 }
@@ -216,7 +217,7 @@ export default function AdminDashboardPage() {
                     <tr key={o.id} className="hover:bg-[#1E2238]/50 transition-colors">
                       <td className="px-5 py-3 font-mono text-xs text-[#8A9BC0]">{o.id.slice(-8).toUpperCase()}</td>
                       <td className="px-5 py-3"><StatusBadge status={o.status} styleMap={ORDER_STATUS_STYLES} /></td>
-                      <td className="px-5 py-3 text-[#F5F0E8] font-medium">{(() => { const v = parseFloat(String(o.totalAmount)); return Number.isFinite(v) ? `₹${v.toLocaleString('en-IN')}` : '—'; })()}</td>
+                       <td className="px-5 py-3 text-[#F5F0E8] font-medium">{o.totalAmount != null ? formatINR(o.totalAmount) : '—'}</td>
                       <td className="px-5 py-3 text-[#8A9BC0] text-xs">{formatIST(o.createdAt)}</td>
                     </tr>
                   ))}

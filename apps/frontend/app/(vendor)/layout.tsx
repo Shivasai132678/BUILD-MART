@@ -10,6 +10,7 @@ import { getVendorProfile } from '@/lib/vendor-profile-api';
 import { useUserStore } from '@/store/user.store';
 import { Loader2 } from 'lucide-react';
 import { NotificationBell } from '@/components/ui/NotificationBell';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 
 const navItems = [
   { href: '/vendor/dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -18,10 +19,11 @@ const navItems = [
   { href: '/vendor/rfq', label: 'My RFQs', icon: 'request_quote' },
   { href: '/vendor/rfq/all', label: 'Browse All RFQs', icon: 'search' },
   { href: '/vendor/orders', label: 'My Orders', icon: 'package_2' },
+  { href: '/vendor/analytics', label: 'Analytics', icon: 'bar_chart' },
 ];
 
 function isAllowedRole(role: string): boolean {
-  return role === 'VENDOR' || role === 'ADMIN';
+  return role === 'VENDOR' || role === 'ADMIN' || role === 'PENDING';
 }
 
 export default function VendorLayout({ children }: { children: ReactNode }) {
@@ -33,6 +35,8 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
   const [isCheckingProfile, setIsCheckingProfile] = useState(true);
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useRealtimeNotifications();
 
   useEffect(() => { setHydrated(true); }, []);
 
@@ -54,6 +58,8 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
       const isOnboardingRoute = pathname.startsWith('/vendor/onboarding');
       try {
         await getVendorProfile();
+        // Profile exists — vendor may be PENDING approval, APPROVED, SUSPENDED, or REJECTED.
+        // All of these are allowed to access the portal (UI enforces action restrictions).
         if (isOnboardingRoute) router.replace('/vendor/dashboard');
       } catch (error) {
         if (!isActive) return;
@@ -94,7 +100,14 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen bg-base">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-20 bg-black/60 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 z-20 bg-black/60 lg:hidden"
+          role="button"
+          tabIndex={0}
+          aria-label="Close sidebar"
+          onClick={() => setSidebarOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSidebarOpen(false); }}
+        />
       )}
 
       {/* Sidebar */}
@@ -172,7 +185,21 @@ export default function VendorLayout({ children }: { children: ReactNode }) {
           <NotificationBell accentColor="#3B7FC1" hoverBg="hover:bg-[#1E2A3A]" dropdownPosition="down" />
         </header>
 
-        <main className="flex-1 p-6 xl:p-8">{children}</main>
+        <main className="flex-1 p-6 xl:p-8">
+          {/* Pending approval banner — shown for vendors whose profile hasn't been approved yet */}
+          {user.role === 'PENDING' && user.hasVendorProfile && !user.vendorApproved && (
+            <div className="mb-6 flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3.5">
+              <span className="material-symbols-outlined text-yellow-400 text-[20px] mt-0.5 shrink-0">hourglass_top</span>
+              <div>
+                <p className="text-sm font-semibold text-yellow-300">Your account is pending approval</p>
+                <p className="text-xs text-yellow-400/80 mt-0.5 leading-relaxed">
+                  You can explore the dashboard, but you won&apos;t be able to submit quotes, respond to RFQs, or have your products visible to buyers until an admin approves your account.
+                </p>
+              </div>
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

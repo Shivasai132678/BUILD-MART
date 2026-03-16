@@ -37,9 +37,11 @@ const rfqFormSchema = z.object({
 const addressFormSchema = z.object({
   label: z.string().max(100, 'Label is too long').optional(),
   line1: z.string().min(1, 'Address line is required'),
+  area: z.string().optional(),
   city: z.string().min(1, 'City is required'),
   state: z.string().min(1, 'State is required'),
   pincode: z.string().regex(/^\d{6}$/, 'Pincode must be a valid 6-digit code'),
+  isDefault: z.boolean().optional(),
 });
 
 type RfqFormValues = z.infer<typeof rfqFormSchema>;
@@ -54,6 +56,9 @@ export default function BuyerNewRfqPage() {
   const queryClient = useQueryClient();
   const hasAppliedPrefill = useRef(false);
   const [showAddAddress, setShowAddAddress] = useState(false);
+
+  // Compute today's date in YYYY-MM-DD (local time) as the minimum valid date
+  const todayStr = new Date().toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD
 
   const productsQuery = useQuery({
     queryKey: ['products', 'rfq-form'],
@@ -97,9 +102,11 @@ export default function BuyerNewRfqPage() {
     defaultValues: {
       label: '',
       line1: '',
+      area: '',
       city: 'Hyderabad',
       state: 'Telangana',
       pincode: '',
+      isDefault: false,
     },
   });
 
@@ -137,7 +144,7 @@ export default function BuyerNewRfqPage() {
     onSuccess: async (address) => {
       await queryClient.invalidateQueries({ queryKey: ['buyer-addresses'] });
       setValue('addressId', address.id, { shouldValidate: true });
-      resetAddressForm({ label: '', line1: '', city: 'Hyderabad', state: 'Telangana', pincode: '' });
+      resetAddressForm({ label: '', line1: '', area: '', city: 'Hyderabad', state: 'Telangana', pincode: '', isDefault: false });
       setShowAddAddress(false);
       toast.success('Address added!');
     },
@@ -161,12 +168,12 @@ export default function BuyerNewRfqPage() {
     clearAddressErrors('root');
     await createAddressMutation.mutateAsync({
       line1: values.line1.trim(),
-      area: values.line1.trim(),
+      area: values.area?.trim() ?? '',
       city: values.city.trim(),
       state: values.state.trim(),
       pincode: values.pincode.trim(),
       ...(values.label?.trim() ? { label: values.label.trim() } : {}),
-      isDefault: true,
+      isDefault: values.isDefault ?? false,
     });
   });
 
@@ -271,6 +278,10 @@ export default function BuyerNewRfqPage() {
                       <input id="addr-line1" className={inputCls} {...registerAddress('line1')} />
                       {addressErrors.line1 && <p className="text-xs text-red-400">{addressErrors.line1.message}</p>}
                     </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-area">Area / Locality (optional)</label>
+                      <input id="addr-area" className={inputCls} placeholder="Banjara Hills, Madhapur…" {...registerAddress('area')} />
+                    </div>
                     <div className="space-y-1">
                       <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-city">City</label>
                       <input id="addr-city" className={inputCls} {...registerAddress('city')} />
@@ -285,6 +296,17 @@ export default function BuyerNewRfqPage() {
                       <label className="block text-xs font-medium text-[#A89F91]" htmlFor="addr-pincode">Pincode</label>
                       <input id="addr-pincode" inputMode="numeric" className={inputCls} {...registerAddress('pincode')} />
                       {addressErrors.pincode && <p className="text-xs text-red-400">{addressErrors.pincode.message}</p>}
+                    </div>
+                    <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+                      <input
+                        id="addr-isDefault"
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-[#2A2520] bg-[#211E19] accent-[#D97706] cursor-pointer"
+                        {...registerAddress('isDefault')}
+                      />
+                      <label htmlFor="addr-isDefault" className="text-xs font-medium text-[#A89F91] cursor-pointer select-none">
+                        Set as default address
+                      </label>
                     </div>
                   </div>
                   {addressErrors.root && (
@@ -436,6 +458,7 @@ export default function BuyerNewRfqPage() {
                   <input
                     id="rfq-valid-until"
                     type="date"
+                    min={todayStr}
                     className={inputCls}
                     {...register('validUntil')}
                   />

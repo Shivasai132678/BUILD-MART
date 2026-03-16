@@ -26,11 +26,9 @@ test.describe('Admin — Vendor Management', () => {
   test('vendor approvals page renders correctly', async ({ page }) => {
     await page.goto('/admin/vendors');
     await page.waitForLoadState('networkidle');
-    // All seeded vendors are already approved, so page shows "All caught up!"
-    // or lists pending vendors if any exist
-    const allCaughtUp = page.getByRole('heading', { name: /all caught up/i });
-    const vendorCard = page.locator('.card').first();
-    await expect(allCaughtUp.or(vendorCard)).toBeVisible({ timeout: 10_000 });
+    // Page has "Vendor Management" heading and vendor list or "No vendors found"
+    const heading = page.getByRole('heading', { name: /vendor management/i });
+    await expect(heading).toBeVisible({ timeout: 10_000 });
   });
 
   test('loads vendors page and verifies heading', async ({ page }) => {

@@ -32,11 +32,14 @@ function extractVerifiedUser(payload: unknown): LoginUser | null {
   return null;
 }
 
-function getRedirectPath(role: string): string {
-  switch (role) {
+function getRedirectPath(user: LoginUser): string {
+  switch (user.role) {
     case 'ADMIN': return '/admin/dashboard';
     case 'VENDOR': return '/vendor/dashboard';
-    case 'PENDING': return '/onboarding';
+    case 'PENDING':
+      // A pending user who has already submitted a vendor profile goes to
+      // the vendor dashboard in read-only preview mode.
+      return user.hasVendorProfile ? '/vendor/dashboard' : '/onboarding';
     default: return '/buyer/dashboard';
   }
 }
@@ -76,10 +79,11 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
       setUser(user);
       toast.success('Logged in successfully!');
       const redirect = searchParams.get('redirect');
-      if (!user.name) {
+      // Only send to onboarding if they haven't chosen a role yet (PENDING with no profile)
+      if (user.role === 'PENDING' && !user.hasVendorProfile) {
         router.replace('/onboarding');
       } else {
-        router.replace(redirect ?? getRedirectPath(user.role));
+        router.replace(redirect ?? getRedirectPath(user));
       }
     } catch (error) {
       toast.error(getApiErrorMessage(error));

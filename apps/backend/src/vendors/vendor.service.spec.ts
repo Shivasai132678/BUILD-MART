@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { UserRole, VendorStatus } from '@prisma/client';
+import { AuditLogService } from '../common/audit/audit.service';
 import { CloudinaryAdapter } from '../files/cloudinary.adapter';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,8 +35,11 @@ describe('VendorService', () => {
 
   const notificationsService = {
     create: jest.fn().mockResolvedValue(undefined),
-    createNotification: jest.fn().mockResolvedValue(undefined),
   } as unknown as NotificationsService;
+
+  const auditLogService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AuditLogService;
 
   const baseDto = {
     businessName: 'Test Trading Co',
@@ -49,12 +53,12 @@ describe('VendorService', () => {
     (prisma.auditLog.create as jest.Mock).mockResolvedValue({ id: 'audit-1' });
     (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'user-1', role: UserRole.VENDOR });
     (notificationsService.create as jest.Mock).mockResolvedValue(undefined);
-    service = new VendorService(prisma, cloudinaryAdapter, notificationsService);
+    service = new VendorService(prisma, cloudinaryAdapter, notificationsService, auditLogService);
   });
 
   describe('onboard', () => {
     it('creates VendorProfile in a $transaction and returns the profile', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       const mockProfile = {
         id: 'vp-1',
@@ -86,7 +90,7 @@ describe('VendorService', () => {
     });
 
     it('throws ConflictException if vendor profile already exists', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-existing',
         userId: 'user-1',
       });
@@ -98,7 +102,7 @@ describe('VendorService', () => {
     });
 
     it('calls validateDocumentUrl for gstDocumentUrl (SSRF protection)', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       const dtoWithHttpUrl = {
         ...baseDto,
@@ -111,7 +115,7 @@ describe('VendorService', () => {
     });
 
     it('throws BadRequestException if documentUrl uses non-HTTPS protocol', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       const dtoWithDataUrl = {
         ...baseDto,
@@ -124,7 +128,7 @@ describe('VendorService', () => {
     });
 
     it('throws BadRequestException if documentUrl points to localhost', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       const dtoWithLocalhost = {
         ...baseDto,
@@ -137,7 +141,7 @@ describe('VendorService', () => {
     });
 
     it('throws BadRequestException if documentUrl points to 127.0.0.1', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       const dtoWith127 = {
         ...baseDto,
@@ -150,7 +154,7 @@ describe('VendorService', () => {
     });
 
     it('throws BadRequestException if documentUrl has disallowed extension', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       const dtoWithBadExt = {
         ...baseDto,
@@ -163,7 +167,7 @@ describe('VendorService', () => {
     });
 
     it('accepts valid HTTPS document URL with allowed extension', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       const dtoWithValidUrl = {
         ...baseDto,
@@ -205,7 +209,7 @@ describe('VendorService', () => {
         status: VendorStatus.APPROVED,
       };
 
-      prisma.vendorProfile.findUnique.mockResolvedValue(mockProfile);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(mockProfile);
 
       const result = await service.getProfile('user-1');
 
@@ -216,7 +220,7 @@ describe('VendorService', () => {
     });
 
     it('throws NotFoundException if no profile exists', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(service.getProfile('user-nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -226,7 +230,7 @@ describe('VendorService', () => {
 
   describe('updateProfile', () => {
     it('updates allowed fields only', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         userId: 'user-1',
         businessName: 'Old Name',
@@ -239,7 +243,7 @@ describe('VendorService', () => {
         city: 'Secunderabad',
       };
 
-      prisma.vendorProfile.update.mockResolvedValue(updatedProfile);
+      (prisma.vendorProfile.update as jest.Mock).mockResolvedValue(updatedProfile);
 
       const result = await service.updateProfile('user-1', {
         businessName: 'New Name',
@@ -257,7 +261,7 @@ describe('VendorService', () => {
     });
 
     it('throws NotFoundException if profile does not exist', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.updateProfile('user-nonexistent', { businessName: 'X' }),
@@ -265,12 +269,12 @@ describe('VendorService', () => {
     });
 
     it('does not include undefined fields in update data', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         userId: 'user-1',
       });
 
-      prisma.vendorProfile.update.mockResolvedValue({ id: 'vp-1' });
+      (prisma.vendorProfile.update as jest.Mock).mockResolvedValue({ id: 'vp-1' });
 
       await service.updateProfile('user-1', { businessName: 'Updated' });
 
@@ -283,7 +287,7 @@ describe('VendorService', () => {
 
   describe('approveVendor', () => {
     it('sets status to APPROVED on VendorProfile', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         userId: 'user-1',
         status: VendorStatus.PENDING,
@@ -295,7 +299,7 @@ describe('VendorService', () => {
         approvedAt: expect.any(Date),
       };
 
-      prisma.vendorProfile.update.mockResolvedValue(approvedProfile);
+      (prisma.vendorProfile.update as jest.Mock).mockResolvedValue(approvedProfile);
 
       const result = await service.approveVendor('vp-1', 'admin-1');
 
@@ -314,12 +318,12 @@ describe('VendorService', () => {
     });
 
     it('writes an AuditLog entry on approval', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         userId: 'user-1',
         status: VendorStatus.PENDING,
       });
-      prisma.vendorProfile.update.mockResolvedValue({
+      (prisma.vendorProfile.update as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         status: VendorStatus.APPROVED,
       });
@@ -338,7 +342,7 @@ describe('VendorService', () => {
     });
 
     it('throws NotFoundException if vendor does not exist', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue(null);
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.approveVendor('vp-nonexistent', 'admin-1'),
@@ -346,14 +350,14 @@ describe('VendorService', () => {
     });
 
     it('is idempotent — approving an already-approved vendor does not throw', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         userId: 'user-1',
         status: VendorStatus.APPROVED,
         approvedAt: new Date('2026-01-01'),
       });
 
-      prisma.vendorProfile.update.mockResolvedValue({
+      (prisma.vendorProfile.update as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         status: VendorStatus.APPROVED,
       });
@@ -364,12 +368,12 @@ describe('VendorService', () => {
     });
 
     it('does not throw if auditLog.create fails (non-blocking)', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValue({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         userId: 'user-1',
         status: VendorStatus.PENDING,
       });
-      prisma.vendorProfile.update.mockResolvedValue({
+      (prisma.vendorProfile.update as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         status: VendorStatus.APPROVED,
       });

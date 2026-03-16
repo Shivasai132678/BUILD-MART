@@ -3,9 +3,11 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { Notification, NotificationType, Prisma } from '@prisma/client';
 import axios from 'axios';
+import { EventsGateway } from '../gateway/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 
 type PaginatedNotifications = {
@@ -27,7 +29,10 @@ type CreateNotificationInput = {
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly eventsGateway: EventsGateway,
+  ) {}
 
   async create(input: CreateNotificationInput): Promise<Notification> {
     const { userId, type, title, message, metadata } = input;
@@ -47,27 +52,24 @@ export class NotificationsService {
         `type: ${type}, userId: ${userId}`,
     );
 
+    // Emit real-time WebSocket event to user's room
+    if (this.eventsGateway) {
+      this.eventsGateway.emitNotification(userId, {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        metadata: notification.metadata,
+        isRead: notification.isRead,
+        createdAt: notification.createdAt,
+      });
+    }
+
     this.safeDispatch(userId, notification.id, type, message).catch(() => {
       /* already logged inside safeDispatch */
     });
 
     return notification;
-  }
-
-  async createNotification(
-    userId: string,
-    type: NotificationType,
-    title: string,
-    message: string,
-    metadata?: Prisma.InputJsonValue,
-  ): Promise<Notification> {
-    return this.create({
-      userId,
-      type,
-      title,
-      message,
-      ...(metadata !== undefined ? { metadata } : {}),
-    });
   }
 
   async listNotifications(

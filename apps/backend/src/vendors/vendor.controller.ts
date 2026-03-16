@@ -1,11 +1,15 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   Param,
+  ParseFloatPipe,
+  ParseIntPipe,
   Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -35,6 +39,24 @@ type AuthenticatedRequest = Request & {
 export class VendorController {
   constructor(private readonly vendorService: VendorService) {}
 
+  @Get('discover')
+  @Roles(UserRole.BUYER)
+  discoverVendors(
+    @Query('city') city?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('minRating', new DefaultValuePipe(0), ParseFloatPipe) minRating?: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset?: number,
+  ) {
+    return this.vendorService.discoverVendors({
+      city,
+      categoryId,
+      minRating,
+      limit: limit ?? 20,
+      offset: offset ?? 0,
+    });
+  }
+
   @Post('onboard')
   @Roles(UserRole.BUYER, UserRole.PENDING)
   onboard(
@@ -62,6 +84,13 @@ export class VendorController {
     return this.vendorService.updateProfile(userId, dto);
   }
 
+  @Get('stats')
+  @Roles(UserRole.VENDOR)
+  getVendorStats(@Req() request: AuthenticatedRequest) {
+    const userId = this.getAuthenticatedUserId(request);
+    return this.vendorService.getVendorStats(userId);
+  }
+
   @Get('products')
   @Roles(UserRole.VENDOR)
   getVendorProducts(@Req() request: AuthenticatedRequest) {
@@ -87,6 +116,18 @@ export class VendorController {
   ) {
     const userId = this.getAuthenticatedUserId(request);
     return this.vendorService.removeVendorProduct(userId, productId);
+  }
+
+  @Get(':id')
+  @Roles(UserRole.BUYER)
+  getPublicVendorProfile(@Param('id') id: string) {
+    return this.vendorService.getPublicVendorProfile(id);
+  }
+
+  @Get(':id/products')
+  @Roles(UserRole.BUYER)
+  getPublicVendorProducts(@Param('id') id: string) {
+    return this.vendorService.getPublicVendorProducts(id);
   }
 
   private getAuthenticatedUserId(request: AuthenticatedRequest): string {

@@ -1,3 +1,4 @@
+import { jwtVerify } from 'jose';
 import { NextResponse, type NextRequest } from 'next/server';
 
 type Role = 'PENDING' | 'BUYER' | 'VENDOR' | 'ADMIN';
@@ -31,30 +32,6 @@ function redirectToLogin(
   return NextResponse.redirect(url);
 }
 
-type MeResponsePayload = {
-  role?: string;
-};
-
-function extractRole(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  const direct = payload as MeResponsePayload;
-  if (typeof direct.role === 'string') {
-    return direct.role;
-  }
-
-  if ('data' in payload && payload.data && typeof payload.data === 'object') {
-    const nested = payload.data as MeResponsePayload;
-    if (typeof nested.role === 'string') {
-      return nested.role;
-    }
-  }
-
-  return null;
-}
-
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const allowedRoles = getAllowedRoles(request.nextUrl.pathname);
 
@@ -70,38 +47,38 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return redirectToLogin(request);
   }
 
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+  const jwtSecret = process.env.JWT_SECRET;
+
+  if (!jwtSecret) {
+    // In dev without JWT_SECRET, fall through (should not happen in production)
+    return redirectToLogin(request, 'misconfigured');
+  }
 
   try {
-    const response = await fetch(`${apiBaseUrl}/api/v1/auth/me`, {
-      method: 'GET',
-      headers: {
-        // Backend currently validates the `access_token` cookie.
-        cookie: `access_token=${encodeURIComponent(rawToken)}`,
-      },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(8_000),
-    });
+    const secret = new TextEncoder().encode(jwtSecret);
+    const { payload } = await jwtVerify(rawToken, secret);
 
-    if (!response.ok) {
+    const role = typeof payload.role === 'string' ? payload.role : null;
+
+    if (!role) {
       return redirectToLogin(request);
     }
 
-    const body = (await response.json()) as unknown;
-    const role = extractRole(body);
+    // Special case: a PENDING user who has submitted a vendor profile can access
+    // /vendor/* in read-only (preview) mode — they see the dashboard but actions
+    // are disabled by the UI based on vendorApproved flag.
+    const isVendorRoute = request.nextUrl.pathname.startsWith('/vendor');
+    const hasVendorProfile = payload.hasVendorProfile === true;
+    if (isVendorRoute && role === 'PENDING' && hasVendorProfile) {
+      return NextResponse.next();
+    }
 
-    if (!role || !allowedRoles.includes(role as Role)) {
+    if (!allowedRoles.includes(role as Role)) {
       return redirectToLogin(request);
     }
 
     return NextResponse.next();
-  } catch (error: unknown) {
-    if (
-      error instanceof DOMException &&
-      error.name === 'TimeoutError'
-    ) {
-      return redirectToLogin(request, 'timeout');
-    }
+  } catch {
     return redirectToLogin(request);
   }
 }

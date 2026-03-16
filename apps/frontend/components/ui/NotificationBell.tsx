@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   fetchNotifications,
   getUnreadCount,
@@ -240,6 +241,19 @@ export function NotificationBell({
                   );
                 })}
               </div>
+            )}
+          </div>
+
+          {/* View all link */}
+          <div className="border-t border-[#2A2520] px-4 py-2.5">
+            {user?.role !== 'ADMIN' && (
+              <Link
+                href={user?.role === 'VENDOR' ? '/vendor/notifications' : '/buyer/notifications'}
+                className="block text-center text-xs font-medium text-[#A89F91] hover:text-[#F5F0E8] transition-colors"
+                onClick={() => setOpen(false)}
+              >
+                View all notifications
+              </Link>
             )}
           </div>
         </div>

@@ -20,7 +20,7 @@ export type AdminMetrics = {
   pendingVendors?: number;
   totalRfqs?: number;
   totalOrders?: number;
-  gmv?: string | number;
+  gmv?: string;
 };
 
 export type PendingVendorProfile = {
@@ -62,7 +62,7 @@ export type AdminVendorProfile = {
 export type AdminOrder = {
   id: string;
   status: string;
-  totalAmount: string | number;
+  totalAmount: string;
   createdAt: string;
   buyerId?: string;
   vendorProfileId?: string;
@@ -138,4 +138,154 @@ export type VendorStatusValue = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED
 export async function updateVendorStatus(id: string, status: VendorStatusValue) {
   const response = await api.patch(`/api/v1/admin/vendors/${id}/status`, { status });
   return unwrapApiData<AdminVendorProfile>(response.data);
+}
+
+export async function forceCancelOrder(id: string) {
+  const response = await api.post(`/api/v1/admin/orders/${id}/cancel`);
+  return unwrapApiData<AdminOrder>(response.data);
+}
+
+export async function bulkApproveVendors(vendorIds: string[]) {
+  const response = await api.post('/api/v1/admin/vendors/bulk-approve', { vendorIds });
+  return unwrapApiData<{ approved: number }>(response.data);
+}
+
+export async function bulkSuspendVendors(vendorIds: string[]) {
+  const response = await api.post('/api/v1/admin/vendors/bulk-suspend', { vendorIds });
+  return unwrapApiData<{ suspended: number }>(response.data);
+}
+
+export type AdminDispute = {
+  id: string;
+  orderId: string;
+  buyerId: string;
+  vendorId: string;
+  reason: string;
+  description: string;
+  status: 'OPEN' | 'RESOLVED' | 'CLOSED';
+  adminNotes?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  order?: { referenceCode: string | null; totalAmount: string } | null;
+};
+
+export async function getAdminDisputes(limit = 20, offset = 0, status?: string) {
+  const response = await api.get('/api/v1/disputes/admin/all', {
+    params: { limit, offset, ...(status ? { status } : {}) },
+  });
+  return unwrapApiData<PaginatedResponse<AdminDispute>>(response.data);
+}
+
+export async function resolveAdminDispute(id: string, payload: { adminNotes?: string; status: 'RESOLVED' | 'CLOSED' }) {
+  const response = await api.patch(`/api/v1/disputes/admin/${id}/resolve`, payload);
+  return unwrapApiData<AdminDispute>(response.data);
+}
+
+// ─── CATEGORIES ──────────────────────────────────────────────
+
+export type AdminCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export async function listCategories(limit = 50, offset = 0) {
+  const response = await api.get('/api/v1/categories', { params: { limit, offset } });
+  return unwrapApiData<PaginatedResponse<AdminCategory>>(response.data);
+}
+
+export async function createCategory(payload: {
+  name: string;
+  slug: string;
+  description?: string;
+  imageUrl?: string;
+  isActive?: boolean;
+}) {
+  const response = await api.post('/api/v1/categories', payload);
+  return unwrapApiData<AdminCategory>(response.data);
+}
+
+export async function updateCategory(id: string, payload: {
+  name?: string;
+  slug?: string;
+  description?: string;
+  imageUrl?: string;
+  isActive?: boolean;
+}) {
+  const response = await api.patch(`/api/v1/categories/${id}`, payload);
+  return unwrapApiData<AdminCategory>(response.data);
+}
+
+export async function deleteCategory(id: string) {
+  const response = await api.delete(`/api/v1/categories/${id}`);
+  return unwrapApiData<{ deleted: boolean }>(response.data);
+}
+
+// ─── PRODUCTS ────────────────────────────────────────────────
+
+export type AdminProduct = {
+  id: string;
+  categoryId: string;
+  name: string;
+  description?: string | null;
+  unit: string;
+  basePrice: string;
+  imageUrl?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  category?: { id: string; name: string };
+};
+
+export async function listAdminProducts(limit = 50, offset = 0, categoryId?: string, search?: string) {
+  const response = await api.get('/api/v1/products', {
+    params: { limit, offset, ...(categoryId ? { categoryId } : {}), ...(search ? { search } : {}) },
+  });
+  return unwrapApiData<PaginatedResponse<AdminProduct>>(response.data);
+}
+
+export async function createProduct(payload: {
+  categoryId: string;
+  name: string;
+  description?: string;
+  unit: string;
+  basePrice: string;
+  imageUrl?: string;
+  isActive?: boolean;
+}) {
+  const response = await api.post('/api/v1/products', payload);
+  return unwrapApiData<AdminProduct>(response.data);
+}
+
+export async function updateProduct(id: string, payload: {
+  categoryId?: string;
+  name?: string;
+  description?: string;
+  unit?: string;
+  basePrice?: string;
+  imageUrl?: string;
+  isActive?: boolean;
+}) {
+  const response = await api.patch(`/api/v1/products/${id}`, payload);
+  return unwrapApiData<AdminProduct>(response.data);
+}
+
+export async function deleteProduct(id: string) {
+  const response = await api.delete(`/api/v1/products/${id}`);
+  return unwrapApiData<{ deleted: boolean }>(response.data);
+}
+
+// ─── FILE UPLOAD ─────────────────────────────────────────────
+
+export async function uploadProductImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post('/api/v1/files/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  const data = unwrapApiData<{ url: string }>(response.data);
+  return data.url;
 }

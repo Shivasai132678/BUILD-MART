@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { getCategories, getProducts } from '@/lib/catalog-api';
+import { formatINR } from '@/lib/utils/money';
 
 const PAGE_SIZE = 20;
 
@@ -163,7 +164,7 @@ export default function BuyerCatalogPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-1 text-sm mb-4">
-                      <span className="font-bold text-[#F5F0E8]">₹{product.basePrice}</span>
+                      <span className="font-bold text-[#F5F0E8]">{formatINR(product.basePrice)}</span>
                       <span className="text-[#7A7067]">/ {product.unit}</span>
                     </div>
                     <button

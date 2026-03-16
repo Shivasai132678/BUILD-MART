@@ -3,19 +3,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import { getVendorOrderById, updateOrderStatus } from '@/lib/vendor-api';
 import type { OrderDetail } from '@/lib/buyer-api';
+import { downloadInvoice } from '@/lib/buyer-api';
 import { getApiErrorMessage } from '@/lib/api';
 import { formatIST } from '@/lib/utils/date';
+import { formatINR } from '@/lib/utils/money';
+import { PageTransition } from '@/components/ui/Motion';
 
 function buildTimeline(order: OrderDetail) {
   const delivered = order.status === 'DELIVERED';
   const outForDelivery = order.status === 'OUT_FOR_DELIVERY' || delivered;
   return [
-    { key: 'CONFIRMED', label: 'Order Confirmed', timestamp: order.confirmedAt, complete: true },
-    { key: 'OUT_FOR_DELIVERY', label: 'Dispatched', timestamp: order.dispatchedAt, complete: outForDelivery },
-    { key: 'DELIVERED', label: 'Delivered', timestamp: order.deliveredAt, complete: delivered },
+    { key: 'CONFIRMED', label: 'Order Confirmed', icon: 'check_circle', timestamp: order.confirmedAt, complete: true },
+    { key: 'OUT_FOR_DELIVERY', label: 'Dispatched', icon: 'local_shipping', timestamp: order.dispatchedAt, complete: outForDelivery },
+    { key: 'DELIVERED', label: 'Delivered', icon: 'inventory', timestamp: order.deliveredAt, complete: delivered },
   ];
 }
 
@@ -37,6 +42,7 @@ export default function VendorOrderDetailPage() {
   const params = useParams<{ id: string | string[] }>();
   const orderId = Array.isArray(params.id) ? params.id[0] : params.id;
   const queryClient = useQueryClient();
+  const [invoiceDownloading, setInvoiceDownloading] = useState(false);
 
   const orderQuery = useQuery({ queryKey: ['vendor-order', orderId], queryFn: () => getVendorOrderById(orderId), enabled: Boolean(orderId) });
 
@@ -45,6 +51,26 @@ export default function VendorOrderDetailPage() {
     onSuccess: async () => { toast.success('Status updated!'); await queryClient.invalidateQueries({ queryKey: ['vendor-order', orderId] }); },
     onError: (error) => { toast.error(getApiErrorMessage(error)); },
   });
+
+  const handleDownloadInvoice = async () => {
+    setInvoiceDownloading(true);
+    try {
+      const blob = await downloadInvoice(orderId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${orderId.slice(0, 8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Invoice downloaded!');
+    } catch {
+      toast.error('Failed to download invoice.');
+    } finally {
+      setInvoiceDownloading(false);
+    }
+  };
 
   if (!orderId) return (
     <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-12 text-center">
@@ -72,41 +98,86 @@ export default function VendorOrderDetailPage() {
   const timeline = buildTimeline(order);
 
   return (
-    <div className="space-y-6">
+    <PageTransition className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="flex flex-wrap items-start justify-between gap-4"
+      >
         <div>
-          <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#253347] text-[#4A6080]">Order #{order.id.slice(0, 10)}</span>
-          <h1 className="mt-2 text-3xl font-bold text-[#E2EAF4]">₹{Number(order.totalAmount).toLocaleString('en-IN')}</h1>
+          <span className="font-mono text-xs px-2 py-0.5 rounded bg-[#253347] text-[#4A6080]">
+            Order #{order.referenceCode ?? order.id.slice(0, 10)}
+          </span>
+          <h1 className="mt-2 text-3xl font-bold text-[#E2EAF4]">{formatINR(order.totalAmount)}</h1>
           <p className="mt-1 text-sm text-[#8EA5C0]">Created {formatIST(order.createdAt)}</p>
         </div>
-        <OrderStatusBadge status={order.status} />
-      </div>
+        <div className="flex flex-col items-end gap-2">
+          <OrderStatusBadge status={order.status} />
+          {order.payment?.status === 'SUCCESS' && (
+            <button
+              type="button"
+              disabled={invoiceDownloading}
+              onClick={() => void handleDownloadInvoice()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-[#253347] text-[#8EA5C0] hover:text-[#E2EAF4] hover:border-[#3B7FC1]/40 bg-[#1E2A3A] transition-all disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-[14px]">{invoiceDownloading ? 'progress_activity' : 'download'}</span>
+              {invoiceDownloading ? 'Downloading…' : 'Invoice PDF'}
+            </button>
+          )}
+        </div>
+      </motion.div>
 
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Timeline */}
+        {/* Animated Timeline */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-6">
-            <h2 className="text-lg font-semibold text-[#E2EAF4] mb-4">Order Timeline</h2>
+            <h2 className="text-lg font-semibold text-[#E2EAF4] mb-5">Order Timeline</h2>
 
             {order.status === 'CANCELLED' && (
-              <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+              <motion.div
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="mb-4 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400"
+              >
                 Cancelled{order.cancelledAt ? ` on ${formatIST(order.cancelledAt)}` : ''}{order.cancelReason ? ` · ${order.cancelReason}` : ''}
-              </div>
+              </motion.div>
             )}
 
             <ol className="space-y-0">
               {timeline.map((step, i) => (
-                <li key={step.key} className="flex gap-3.5">
+                <motion.li
+                  key={step.key}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.35, delay: i * 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  className="flex gap-4"
+                >
                   <div className="flex flex-col items-center">
-                    <div className={`h-3 w-3 rounded-full mt-1 ${step.complete ? 'bg-green-500' : 'bg-[#253347]'}`} />
-                    {i < timeline.length - 1 && <div className={`w-0.5 flex-1 my-1 min-h-[32px] ${step.complete ? 'bg-green-500' : 'bg-[#253347]'}`} />}
+                    <motion.div
+                      initial={{ scale: 0.6 }}
+                      animate={{ scale: 1 }}
+                      transition={{ duration: 0.3, delay: i * 0.1 + 0.1 }}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center mt-0.5 ${
+                        step.complete
+                          ? 'bg-[#3B7FC1]/20 ring-2 ring-[#3B7FC1]/40'
+                          : 'bg-[#253347] ring-2 ring-[#253347]'
+                      }`}
+                    >
+                      <span className={`material-symbols-outlined text-[16px] ${step.complete ? 'text-[#60A5FA]' : 'text-[#4A6080]'}`}>
+                        {step.icon}
+                      </span>
+                    </motion.div>
+                    {i < timeline.length - 1 && (
+                      <div className={`w-0.5 flex-1 my-1.5 min-h-[28px] transition-colors duration-700 ${step.complete ? 'bg-[#3B7FC1]/40' : 'bg-[#253347]'}`} />
+                    )}
                   </div>
-                  <div className="pb-4">
-                    <p className={`text-sm font-medium ${step.complete ? 'text-[#E2EAF4]' : 'text-[#4A6080]'}`}>{step.label}</p>
-                    <p className="text-xs text-[#4A6080]">{step.timestamp ? formatIST(step.timestamp) : 'Pending'}</p>
+                  <div className="pb-5">
+                    <p className={`text-sm font-semibold ${step.complete ? 'text-[#E2EAF4]' : 'text-[#4A6080]'}`}>{step.label}</p>
+                    <p className="text-xs text-[#4A6080] mt-0.5">{step.timestamp ? formatIST(step.timestamp) : 'Pending'}</p>
                   </div>
-                </li>
+                </motion.li>
               ))}
             </ol>
           </div>
@@ -114,12 +185,17 @@ export default function VendorOrderDetailPage() {
 
         {/* Actions Sidebar */}
         <div>
-          <div className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-6 sticky top-24 space-y-4">
+          <motion.div
+            initial={{ opacity: 0, x: 12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.35, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="bg-[#1E2A3A] border border-[#253347] rounded-2xl p-6 sticky top-24 space-y-4"
+          >
             <h3 className="text-sm font-semibold text-[#E2EAF4]">Actions</h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-[#8EA5C0]">Total Amount</span>
-                <span className="font-semibold text-[#E2EAF4]">₹{Number(order.totalAmount).toLocaleString('en-IN')}</span>
+                <span className="font-semibold text-[#E2EAF4]">{formatINR(order.totalAmount)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#8EA5C0]">Buyer</span>
@@ -192,9 +268,9 @@ export default function VendorOrderDetailPage() {
             <Link href="/vendor/orders" className="block text-center text-sm font-medium text-[#8EA5C0] hover:text-[#E2EAF4] transition-colors">
               ← Back to Orders
             </Link>
-          </div>
+          </motion.div>
         </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

@@ -56,14 +56,14 @@ describe('AddressesService', () => {
 
   describe('softDeleteAddress', () => {
     it('sets deletedAt and isDefault=false on the address', async () => {
-      prisma.address.findFirst.mockResolvedValueOnce({
+      (prisma.address.findFirst as jest.Mock).mockResolvedValueOnce({
         id: 'addr-1',
         userId: 'user-1',
         label: 'Home',
         deletedAt: null,
       });
 
-      prisma.address.update.mockResolvedValueOnce({
+      (prisma.address.update as jest.Mock).mockResolvedValueOnce({
         id: 'addr-1',
         userId: 'user-1',
         label: 'Home',
@@ -86,7 +86,7 @@ describe('AddressesService', () => {
     });
 
     it('throws NotFoundException if address does not exist', async () => {
-      prisma.address.findFirst.mockResolvedValueOnce(null);
+      (prisma.address.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       await expect(
         service.softDeleteAddress('user-1', 'addr-nonexistent'),
@@ -94,7 +94,7 @@ describe('AddressesService', () => {
     });
 
     it('throws NotFoundException if address belongs to another user', async () => {
-      prisma.address.findFirst.mockResolvedValueOnce(null);
+      (prisma.address.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       await expect(
         service.softDeleteAddress('user-2', 'addr-1'),
@@ -111,7 +111,7 @@ describe('AddressesService', () => {
         deletedAt: null,
       };
 
-      prisma.address.findFirst.mockResolvedValueOnce(mockAddress);
+      (prisma.address.findFirst as jest.Mock).mockResolvedValueOnce(mockAddress);
 
       const result = await service.getAddress('user-1', 'addr-1');
 
@@ -119,7 +119,7 @@ describe('AddressesService', () => {
     });
 
     it('throws NotFoundException for a soft-deleted address', async () => {
-      prisma.address.findFirst.mockResolvedValueOnce(null);
+      (prisma.address.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
       await expect(
         service.getAddress('user-1', 'addr-deleted'),
@@ -136,7 +136,7 @@ describe('AddressesService', () => {
         deletedAt: null,
       };
 
-      prisma.address.findFirst.mockResolvedValueOnce(address);
+      (prisma.address.findFirst as jest.Mock).mockResolvedValueOnce(address);
 
       const result = await service.getAddress('user-1', 'addr-3');
 

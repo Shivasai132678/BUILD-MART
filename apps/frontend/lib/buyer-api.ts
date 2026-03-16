@@ -62,6 +62,7 @@ export type Quote = {
   id: string;
   rfqId: string;
   vendorId: string;
+  vendor?: { businessName: string } | null;
   subtotal: string;
   taxAmount: string;
   deliveryFee: string;
@@ -69,6 +70,9 @@ export type Quote = {
   validUntil: string;
   notes?: string | null;
   isWithdrawn: boolean;
+  counterOfferPrice?: string | null;
+  counterOfferNote?: string | null;
+  counterStatus?: string | null; // null | 'PENDING' | 'ACCEPTED' | 'REJECTED'
   createdAt: string;
   updatedAt: string;
   items?: Array<{
@@ -114,10 +118,18 @@ export type Order = {
   updatedAt: string;
 };
 
+export type OrderReview = {
+  id: string;
+  rating: number;
+  comment?: string | null;
+};
+
 export type OrderDetail = Order & {
   quote: Quote | null;
   rfq: Rfq | null;
   payment: Payment | null;
+  review?: OrderReview | null;
+  vendor?: { businessName: string } | null;
 };
 
 export type CreateRfqPayload = {
@@ -212,6 +224,14 @@ export async function createOrderFromQuote(quoteId: string) {
   return unwrapApiData<Order>(response.data);
 }
 
+export async function sendCounterOffer(quoteId: string, counterOfferPrice: string, counterOfferNote?: string) {
+  const response = await api.post(`/api/v1/quotes/${quoteId}/counter`, {
+    counterOfferPrice,
+    ...(counterOfferNote?.trim() ? { counterOfferNote: counterOfferNote.trim() } : {}),
+  });
+  return unwrapApiData<{ id: string; counterOfferPrice: string; counterOfferNote: string | null; counterStatus: string }>(response.data);
+}
+
 export async function fetchBuyerOrders(
   limit = 10,
   offset = 0,
@@ -251,4 +271,135 @@ export type CreatePaymentOrderResponse = {
 export async function createPaymentOrder(orderId: string) {
   const response = await api.post('/api/v1/payments/create-order', { orderId });
   return unwrapApiData<CreatePaymentOrderResponse>(response.data);
+}
+
+export type SubmitReviewPayload = {
+  rating: number;
+  comment?: string;
+};
+
+export async function submitReview(orderId: string, payload: SubmitReviewPayload) {
+  const response = await api.post(`/api/v1/orders/${orderId}/review`, payload);
+  return unwrapApiData(response.data);
+}
+
+// ─── Vendor discovery ─────────────────────────────────────────────────────
+
+export type VendorDiscoveryItem = {
+  id: string;
+  businessName: string;
+  city: string;
+  serviceableAreas: string[];
+  averageRating: string;
+  totalReviews: number;
+  approvedAt: string | null;
+  _count: { products: number };
+  user: { name: string | null };
+};
+
+export type VendorReview = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  buyer: { name: string | null };
+};
+
+export type VendorProfile = {
+  id: string;
+  businessName: string;
+  city: string;
+  serviceableAreas: string[];
+  averageRating: string;
+  totalReviews: number;
+  approvedAt: string | null;
+  _count: { products: number };
+  user: { name: string | null };
+  reviews: VendorReview[];
+};
+
+export type VendorProductItem = {
+  vendorProductId: string;
+  productId: string;
+  name: string;
+  unit: string;
+  description: string | null;
+  imageUrl: string | null;
+  category: { id: string; name: string };
+  price: string;
+  stockAvailable: boolean;
+};
+
+export async function discoverVendors(params: {
+  city?: string;
+  categoryId?: string;
+  minRating?: number;
+  limit?: number;
+  offset?: number;
+}) {
+  const response = await api.get('/api/v1/vendors/discover', { params });
+  return unwrapApiData<PaginatedResponse<VendorDiscoveryItem>>(response.data);
+}
+
+export async function fetchVendorProfile(vendorId: string) {
+  const response = await api.get(`/api/v1/vendors/${vendorId}`);
+  return unwrapApiData<VendorProfile>(response.data);
+}
+
+export async function fetchVendorProducts(vendorId: string) {
+  const response = await api.get(`/api/v1/vendors/${vendorId}/products`);
+  return unwrapApiData<{ items: VendorProductItem[] }>(response.data);
+}
+
+export type CreateDirectOrderPayload = {
+  vendorId: string;
+  addressId: string;
+  items: Array<{ productId: string; quantity: number }>;
+};
+
+export async function createDirectOrder(payload: CreateDirectOrderPayload) {
+  const response = await api.post('/api/v1/orders/direct', payload);
+  return unwrapApiData<Order>(response.data);
+}
+
+// ─── Disputes ──────────────────────────────────────────────────────────────
+
+export type Dispute = {
+  id: string;
+  orderId: string;
+  buyerId: string;
+  vendorId: string;
+  reason: string;
+  description: string;
+  status: 'OPEN' | 'RESOLVED' | 'CLOSED';
+  adminNotes?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  order?: { referenceCode: string | null; totalAmount: string } | null;
+};
+
+export async function createDispute(payload: {
+  orderId: string;
+  reason: string;
+  description: string;
+}) {
+  const response = await api.post('/api/v1/disputes', payload);
+  return unwrapApiData<Dispute>(response.data);
+}
+
+export async function fetchMyDisputes(limit = 20, offset = 0, status?: string) {
+  const response = await api.get('/api/v1/disputes/my', {
+    params: { limit, offset, ...(status ? { status } : {}) },
+  });
+  return unwrapApiData<PaginatedResponse<Dispute>>(response.data);
+}
+
+// ─── Invoice download ─────────────────────────────────────────────────────
+
+export async function downloadInvoice(orderId: string): Promise<Blob> {
+  const response = await api.get(`/api/v1/orders/${orderId}/invoice`, {
+    responseType: 'blob',
+  });
+  return response.data as Blob;
 }

@@ -35,6 +35,7 @@ export default function VendorOnboardingPage() {
   const router = useRouter();
   const setUser = useUserStore((s) => s.setUser);
   const [step, setStep] = useState<Step>('business');
+  const [selectedProductNames, setSelectedProductNames] = useState<Record<string, string>>({});
 
   // If a vendor profile already exists, skip the form and go to pending
   useEffect(() => {
@@ -78,12 +79,18 @@ export default function VendorOnboardingPage() {
   const city = watch('city');
   const serviceableAreas = watch('serviceableAreas');
 
-  const toggleProduct = (productId: string) => {
+  const toggleProduct = (productId: string, productName: string) => {
     const current = productIds;
     if (current.includes(productId)) {
       setValue('productIds', current.filter((id) => id !== productId));
+      setSelectedProductNames((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
     } else {
       setValue('productIds', [...current, productId]);
+      setSelectedProductNames((prev) => ({ ...prev, [productId]: productName }));
     }
   };
 
@@ -123,7 +130,7 @@ export default function VendorOnboardingPage() {
   const inputCls =
     'w-full h-11 rounded-xl border border-[#1E2A3A] bg-[#0D1117] px-4 text-sm text-text-primary placeholder:text-[#4A6080] outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 transition-all';
 
-  const canProceedToProducts = businessName && gstNumber && city && serviceableAreas;
+  const canProceedToProducts = businessName.trim().length >= 2 && gstRegex.test(gstNumber.trim().toUpperCase()) && city.trim().length >= 2 && serviceableAreas.trim().length >= 1;
   const canSubmit = productIds.length > 0;
 
   return (
@@ -294,7 +301,7 @@ export default function VendorOnboardingPage() {
                       <button
                         key={product.id}
                         type="button"
-                        onClick={() => toggleProduct(product.id)}
+                        onClick={() => toggleProduct(product.id, product.name)}
                         className={`p-3 rounded-xl text-left text-sm transition-colors ${
                           productIds.includes(product.id)
                             ? 'bg-blue/20 border border-blue text-white'
@@ -354,9 +361,18 @@ export default function VendorOnboardingPage() {
               <h3 className="text-sm font-semibold text-white mb-2">
                 Selected Products ({productIds.length})
               </h3>
-              <p className="text-xs text-[#4A6080]">
-                These products will determine which RFQs you receive
-              </p>
+              {productIds.length > 0 ? (
+                <ul className="space-y-1">
+                  {productIds.map((id) => (
+                    <li key={id} className="flex items-center gap-2 text-xs text-[#8EA5C0]">
+                      <span className="material-symbols-outlined text-green-400 text-[14px]">check_circle</span>
+                      {selectedProductNames[id] ?? id}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[#4A6080]">No products selected</p>
+              )}
             </div>
 
             <div className="flex gap-3">

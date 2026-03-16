@@ -182,7 +182,7 @@ export default function VendorDashboardPage() {
           ) : recentOrders.length > 0 ? (
             <div className="divide-y divide-[#1E2A3A]">
               {recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                <Link key={order.id} href={`/vendor/orders/${order.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-[#1E2A3A] transition-colors group">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-mono text-xs text-[#3B7FC1]">#{order.id.slice(0, 8)}</span>
@@ -190,7 +190,8 @@ export default function VendorDashboardPage() {
                     </div>
                     <p className="text-xs text-[#4A6080]">₹{order.totalAmount} · {formatIST(order.createdAt)}</p>
                   </div>
-                </div>
+                  <span className="material-symbols-outlined text-[18px] text-[#1E2A3A] group-hover:text-[#3B7FC1] transition-colors">arrow_forward</span>
+                </Link>
               ))}
             </div>
           ) : (

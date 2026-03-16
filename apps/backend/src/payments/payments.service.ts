@@ -240,8 +240,8 @@ export class PaymentsService {
       return ack;
     } catch (error: unknown) {
       if (error instanceof UnauthorizedException) {
-        this.logger.warn(`Razorpay webhook signature verification failed: ${error.message}`);
-        return ack;
+        // Re-throw so the controller returns 401 — forged signatures must not get a 200 ack
+        throw error;
       }
 
       if (error instanceof Error) {

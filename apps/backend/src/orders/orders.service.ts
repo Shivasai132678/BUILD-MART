@@ -11,18 +11,28 @@ import {
   Order,
   OrderStatus,
   Prisma,
+  Review,
   RFQStatus,
   UserRole,
+  VendorStatus,
 } from '@prisma/client';
 import { isValidOrderStatusTransition } from '../common/constants/status-transitions';
 import { generateOrderReferenceCode } from '../common/utils/reference-code';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateDirectOrderDto } from './dto/create-direct-order.dto';
+import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 type OrderWithRelations = Prisma.OrderGetPayload<{
-  include: { quote: { include: { items: true } }; rfq: true; payment: true };
+  include: {
+    quote: { include: { items: true } };
+    rfq: true;
+    payment: true;
+    review: true;
+    vendor: { select: { businessName: true } };
+  };
 }>;
 
 type PaginatedOrders = {
@@ -120,16 +130,16 @@ export class OrdersService {
 
         try {
           const orderRef = createdOrder.referenceCode ?? `#${createdOrder.id.slice(0, 8)}`;
-          await this.notificationsService.createNotification(
-            buyerId,
-            NotificationType.ORDER_CONFIRMED,
-            'Order confirmed',
-            `Your order ${orderRef} has been confirmed.`,
-            {
+          await this.notificationsService.create({
+            userId: buyerId,
+            type: NotificationType.ORDER_CONFIRMED,
+            title: 'Order confirmed',
+            message: `Your order ${orderRef} has been confirmed.`,
+            metadata: {
               orderId: createdOrder.id,
               rfqId: quote.rfqId,
             },
-          );
+          });
         } catch (notifError) {
           this.logger.error(
             `Failed to send ORDER_CONFIRMED notification for orderId=${createdOrder.id} rfqId=${quote.rfqId}`,
@@ -160,6 +170,141 @@ export class OrdersService {
     }
 
     // Unreachable, but satisfies TypeScript
+    throw new ConflictException('Unable to create order');
+  }
+
+  async createDirectOrder(buyerId: string, dto: CreateDirectOrderDto): Promise<Order> {
+    // Validate vendor is APPROVED
+    const vendor = await this.prisma.vendorProfile.findUnique({
+      where: { id: dto.vendorId },
+      select: { id: true, status: true, userId: true },
+    });
+
+    if (!vendor || vendor.status !== VendorStatus.APPROVED) {
+      throw new NotFoundException('Vendor not found or not available');
+    }
+
+    if (vendor.userId === buyerId) {
+      throw new ForbiddenException('You cannot place a direct order with yourself');
+    }
+
+    // Validate address belongs to buyer
+    const address = await this.prisma.address.findUnique({
+      where: { id: dto.addressId },
+      select: { id: true, userId: true },
+    });
+
+    if (!address || address.userId !== buyerId) {
+      throw new NotFoundException('Delivery address not found');
+    }
+
+    // Validate all products belong to this vendor and are in stock
+    const productIds = dto.items.map((i) => i.productId);
+    const vendorProducts = await this.prisma.vendorProduct.findMany({
+      where: { vendorId: dto.vendorId, productId: { in: productIds }, stockAvailable: true },
+      include: {
+        product: { select: { id: true, name: true, unit: true, basePrice: true, isActive: true, deletedAt: true } },
+      },
+    });
+
+    const vendorProductMap = new Map(vendorProducts.map((vp) => [vp.productId, vp]));
+
+    for (const item of dto.items) {
+      const vp = vendorProductMap.get(item.productId);
+      if (!vp || !vp.product.isActive || vp.product.deletedAt) {
+        throw new BadRequestException(`Product ${item.productId} is not available from this vendor`);
+      }
+    }
+
+    // Calculate order total using Decimal arithmetic (Rule 3/4)
+    const lineItems = dto.items.map((item) => {
+      const vp = vendorProductMap.get(item.productId)!;
+      const unitPrice = vp.customPrice ?? vp.product.basePrice;
+      const qty = new Prisma.Decimal(item.quantity);
+      const subtotal = unitPrice.mul(qty);
+      return {
+        productId: item.productId,
+        productName: vp.product.name,
+        quantity: qty,
+        unit: vp.product.unit,
+        unitPrice,
+        subtotal,
+      };
+    });
+
+    const totalAmount = lineItems.reduce(
+      (acc, li) => acc.add(li.subtotal),
+      new Prisma.Decimal(0),
+    );
+
+    const MAX_REF_RETRIES = 3;
+
+    for (let attempt = 0; attempt < MAX_REF_RETRIES; attempt++) {
+      try {
+        const createdOrder = await this.prisma.$transaction(async (tx) => {
+          const now = new Date();
+          const referenceCode = await generateOrderReferenceCode(tx);
+
+          const order = await tx.order.create({
+            data: {
+              buyerId,
+              vendorId: dto.vendorId,
+              totalAmount,
+              status: OrderStatus.CONFIRMED,
+              referenceCode,
+              confirmedAt: now,
+              directItems: {
+                create: lineItems.map((li) => ({
+                  productId: li.productId,
+                  productName: li.productName,
+                  quantity: li.quantity,
+                  unit: li.unit,
+                  unitPrice: li.unitPrice,
+                  subtotal: li.subtotal,
+                })),
+              },
+            },
+          });
+
+          return order;
+        });
+
+        this.logger.log(`Direct order created id=${createdOrder.id} buyerId=${buyerId} vendorId=${dto.vendorId}`);
+
+        try {
+          const orderRef = createdOrder.referenceCode ?? `#${createdOrder.id.slice(0, 8)}`;
+          await this.notificationsService.create({
+            userId: buyerId,
+            type: NotificationType.ORDER_CONFIRMED,
+            title: 'Order confirmed',
+            message: `Your direct order ${orderRef} has been confirmed.`,
+            metadata: { orderId: createdOrder.id },
+          });
+        } catch (notifError) {
+          this.logger.error(
+            `Failed to send ORDER_CONFIRMED notification for direct orderId=${createdOrder.id}`,
+            notifError instanceof Error ? notifError.stack : notifError,
+          );
+        }
+
+        return createdOrder;
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          const targets = (error.meta?.target as string[] | string) ?? [];
+          const targetStr = Array.isArray(targets) ? targets.join(',') : targets;
+          if (targetStr.includes('referenceCode')) {
+            this.logger.warn(`Reference code collision on direct order create, attempt ${attempt + 1}/${MAX_REF_RETRIES}`);
+            if (attempt < MAX_REF_RETRIES - 1) continue;
+            throw new ConflictException('Unable to generate unique order reference code, please retry');
+          }
+        }
+        throw error;
+      }
+    }
+
     throw new ConflictException('Unable to create order');
   }
 
@@ -194,6 +339,8 @@ export class OrdersService {
         quote: { include: { items: true } },
         rfq: true,
         payment: true,
+        review: true,
+        vendor: { select: { businessName: true } },
       },
     });
 
@@ -239,16 +386,16 @@ export class OrdersService {
     ) {
       const orderRef = updatedOrder.referenceCode ?? `#${updatedOrder.id.slice(0, 8)}`;
       const statusLabel = dto.status === OrderStatus.OUT_FOR_DELIVERY ? 'out for delivery' : 'delivered';
-      await this.notificationsService.createNotification(
-        updatedOrder.buyerId,
-        NotificationType.STATUS_UPDATED,
-        'Order status updated',
-        `Your order ${orderRef} is now ${statusLabel}.`,
-        {
+      await this.notificationsService.create({
+        userId: updatedOrder.buyerId,
+        type: NotificationType.STATUS_UPDATED,
+        title: 'Order status updated',
+        message: `Your order ${orderRef} is now ${statusLabel}.`,
+        metadata: {
           orderId: updatedOrder.id,
           status: dto.status,
         },
-      );
+      });
     }
 
     return updatedOrder;
@@ -300,21 +447,87 @@ export class OrdersService {
     const cancelledOrderRef = cancelledOrder.referenceCode ?? `#${cancelledOrder.id.slice(0, 8)}`;
     await Promise.allSettled(
       recipientIds.map((recipientId) =>
-        this.notificationsService.createNotification(
-          recipientId,
-          NotificationType.STATUS_UPDATED,
-          'Order cancelled',
-          `Order ${cancelledOrderRef} was cancelled.`,
-          {
+        this.notificationsService.create({
+          userId: recipientId,
+          type: NotificationType.STATUS_UPDATED,
+          title: 'Order cancelled',
+          message: `Order ${cancelledOrderRef} was cancelled.`,
+          metadata: {
             orderId: cancelledOrder.id,
             status: OrderStatus.CANCELLED,
           },
-        ),
+        }),
       ),
     );
 
     this.logger.log(`Order cancelled id=${id} by role=${role}`);
     return cancelledOrder;
+  }
+
+  async submitReview(
+    orderId: string,
+    buyerId: string,
+    dto: CreateReviewDto,
+  ): Promise<Review> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        buyerId: true,
+        vendorId: true,
+        status: true,
+        review: { select: { id: true } },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.buyerId !== buyerId) {
+      throw new ForbiddenException('You are not allowed to review this order');
+    }
+
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException('Reviews can only be submitted for delivered orders');
+    }
+
+    if (order.review) {
+      throw new ConflictException('A review has already been submitted for this order');
+    }
+
+    const review = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.review.create({
+        data: {
+          orderId,
+          buyerId,
+          vendorId: order.vendorId,
+          rating: dto.rating,
+          ...(dto.comment !== undefined ? { comment: dto.comment } : {}),
+        },
+      });
+
+      // Recalculate averageRating and totalReviews atomically
+      const aggregate = await tx.review.aggregate({
+        where: { vendorId: order.vendorId },
+        _avg: { rating: true },
+        _count: { id: true },
+      });
+
+      await tx.vendorProfile.update({
+        where: { id: order.vendorId },
+        data: {
+          averageRating: aggregate._avg.rating ?? 0,
+          totalReviews: aggregate._count.id,
+        },
+      });
+
+      return created;
+    });
+
+    this.logger.log(`Review submitted orderId=${orderId} vendorId=${order.vendorId} rating=${dto.rating}`);
+
+    return review;
   }
 
   private async buildOrderListWhere(

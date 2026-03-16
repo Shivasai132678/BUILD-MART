@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { getAvailableRfqs } from '@/lib/vendor-api';
@@ -13,18 +14,33 @@ function StatusBadge({ status }: { status: string }) {
     EXPIRED: { label: 'Expired', classes: 'bg-red-500/10 text-red-400 border border-red-500/20' },
   };
   const { label, classes } = map[status] ?? { label: status, classes: 'bg-[#4A6080]/20 text-[#8EA5C0]' };
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${classes}`}>{label}</span>;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${classes}`}>
+      {label}
+    </span>
+  );
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 export default function VendorRfqListPage() {
+  const [citySearch, setCitySearch] = useState('');
+
   const rfqsQuery = useQuery({
     queryKey: ['vendor-available-rfqs'],
     queryFn: () => getAvailableRfqs(PAGE_SIZE, 0),
     refetchInterval: 30_000,
   });
-  const items = rfqsQuery.data?.items ?? [];
+
+  const allItems = rfqsQuery.data?.items ?? [];
+
+  // Client-side city filter (backend /available doesn't expose city param)
+  const items = useMemo(() => {
+    const q = citySearch.trim().toLowerCase();
+    if (!q) return allItems;
+    return allItems.filter((rfq) => rfq.city?.toLowerCase().includes(q));
+  }, [allItems, citySearch]);
+
   const total = rfqsQuery.data?.total ?? 0;
 
   return (
@@ -34,7 +50,7 @@ export default function VendorRfqListPage() {
         <div>
           <h1 className="text-2xl font-bold text-[#F5F0E8]">Available RFQs</h1>
           <p className="text-[#8EA5C0] text-sm mt-1">
-            {total} open request{total !== 1 ? 's' : ''}
+            {citySearch ? `${items.length} of ${total}` : total} open request{total !== 1 ? 's' : ''}
             {rfqsQuery.isFetching && !rfqsQuery.isLoading && (
               <span className="ml-2 inline-flex items-center gap-1 text-[#3B7FC1]">
                 <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
@@ -43,6 +59,29 @@ export default function VendorRfqListPage() {
             )}
           </p>
         </div>
+      </div>
+
+      {/* City search filter */}
+      <div className="relative max-w-xs">
+        <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#4A6080] text-[18px]">
+          location_on
+        </span>
+        <input
+          type="text"
+          placeholder="Filter by city…"
+          value={citySearch}
+          onChange={(e) => setCitySearch(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#111827] border border-[#1E2A3A] text-sm text-[#F5F0E8] placeholder-[#4A6080] focus:outline-none focus:border-[#3B7FC1] transition-colors"
+        />
+        {citySearch && (
+          <button
+            onClick={() => setCitySearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4A6080] hover:text-[#8EA5C0] transition-colors"
+            aria-label="Clear filter"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        )}
       </div>
 
       {/* Content */}
@@ -55,8 +94,22 @@ export default function VendorRfqListPage() {
       ) : items.length === 0 ? (
         <div className="bg-[#111827] border border-[#1E2A3A] rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
           <span className="material-symbols-outlined text-[56px] text-[#1E2A3A] mb-4">request_quote</span>
-          <p className="text-base font-medium text-[#F5F0E8]">No open RFQs</p>
-          <p className="text-sm text-[#8EA5C0] mt-1 max-w-xs">New RFQs matching your profile will appear here automatically every 30 seconds.</p>
+          <p className="text-base font-medium text-[#F5F0E8]">
+            {citySearch ? `No RFQs in "${citySearch}"` : 'No open RFQs'}
+          </p>
+          <p className="text-sm text-[#8EA5C0] mt-1 max-w-xs">
+            {citySearch
+              ? 'Try a different city name or clear the filter.'
+              : 'New RFQs matching your profile will appear here automatically every 30 seconds.'}
+          </p>
+          {citySearch && (
+            <button
+              onClick={() => setCitySearch('')}
+              className="mt-4 text-sm text-[#3B7FC1] hover:underline"
+            >
+              Clear filter
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -71,7 +124,9 @@ export default function VendorRfqListPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="font-mono text-xs text-[#3B7FC1]">{rfq.referenceCode ?? `#${rfq.id.slice(0, 8)}`}</span>
+                  <span className="font-mono text-xs text-[#3B7FC1]">
+                    {rfq.referenceCode ?? `#${rfq.id.slice(0, 8)}`}
+                  </span>
                   <StatusBadge status={rfq.status} />
                 </div>
                 <p className="text-sm text-[#8EA5C0]">
@@ -85,7 +140,9 @@ export default function VendorRfqListPage() {
                   {formatIST(rfq.createdAt)}
                 </p>
               </div>
-              <span className="material-symbols-outlined text-[18px] text-[#1E2A3A] group-hover:text-[#3B7FC1] transition-colors flex-shrink-0">arrow_forward</span>
+              <span className="material-symbols-outlined text-[18px] text-[#1E2A3A] group-hover:text-[#3B7FC1] transition-colors flex-shrink-0">
+                arrow_forward
+              </span>
             </Link>
           ))}
         </div>

@@ -4,10 +4,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, refreshAuthToken } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
 import { Loader2 } from 'lucide-react';
 import { NotificationBell } from '@/components/ui/NotificationBell';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 
 const navItems = [
   { href: '/buyer/dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -15,6 +16,8 @@ const navItems = [
   { href: '/buyer/rfq/new', label: 'Create RFQ', icon: 'add_circle' },
   { href: '/buyer/rfq', label: 'My RFQs', icon: 'request_quote' },
   { href: '/buyer/orders', label: 'My Orders', icon: 'local_shipping' },
+  { href: '/buyer/vendors', label: 'Discover Vendors', icon: 'store' },
+  { href: '/buyer/disputes', label: 'My Disputes', icon: 'report_problem' },
 ];
 
 function isAllowedRole(role: string): boolean {
@@ -29,6 +32,8 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
   const clearUser = useUserStore((s) => s.clearUser);
   const [hydrated, setHydrated] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useRealtimeNotifications();
 
   useEffect(() => {
     const timer = window.setTimeout(() => setHydrated(true), 0);
@@ -52,8 +57,9 @@ export default function BuyerLayout({ children }: { children: ReactNode }) {
 
   const handleActivateVendor = async () => {
     try {
-      const data = await refreshAuthToken();
-      if (data?.user) setUser(data.user);
+      const res = await api.get('/api/v1/auth/me');
+      const data = res.data?.data ?? res.data;
+      if (data) setUser(data);
       router.push('/vendor/dashboard');
     } catch {
       // ignore — user can retry via the dashboard banner

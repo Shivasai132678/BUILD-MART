@@ -32,7 +32,7 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: 'buildmart-user',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
     },
   ),
 );

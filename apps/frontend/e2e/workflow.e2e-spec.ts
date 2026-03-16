@@ -380,7 +380,7 @@ test.describe('Admin workflows', () => {
   test('vendor approvals page loads', async ({ page }) => {
     await page.goto('/admin/vendors');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /vendor approval/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /vendor management/i })).toBeVisible({ timeout: 10_000 });
   });
 
   test('admin can access buyer routes', async ({ page }) => {

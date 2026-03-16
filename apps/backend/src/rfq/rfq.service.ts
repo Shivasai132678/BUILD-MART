@@ -30,6 +30,15 @@ export class RfqService {
   ) { }
 
   async createRFQ(userId: string, dto: CreateRfqDto): Promise<RFQ> {
+    // Validate validUntil is in the future
+    const validUntilDate = new Date(dto.validUntil);
+    if (isNaN(validUntilDate.getTime())) {
+      throw new BadRequestException('validUntil must be a valid date');
+    }
+    if (validUntilDate <= new Date()) {
+      throw new BadRequestException('validUntil must be a future date');
+    }
+
     const MAX_REF_RETRIES = 3;
 
     let createdRfq: (RFQ & { items: unknown[] }) | null = null;
@@ -377,6 +386,7 @@ export class RfqService {
       select: {
         id: true,
         buyerId: true,
+        status: true,
       },
     });
 
@@ -386,6 +396,13 @@ export class RfqService {
 
     if (rfq.buyerId !== userId) {
       throw new ForbiddenException('You are not allowed to close this RFQ');
+    }
+
+    // Only RFQs in QUOTED status can be manually closed (they have an accepted quote)
+    if (rfq.status !== RFQStatus.QUOTED) {
+      throw new BadRequestException(
+        `Only RFQs in QUOTED status can be closed. Current status: ${rfq.status}`,
+      );
     }
 
     const updatedRfq = await this.prisma.rFQ.update({

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { fetchBuyerOrders, type Order } from '@/lib/buyer-api';
 import { formatIST } from '@/lib/utils/date';
+import { formatINR } from '@/lib/utils/money';
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; classes: string }> = {
@@ -110,7 +111,7 @@ export default function BuyerOrdersPage() {
                 </div>
                 <p className="text-sm text-[#A89F91]">{formatIST(order.createdAt)}</p>
               </div>
-              <p className="text-lg font-bold text-[#F5F0E8]">₹{Number(order.totalAmount).toLocaleString('en-IN')}</p>
+              <p className="text-lg font-bold text-[#F5F0E8]">{formatINR(order.totalAmount)}</p>
             </Link>
           ))}
         </div>

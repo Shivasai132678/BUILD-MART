@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -10,7 +10,9 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api';
 import { formatIST } from '@/lib/utils/date';
-import { getRfqById, submitQuote } from '@/lib/vendor-api';
+import { formatINR, toPaise } from '@/lib/utils/money';
+import { getRfqById, submitQuote, getMyQuoteForRfq, respondToCounterOffer } from '@/lib/vendor-api';
+import { getVendorProfile } from '@/lib/vendor-profile-api';
 
 const DECIMAL_STRING_REGEX = /^\d+(\.\d{1,2})?$/;
 
@@ -52,6 +54,7 @@ const readOnlyClassName =
 export default function VendorRfqDetailPage() {
   const params = useParams<{ id: string | string[] }>();
   const rfqId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const queryClient = useQueryClient();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
@@ -60,6 +63,33 @@ export default function VendorRfqDetailPage() {
     queryFn: () => getRfqById(rfqId),
     enabled: Boolean(rfqId),
   });
+
+  const profileQuery = useQuery({
+    queryKey: ['vendor-profile'],
+    queryFn: getVendorProfile,
+    retry: false,
+  });
+
+  const myQuoteQuery = useQuery({
+    queryKey: ['vendor-my-quote', rfqId],
+    queryFn: () => getMyQuoteForRfq(rfqId),
+    enabled: Boolean(rfqId),
+    refetchInterval: 20_000,
+  });
+
+  const respondMutation = useMutation({
+    mutationFn: ({ quoteId, accept }: { quoteId: string; accept: boolean }) =>
+      respondToCounterOffer(quoteId, accept),
+    onSuccess: (_, { accept }) => {
+      toast.success(accept ? 'Counter-offer accepted.' : 'Counter-offer rejected.');
+      void queryClient.invalidateQueries({ queryKey: ['vendor-my-quote', rfqId] });
+    },
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, 'Failed to respond to counter-offer.'));
+    },
+  });
+
+  const isVendorApproved = profileQuery.data?.status === 'APPROVED';
 
   const {
     control,
@@ -195,7 +225,7 @@ export default function VendorRfqDetailPage() {
   }
 
   const rfq = rfqQuery.data;
-  const isFormDisabled = submitSuccess || submitQuoteMutation.isPending || rfq.status !== 'OPEN';
+  const isFormDisabled = submitSuccess || submitQuoteMutation.isPending || rfq.status !== 'OPEN' || !isVendorApproved;
 
   return (
     <div className="space-y-6">
@@ -236,6 +266,13 @@ export default function VendorRfqDetailPage() {
           <h2 className="text-lg font-semibold text-[#E2EAF4]">Submit Quote</h2>
         </div>
         <p className="text-sm text-[#8EA5C0] mb-4">Fill in pricing for each requested line item.</p>
+
+        {!isVendorApproved && !profileQuery.isLoading && (
+          <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-400 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">pending</span>
+            Your vendor profile is pending admin approval. You can view RFQs but cannot submit quotes until approved.
+          </div>
+        )}
 
         {submitSuccess && (
           <div className="mb-4 rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm text-green-400 flex items-center gap-2">
@@ -303,12 +340,12 @@ export default function VendorRfqDetailPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-[#8EA5C0]" htmlFor="taxAmount">Tax Amount (₹)</label>
-                <input id="taxAmount" type="number" inputMode="decimal" step="0.01" min="0" className={inputClassName} {...register('taxAmount')} />
+                <input id="taxAmount" type="text" inputMode="decimal" className={inputClassName} {...register('taxAmount')} />
                 {errors.taxAmount && <p className="text-xs text-red-400">{errors.taxAmount.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-[#8EA5C0]" htmlFor="deliveryFee">Delivery Fee (₹)</label>
-                <input id="deliveryFee" type="number" inputMode="decimal" step="0.01" min="0" className={inputClassName} {...register('deliveryFee')} />
+                <input id="deliveryFee" type="text" inputMode="decimal" className={inputClassName} {...register('deliveryFee')} />
                 {errors.deliveryFee && <p className="text-xs text-red-400">{errors.deliveryFee.message}</p>}
               </div>
               <div className="space-y-1.5">
@@ -343,10 +380,83 @@ export default function VendorRfqDetailPage() {
               ? 'Quote Submitted'
               : submitQuoteMutation.isPending
               ? 'Submitting Quote…'
+              : !isVendorApproved
+              ? 'Approval Required'
               : 'Submit Quote'}
           </button>
         </form>
       </div>
+      {/* Counter-offer panel */}
+      {myQuoteQuery.data && myQuoteQuery.data.counterStatus === 'PENDING' && (
+        <div className="bg-[#1E2A3A] border border-yellow-500/30 rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="material-symbols-outlined text-[22px] text-yellow-400">swap_horiz</span>
+            <h2 className="text-lg font-semibold text-[#E2EAF4]">Buyer Counter-Offer</h2>
+          </div>
+          <div className="bg-[#111827] border border-[#253347] rounded-xl px-4 py-3 mb-4 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#8EA5C0]">Your quoted total</span>
+              <span className="text-sm font-semibold text-[#E2EAF4]">{formatINR(myQuoteQuery.data.totalAmount)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#8EA5C0]">Buyer proposed</span>
+              <span className="text-lg font-bold text-yellow-400">{formatINR(myQuoteQuery.data.counterOfferPrice)}</span>
+            </div>
+            {myQuoteQuery.data.counterOfferNote && (
+              <p className="text-xs text-[#8EA5C0] pt-1 border-t border-[#253347]">
+                Note: {myQuoteQuery.data.counterOfferNote}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              disabled={respondMutation.isPending}
+              onClick={() => respondMutation.mutate({ quoteId: myQuoteQuery.data!.id, accept: true })}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-green-600 hover:bg-green-700 text-white transition-all disabled:opacity-60"
+            >
+              {respondMutation.isPending && respondMutation.variables?.accept ? (
+                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              )}
+              Accept Counter-Offer
+            </button>
+            <button
+              type="button"
+              disabled={respondMutation.isPending}
+              onClick={() => respondMutation.mutate({ quoteId: myQuoteQuery.data!.id, accept: false })}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#253347] hover:bg-[#2D3E50] text-red-400 border border-red-500/20 transition-all disabled:opacity-60"
+            >
+              {respondMutation.isPending && respondMutation.variables?.accept === false ? (
+                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+              ) : (
+                <span className="material-symbols-outlined text-[16px]">cancel</span>
+              )}
+              Reject
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Show resolved counter-offer status */}
+      {myQuoteQuery.data && myQuoteQuery.data.counterStatus && myQuoteQuery.data.counterStatus !== 'PENDING' && (
+        <div className={`rounded-2xl px-5 py-4 flex items-center gap-3 border ${
+          myQuoteQuery.data.counterStatus === 'ACCEPTED'
+            ? 'bg-green-500/10 border-green-500/20 text-green-400'
+            : 'bg-red-500/10 border-red-500/20 text-red-400'
+        }`}>
+          <span className="material-symbols-outlined text-[20px]">
+            {myQuoteQuery.data.counterStatus === 'ACCEPTED' ? 'check_circle' : 'cancel'}
+          </span>
+          <p className="text-sm font-medium">
+            {myQuoteQuery.data.counterStatus === 'ACCEPTED'
+              ? `You accepted the buyer's counter-offer of ${formatINR(myQuoteQuery.data.counterOfferPrice)}. The buyer can now place an order.`
+              : `You rejected the buyer's counter-offer of ${formatINR(myQuoteQuery.data.counterOfferPrice)}.`
+            }
+          </p>
+        </div>
+      )}
     </div>
   );
 }

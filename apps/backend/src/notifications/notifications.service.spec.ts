@@ -33,7 +33,7 @@ describe('NotificationsService', () => {
     jest.clearAllMocks();
     // Default: user without phone so external dispatch is a no-op
     (prisma.user.findUnique as jest.Mock).mockResolvedValue({ phone: null });
-    service = new NotificationsService(prisma);
+    service = new NotificationsService(prisma, null as any);
   });
 
   describe('create', () => {

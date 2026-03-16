@@ -55,22 +55,6 @@ export function unwrapApiData<T>(payload: T | ApiSuccessEnvelope<T>): T {
   return payload as T;
 }
 
-export async function refreshAuthToken() {
-  const res = await api.post('/api/v1/auth/refresh');
-  return (res.data?.data ?? res.data) as {
-    message: string;
-    user: {
-      id: string;
-      phone: string;
-      role: string;
-      name: string | null;
-      displayName: string | null;
-      hasVendorProfile: boolean;
-      vendorApproved: boolean;
-    };
-  };
-}
-
 export function getApiErrorMessage(
   error: unknown,
   fallback = 'Something went wrong. Please try again.',

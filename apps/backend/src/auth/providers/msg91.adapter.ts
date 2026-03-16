@@ -20,6 +20,9 @@ export class Msg91Adapter {
     const templateId = this.configService.get<string>('MSG91_TEMPLATE_ID');
 
     if (!authKey) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('MSG91_AUTH_KEY is required in production');
+      }
       this.logger.warn('MSG91_AUTH_KEY not set — OTP not sent (dev mode)');
       this.logger.debug(`OTP sent for phone ending: ${phone.slice(-4)}`);
       return;

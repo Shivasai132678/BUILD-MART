@@ -19,7 +19,6 @@ describe('RfqService vendor matching', () => {
 
   const notificationsService = {
     create: jest.fn(),
-    createNotification: jest.fn(),
   } as unknown as NotificationsService;
 
   beforeEach(() => {
@@ -40,7 +39,7 @@ describe('RfqService vendor matching', () => {
   });
 
   it('vendor with matching product in same city is included', async () => {
-    prisma.vendorProfile.findMany.mockResolvedValueOnce([{ id: 'vendor-1' }]);
+    (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValueOnce([{ id: 'vendor-1' }]);
 
     const result = await (service as unknown as {
       findMatchingVendorIds: (city: string, productIds: string[]) => Promise<string[]>;
@@ -67,7 +66,7 @@ describe('RfqService vendor matching', () => {
   });
 
   it('vendor with matching product in different city is excluded', async () => {
-    prisma.vendorProfile.findMany.mockResolvedValueOnce([]);
+    (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValueOnce([]);
 
     const result = await (service as unknown as {
       findMatchingVendorIds: (city: string, productIds: string[]) => Promise<string[]>;
@@ -85,7 +84,7 @@ describe('RfqService vendor matching', () => {
   });
 
   it('vendor with no matching products is excluded', async () => {
-    prisma.vendorProfile.findMany.mockResolvedValueOnce([]);
+    (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValueOnce([]);
 
     const result = await (service as unknown as {
       findMatchingVendorIds: (city: string, productIds: string[]) => Promise<string[]>;
@@ -109,7 +108,7 @@ describe('RfqService vendor matching', () => {
   });
 
   it('unapproved vendor is excluded from matching query', async () => {
-    prisma.vendorProfile.findMany.mockResolvedValueOnce([]);
+    (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValueOnce([]);
 
     await (service as unknown as {
       findMatchingVendorIds: (city: string, productIds: string[]) => Promise<string[]>;
@@ -149,7 +148,6 @@ describe('RfqService getRFQ vendor restriction', () => {
 
   const notificationsService = {
     create: jest.fn(),
-    createNotification: jest.fn(),
   } as unknown as NotificationsService;
 
   beforeEach(() => {
@@ -158,7 +156,7 @@ describe('RfqService getRFQ vendor restriction', () => {
   });
 
   it('vendor with a valid profile can see any open RFQ', async () => {
-    prisma.vendorProfile.findUnique.mockResolvedValueOnce({
+    (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'vp-1',
     });
 
@@ -167,7 +165,7 @@ describe('RfqService getRFQ vendor restriction', () => {
       status: RFQStatus.OPEN,
       items: [{ id: 'item-1', productId: 'product-999' }],
     };
-    prisma.rFQ.findFirst.mockResolvedValueOnce(mockRfq);
+    (prisma.rFQ.findFirst as jest.Mock).mockResolvedValueOnce(mockRfq);
 
     const result = await service.getRFQ('rfq-1', 'vendor-user-1', UserRole.VENDOR);
 
@@ -189,7 +187,7 @@ describe('RfqService getRFQ vendor restriction', () => {
   });
 
   it('vendor with no profile gets NotFoundException', async () => {
-    prisma.vendorProfile.findUnique.mockResolvedValueOnce(null);
+    (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValueOnce(null);
 
     await expect(
       service.getRFQ('rfq-1', 'vendor-user-1', UserRole.VENDOR),
@@ -199,11 +197,11 @@ describe('RfqService getRFQ vendor restriction', () => {
   });
 
   it('vendor with valid profile but RFQ not found gets NotFoundException', async () => {
-    prisma.vendorProfile.findUnique.mockResolvedValueOnce({
+    (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValueOnce({
       id: 'vp-1',
     });
 
-    prisma.rFQ.findFirst.mockResolvedValueOnce(null);
+    (prisma.rFQ.findFirst as jest.Mock).mockResolvedValueOnce(null);
 
     await expect(
       service.getRFQ('rfq-1', 'vendor-user-1', UserRole.VENDOR),

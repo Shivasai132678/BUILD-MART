@@ -6,10 +6,13 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useUserStore } from '@/store/user.store';
+import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 
 const navItems = [
   { href: '/admin/dashboard', icon: 'dashboard', label: 'Dashboard' },
   { href: '/admin/vendors', icon: 'verified_user', label: 'Vendor Management' },
+  { href: '/admin/products', icon: 'inventory_2', label: 'Products' },
+  { href: '/admin/disputes', icon: 'report_problem', label: 'Disputes' },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -20,6 +23,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const clearUser = useUserStore((s) => s.clearUser);
   const [hydrated, setHydrated] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useRealtimeNotifications();
 
   useEffect(() => {
     const timer = window.setTimeout(() => setHydrated(true), 0);
@@ -50,7 +55,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   const handleLogout = async () => {
-    try { await api.post('/api/v1/auth/logout'); } catch (_) { /* ignore */ }
+    try { await api.post('/api/v1/auth/logout'); } catch { /* ignore */ }
     clearUser();
     router.replace('/login');
   };

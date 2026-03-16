@@ -58,7 +58,6 @@ describe('PaymentsService', () => {
 
   const notificationsService = {
     create: jest.fn(),
-    createNotification: jest.fn(),
   } as unknown as NotificationsService;
 
   beforeEach(() => {
@@ -71,7 +70,7 @@ describe('PaymentsService', () => {
 
   describe('createPaymentOrder', () => {
     it('creates a Razorpay order and persists Payment record', async () => {
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-1',
         buyerId: 'buyer-1',
         status: 'CONFIRMED',
@@ -79,7 +78,7 @@ describe('PaymentsService', () => {
         payment: null,
       });
 
-      prisma.payment.upsert.mockResolvedValue({
+      (prisma.payment.upsert as jest.Mock).mockResolvedValue({
         id: 'payment-1',
         orderId: 'order-1',
         razorpayOrderId: 'order_rzp_mock',
@@ -127,7 +126,7 @@ describe('PaymentsService', () => {
     });
 
     it('throws NotFoundException if order does not exist', async () => {
-      prisma.order.findUnique.mockResolvedValue(null);
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
 
       await expect(
         service.createPaymentOrder('buyer-1', { orderId: 'order-nonexistent' }),
@@ -135,7 +134,7 @@ describe('PaymentsService', () => {
     });
 
     it('throws ForbiddenException if buyer does not own the order', async () => {
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-1',
         buyerId: 'buyer-1',
         status: 'CONFIRMED',
@@ -149,7 +148,7 @@ describe('PaymentsService', () => {
     });
 
     it('throws ServiceUnavailableException if Razorpay credentials are not configured', async () => {
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-1',
         buyerId: 'buyer-1',
         status: 'CONFIRMED',
@@ -167,7 +166,7 @@ describe('PaymentsService', () => {
     });
 
     it('throws ConflictException if payment already completed for this order', async () => {
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-1',
         buyerId: 'buyer-1',
         status: 'CONFIRMED',
@@ -186,7 +185,7 @@ describe('PaymentsService', () => {
       const body = buildWebhookBody('payment.captured', 'order_rzp_1', 'pay_1');
       const signature = generateSignature(body, WEBHOOK_SECRET);
 
-      prisma.payment.findUnique.mockResolvedValue({
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
         id: 'payment-1',
         orderId: 'order-1',
         razorpayOrderId: 'order_rzp_1',
@@ -194,13 +193,13 @@ describe('PaymentsService', () => {
         razorpayPaymentId: null,
       });
 
-      prisma.payment.update.mockResolvedValue({
+      (prisma.payment.update as jest.Mock).mockResolvedValue({
         id: 'payment-1',
         orderId: 'order-1',
         status: PaymentStatus.SUCCESS,
       });
 
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-1',
         buyerId: 'buyer-1',
       });
@@ -232,7 +231,7 @@ describe('PaymentsService', () => {
       const body = buildWebhookBody('payment.captured', 'order_rzp_1');
       const signature = generateSignature(body, WEBHOOK_SECRET);
 
-      prisma.payment.findUnique.mockResolvedValue({
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
         id: 'payment-1',
         orderId: 'order-1',
         razorpayOrderId: 'order_rzp_1',
@@ -262,20 +261,20 @@ describe('PaymentsService', () => {
       const body = JSON.stringify(bodyObj);
       const signature = generateSignature(body, WEBHOOK_SECRET);
 
-      prisma.payment.findUnique.mockResolvedValue({
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
         id: 'payment-2',
         orderId: 'order-2',
         razorpayOrderId: 'order_rzp_2',
         status: PaymentStatus.INITIATED,
       });
 
-      prisma.payment.update.mockResolvedValue({
+      (prisma.payment.update as jest.Mock).mockResolvedValue({
         id: 'payment-2',
         orderId: 'order-2',
         status: PaymentStatus.FAILED,
       });
 
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-2',
         buyerId: 'buyer-2',
       });
@@ -297,7 +296,7 @@ describe('PaymentsService', () => {
       const body = buildWebhookBody('payment.captured', 'order_rzp_3', 'pay_3');
       const signature = generateSignature(body, WEBHOOK_SECRET);
 
-      prisma.payment.findUnique.mockResolvedValue({
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
         id: 'payment-3',
         orderId: 'order-3',
         razorpayOrderId: 'order_rzp_3',
@@ -305,13 +304,13 @@ describe('PaymentsService', () => {
         razorpayPaymentId: null,
       });
 
-      prisma.payment.update.mockResolvedValue({
+      (prisma.payment.update as jest.Mock).mockResolvedValue({
         id: 'payment-3',
         orderId: 'order-3',
         status: PaymentStatus.SUCCESS,
       });
 
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-3',
         buyerId: 'buyer-3',
       });
@@ -331,20 +330,20 @@ describe('PaymentsService', () => {
       const body = buildWebhookBody('payment.failed', 'order_rzp_4', 'pay_4');
       const signature = generateSignature(body, WEBHOOK_SECRET);
 
-      prisma.payment.findUnique.mockResolvedValue({
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
         id: 'payment-4',
         orderId: 'order-4',
         razorpayOrderId: 'order_rzp_4',
         status: PaymentStatus.INITIATED,
       });
 
-      prisma.payment.update.mockResolvedValue({
+      (prisma.payment.update as jest.Mock).mockResolvedValue({
         id: 'payment-4',
         orderId: 'order-4',
         status: PaymentStatus.FAILED,
       });
 
-      prisma.order.findUnique.mockResolvedValue({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
         id: 'order-4',
         buyerId: 'buyer-4',
       });

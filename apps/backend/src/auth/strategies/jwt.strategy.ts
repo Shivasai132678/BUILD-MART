@@ -8,6 +8,8 @@ export type JwtTokenPayload = {
   sub: string;
   phone: string;
   role: UserRole;
+  hasVendorProfile?: boolean;
+  vendorApproved?: boolean;
 };
 
 function extractAccessTokenFromCookie(request?: Request): string | null {

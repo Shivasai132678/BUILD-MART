@@ -140,7 +140,7 @@ async function main(): Promise<void> {
         gstNumber: vendor.gstNumber,
         city: vendor.city,
         serviceableAreas: [vendor.city],
-        isApproved: true,
+        status: 'APPROVED',
         approvedAt: APPROVED_AT,
         deletedAt: null,
       },
@@ -150,7 +150,7 @@ async function main(): Promise<void> {
         gstNumber: vendor.gstNumber,
         city: vendor.city,
         serviceableAreas: [vendor.city],
-        isApproved: true,
+        status: 'APPROVED',
         approvedAt: APPROVED_AT,
       },
       select: {

@@ -7,6 +7,8 @@ import { getApiErrorMessage } from '@/lib/api';
 import {
   getAllVendors,
   updateVendorStatus,
+  bulkApproveVendors,
+  bulkSuspendVendors,
   type AdminVendorProfile,
   type VendorStatusValue,
 } from '@/lib/admin-api';
@@ -31,10 +33,16 @@ type ConfirmState =
   | { open: false }
   | { open: true; vendor: AdminVendorProfile; nextStatus: VendorStatusValue };
 
+type BulkConfirm =
+  | { open: false }
+  | { open: true; action: 'approve' | 'suspend'; count: number };
+
 export default function AdminVendorsPage() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<VendorStatusValue | 'ALL'>('ALL');
   const [confirm, setConfirm] = useState<ConfirmState>({ open: false });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState<BulkConfirm>({ open: false });
 
   const vendorsQuery = useQuery({
     queryKey: ['admin-all-vendors', statusFilter],
@@ -55,11 +63,70 @@ export default function AdminVendorsPage() {
     },
   });
 
+  const bulkApproveMutation = useMutation({
+    mutationFn: (ids: string[]) => bulkApproveVendors(ids),
+    onSuccess: (data) => {
+      toast.success(`${data.approved} vendor${data.approved !== 1 ? 's' : ''} approved.`);
+      setSelectedIds(new Set());
+      setBulkConfirm({ open: false });
+      void queryClient.invalidateQueries({ queryKey: ['admin-all-vendors'] });
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Bulk approve failed.'));
+    },
+  });
+
+  const bulkSuspendMutation = useMutation({
+    mutationFn: (ids: string[]) => bulkSuspendVendors(ids),
+    onSuccess: (data) => {
+      toast.success(`${data.suspended} vendor${data.suspended !== 1 ? 's' : ''} suspended.`);
+      setSelectedIds(new Set());
+      setBulkConfirm({ open: false });
+      void queryClient.invalidateQueries({ queryKey: ['admin-all-vendors'] });
+    },
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Bulk suspend failed.'));
+    },
+  });
+
   const vendors: AdminVendorProfile[] = vendorsQuery.data?.items ?? [];
+  const allSelected = vendors.length > 0 && vendors.every((v) => selectedIds.has(v.id));
+  const someSelected = selectedIds.size > 0;
+
+  function toggleVendor(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(vendors.map((v) => v.id)));
+    }
+  }
 
   const openConfirm = (vendor: AdminVendorProfile, nextStatus: VendorStatusValue) => {
     setConfirm({ open: true, vendor, nextStatus });
   };
+
+  function handleBulkAction(action: 'approve' | 'suspend') {
+    setBulkConfirm({ open: true, action, count: selectedIds.size });
+  }
+
+  function confirmBulkAction() {
+    if (!bulkConfirm.open) return;
+    const ids = Array.from(selectedIds);
+    if (bulkConfirm.action === 'approve') {
+      bulkApproveMutation.mutate(ids);
+    } else {
+      bulkSuspendMutation.mutate(ids);
+    }
+  }
 
   const ACTION_BUTTONS: Record<
     string,
@@ -89,6 +156,8 @@ export default function AdminVendorsPage() {
     PENDING:   'set to pending',
   };
 
+  const isBulkPending = bulkApproveMutation.isPending || bulkSuspendMutation.isPending;
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -100,11 +169,11 @@ export default function AdminVendorsPage() {
       </div>
 
       {/* Status filter tabs */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         {FILTERS.map((f) => (
           <button
             key={f.value}
-            onClick={() => setStatusFilter(f.value)}
+            onClick={() => { setStatusFilter(f.value); setSelectedIds(new Set()); }}
             className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-colors ${
               statusFilter === f.value
                 ? 'bg-[#6764f2] text-white'
@@ -118,6 +187,39 @@ export default function AdminVendorsPage() {
           {vendorsQuery.data?.total ?? 0} vendor{(vendorsQuery.data?.total ?? 0) !== 1 ? 's' : ''}
         </span>
       </div>
+
+      {/* Bulk action toolbar — only when selection exists */}
+      {someSelected && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#1A1D35] border border-[#6764f2]/30 rounded-2xl">
+          <span className="text-sm text-[#F5F0E8] font-medium">
+            {selectedIds.size} vendor{selectedIds.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={() => handleBulkAction('approve')}
+              disabled={isBulkPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-green-500/15 hover:bg-green-500/25 text-green-400 border border-green-500/30 transition-colors disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              Bulk Approve
+            </button>
+            <button
+              onClick={() => handleBulkAction('suspend')}
+              disabled={isBulkPending}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 transition-colors disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[16px]">block</span>
+              Bulk Suspend
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-3 py-1.5 rounded-xl text-sm text-[#8A9BC0] hover:text-[#F5F0E8] border border-[#1E2238] transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* List */}
       {vendorsQuery.isLoading ? (
@@ -136,26 +238,57 @@ export default function AdminVendorsPage() {
         </div>
       ) : (
         <div className="space-y-3">
+          {/* Select all row */}
+          <div className="flex items-center gap-3 px-2">
+            <input
+              type="checkbox"
+              id="select-all"
+              checked={allSelected}
+              onChange={toggleAll}
+              className="w-4 h-4 rounded accent-[#6764f2] cursor-pointer"
+            />
+            <label htmlFor="select-all" className="text-xs text-[#8A9BC0] cursor-pointer select-none">
+              Select all ({vendors.length})
+            </label>
+          </div>
+
           {vendors.map((vendor) => {
             const actions = ACTION_BUTTONS[vendor.status] ?? [];
+            const isChecked = selectedIds.has(vendor.id);
             const isMutatingThis =
               statusMutation.isPending &&
               confirm.open &&
               confirm.vendor.id === vendor.id;
 
             return (
-              <div key={vendor.id} className="bg-[#12152A] border border-[#1E2238] rounded-2xl p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+              <div
+                key={vendor.id}
+                className={`bg-[#12152A] border rounded-2xl p-5 transition-colors ${
+                  isChecked ? 'border-[#6764f2]/40 bg-[#6764f2]/5' : 'border-[#1E2238]'
+                }`}
+              >
+                <div className="flex flex-wrap items-start gap-4">
+                  {/* Checkbox */}
+                  <div className="flex items-start pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleVendor(vendor.id)}
+                      className="w-4 h-4 rounded accent-[#6764f2] cursor-pointer"
+                      aria-label={`Select ${vendor.businessName}`}
+                    />
+                  </div>
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <p className="text-base font-semibold text-[#F5F0E8]">{vendor.businessName}</p>
+                      <p className="text-base font-semibold" style={{ color: '#F5F0E8' }}>{vendor.businessName}</p>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${STATUS_STYLES[vendor.status] ?? ''}`}>
                         {vendor.status.charAt(0) + vendor.status.slice(1).toLowerCase()}
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-4 text-sm text-[#8A9BC0]">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[14px]">person</span>
+                    <div className="flex flex-wrap gap-4 text-sm text-[#C8D0E0]">
+                      <span className="inline-flex items-center gap-1 text-[#F5F0E8] font-medium">
+                        <span className="material-symbols-outlined text-[14px] font-normal">person</span>
                         {vendor.user?.name ?? '—'}
                       </span>
                       <span className="inline-flex items-center gap-1">
@@ -177,7 +310,7 @@ export default function AdminVendorsPage() {
                     </div>
                   </div>
 
-                  {/* Action buttons */}
+                  {/* Per-vendor action buttons */}
                   {actions.length > 0 && (
                     <div className="flex gap-2">
                       {actions.map((action) => (
@@ -200,15 +333,15 @@ export default function AdminVendorsPage() {
         </div>
       )}
 
-      {/* Confirmation overlay */}
+      {/* Per-vendor confirmation overlay */}
       {confirm.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h2 className="text-base font-bold text-[#F5F0E8] mb-2">
-              {confirm.nextStatus === 'APPROVED' && confirm.vendor.status !== 'APPROVED' ? 'Approve' : ''}
+              {confirm.nextStatus === 'APPROVED' && confirm.vendor.status === 'SUSPENDED' ? 'Restore' : ''}
+              {confirm.nextStatus === 'APPROVED' && confirm.vendor.status !== 'SUSPENDED' ? 'Approve' : ''}
               {confirm.nextStatus === 'SUSPENDED' ? 'Suspend' : ''}
-              {confirm.nextStatus === 'REJECTED' ? 'Reject' : ''}
-              {confirm.nextStatus === 'APPROVED' && confirm.vendor.status === 'SUSPENDED' ? 'Restore' : ''}{' '}
+              {confirm.nextStatus === 'REJECTED' ? 'Reject' : ''}{' '}
               {confirm.vendor.businessName}?
             </h2>
             <p className="text-sm text-[#8A9BC0] mb-6">
@@ -247,7 +380,45 @@ export default function AdminVendorsPage() {
           </div>
         </div>
       )}
+
+      {/* Bulk action confirmation overlay */}
+      {bulkConfirm.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h2 className="text-base font-bold text-[#F5F0E8] mb-2">
+              Bulk {bulkConfirm.action === 'approve' ? 'Approve' : 'Suspend'} {bulkConfirm.count} Vendor{bulkConfirm.count !== 1 ? 's' : ''}?
+            </h2>
+            <p className="text-sm text-[#8A9BC0] mb-6">
+              {bulkConfirm.action === 'approve'
+                ? `${bulkConfirm.count} vendor${bulkConfirm.count !== 1 ? 's' : ''} will be approved and can start receiving RFQs immediately.`
+                : `${bulkConfirm.count} vendor${bulkConfirm.count !== 1 ? 's' : ''} will be suspended and lose access immediately.`}
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setBulkConfirm({ open: false })}
+                disabled={isBulkPending}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-[#8A9BC0] hover:text-[#F5F0E8] border border-[#1E2238] bg-[#0C0F1A] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBulkAction}
+                disabled={isBulkPending}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5 ${
+                  bulkConfirm.action === 'approve'
+                    ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/30'
+                    : 'bg-orange-500/15 text-orange-400 hover:bg-orange-500/25 border border-orange-500/25'
+                }`}
+              >
+                {isBulkPending && (
+                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                )}
+                Confirm {bulkConfirm.action === 'approve' ? 'Approve' : 'Suspend'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-

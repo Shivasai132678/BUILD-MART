@@ -50,13 +50,13 @@ describe('AuthService', () => {
       const now = new Date('2026-02-27T10:00:00.000Z');
       jest.useFakeTimers().setSystemTime(now);
 
-      prisma.user.upsert.mockResolvedValue({
+      (prisma.user.upsert as jest.Mock).mockResolvedValue({
         id: 'user-1',
         phone: '+919000000099',
         role: UserRole.PENDING,
       });
-      prisma.oTPRecord.count.mockResolvedValue(0);
-      prisma.oTPRecord.create.mockResolvedValue({ id: 'otp-1' });
+      (prisma.oTPRecord.count as jest.Mock).mockResolvedValue(0);
+      (prisma.oTPRecord.create as jest.Mock).mockResolvedValue({ id: 'otp-1' });
       (msg91Adapter.sendOtp as jest.Mock).mockResolvedValue(undefined);
 
       const result = await service.sendOtp({ phone: '+919000000099' });
@@ -89,13 +89,13 @@ describe('AuthService', () => {
       const now = new Date('2026-02-27T11:15:00.000Z');
       jest.useFakeTimers().setSystemTime(now);
 
-      prisma.user.upsert.mockResolvedValue({
+      (prisma.user.upsert as jest.Mock).mockResolvedValue({
         id: 'user-2',
         phone: '+919000000098',
         role: UserRole.PENDING,
       });
-      prisma.oTPRecord.count.mockResolvedValue(0);
-      prisma.oTPRecord.create.mockResolvedValue({ id: 'otp-2' });
+      (prisma.oTPRecord.count as jest.Mock).mockResolvedValue(0);
+      (prisma.oTPRecord.create as jest.Mock).mockResolvedValue({ id: 'otp-2' });
       (msg91Adapter.sendOtp as jest.Mock).mockResolvedValue(undefined);
 
       await service.sendOtp({ phone: '+919000000098' });
@@ -110,12 +110,12 @@ describe('AuthService', () => {
     });
 
     it('throws if phone has more than 5 attempts in 60s (throttle)', async () => {
-      prisma.user.upsert.mockResolvedValue({
+      (prisma.user.upsert as jest.Mock).mockResolvedValue({
         id: 'user-3',
         phone: '+919000000097',
         role: UserRole.PENDING,
       });
-      prisma.oTPRecord.count.mockResolvedValue(5);
+      (prisma.oTPRecord.count as jest.Mock).mockResolvedValue(5);
 
       await expect(service.sendOtp({ phone: '+919000000097' })).rejects.toThrow(
         'Too many OTP attempts',
@@ -126,13 +126,13 @@ describe('AuthService', () => {
     });
 
     it('creates user as PENDING for first login phone number', async () => {
-      prisma.user.upsert.mockResolvedValue({
+      (prisma.user.upsert as jest.Mock).mockResolvedValue({
         id: 'user-4',
         phone: '+919000000096',
         role: UserRole.PENDING,
       });
-      prisma.oTPRecord.count.mockResolvedValue(0);
-      prisma.oTPRecord.create.mockResolvedValue({ id: 'otp-4' });
+      (prisma.oTPRecord.count as jest.Mock).mockResolvedValue(0);
+      (prisma.oTPRecord.create as jest.Mock).mockResolvedValue({ id: 'otp-4' });
       (msg91Adapter.sendOtp as jest.Mock).mockResolvedValue(undefined);
 
       await service.sendOtp({ phone: '+919000000096' });
@@ -159,12 +159,12 @@ describe('AuthService', () => {
       const otp = '123456';
       const otpHash = createHash('sha256').update(otp).digest('hex');
 
-      prisma.user.findUnique.mockResolvedValue({
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: 'user-10',
         phone: '+919000000090',
         role: UserRole.BUYER,
       });
-      prisma.oTPRecord.findFirst.mockResolvedValue({
+      (prisma.oTPRecord.findFirst as jest.Mock).mockResolvedValue({
         id: 'otp-record-10',
         userId: 'user-10',
         otpHash,
@@ -179,7 +179,7 @@ describe('AuthService', () => {
           vendorProfile: null,
         },
       });
-      prisma.oTPRecord.updateMany.mockResolvedValue({ count: 1 });
+      (prisma.oTPRecord.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
       (jwtService.signAsync as jest.Mock).mockResolvedValue('jwt-token-value');
 
       const response = buildResponse();
@@ -220,12 +220,12 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException on wrong hash', async () => {
-      prisma.user.findUnique.mockResolvedValue({
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: 'user-11',
         phone: '+919000000091',
         role: UserRole.BUYER,
       });
-      prisma.oTPRecord.findFirst.mockResolvedValue({
+      (prisma.oTPRecord.findFirst as jest.Mock).mockResolvedValue({
         id: 'otp-record-11',
         userId: 'user-11',
         otpHash: createHash('sha256').update('000000').digest('hex'),
@@ -246,12 +246,12 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException on expired OTP', async () => {
-      prisma.user.findUnique.mockResolvedValue({
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: 'user-12',
         phone: '+919000000092',
         role: UserRole.BUYER,
       });
-      prisma.oTPRecord.findFirst.mockResolvedValue(null);
+      (prisma.oTPRecord.findFirst as jest.Mock).mockResolvedValue(null);
 
       const response = buildResponse();
 
@@ -261,12 +261,12 @@ describe('AuthService', () => {
     });
 
     it('throws UnauthorizedException on already-used OTP', async () => {
-      prisma.user.findUnique.mockResolvedValue({
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({
         id: 'user-13',
         phone: '+919000000093',
         role: UserRole.BUYER,
       });
-      prisma.oTPRecord.findFirst.mockResolvedValue({
+      (prisma.oTPRecord.findFirst as jest.Mock).mockResolvedValue({
         id: 'otp-record-13',
         userId: 'user-13',
         otpHash: createHash('sha256').update('123456').digest('hex'),
@@ -278,7 +278,7 @@ describe('AuthService', () => {
           role: UserRole.BUYER,
         },
       });
-      prisma.oTPRecord.updateMany.mockResolvedValue({ count: 0 });
+      (prisma.oTPRecord.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
 
       const response = buildResponse();
 

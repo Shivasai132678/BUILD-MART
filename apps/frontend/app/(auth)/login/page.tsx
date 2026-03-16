@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OtpStep } from './components/OtpStep';
 import { PhoneStep } from './components/PhoneStep';
@@ -47,7 +47,9 @@ export default function LoginPage() {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] }}
           >
-            <OtpStep phone={phone} onBack={() => setStep('phone')} />
+            <Suspense>
+              <OtpStep phone={phone} onBack={() => setStep('phone')} />
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>

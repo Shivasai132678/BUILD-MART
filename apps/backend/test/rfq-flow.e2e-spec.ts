@@ -241,7 +241,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       // Approve the vendor profile
       await prisma.vendorProfile.update({
         where: { id: vendorProfileId },
-        data: { isApproved: true, approvedAt: new Date() },
+        data: { status: 'APPROVED', approvedAt: new Date() },
       });
 
       // Map vendor to the seeded product
@@ -253,7 +253,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
         where: { id: vendorProfileId },
         include: { products: true },
       });
-      expect(profile?.isApproved).toBe(true);
+      expect(profile?.status).toBe('APPROVED');
       expect(profile?.products).toHaveLength(1);
     });
 

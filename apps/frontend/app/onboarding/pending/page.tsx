@@ -1,8 +1,19 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
+import { useUserStore } from '@/store/user.store';
 
 export default function VendorPendingPage() {
+  const router = useRouter();
+  const clearUser = useUserStore((s) => s.clearUser);
+
+  const handleSignOut = async () => {
+    try { await api.post('/api/v1/auth/logout'); } catch { /* ignore */ }
+    clearUser();
+    router.replace('/login');
+  };
+
   return (
     <div className="w-full max-w-lg text-center">
       {/* Logo */}
@@ -37,13 +48,13 @@ export default function VendorPendingPage() {
           </div>
         </div>
 
-        <Link
-          href="/login"
+        <button
+          onClick={() => void handleSignOut()}
           className="inline-flex items-center gap-2 text-sm text-[#7A7067] hover:text-text-primary transition-colors"
         >
           <span className="material-symbols-outlined text-[16px]">logout</span>
           Sign out
-        </Link>
+        </button>
       </div>
     </div>
   );

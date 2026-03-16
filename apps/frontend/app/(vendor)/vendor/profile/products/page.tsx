@@ -6,17 +6,28 @@ import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api';
 import { getCategories, getProducts } from '@/lib/catalog-api';
 import { addVendorProducts, getVendorProducts, removeVendorProduct, type VendorProduct } from '@/lib/vendor-api';
+import { getVendorProfile } from '@/lib/vendor-profile-api';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export default function VendorProductsPage() {
   const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [confirmRemoveProductId, setConfirmRemoveProductId] = useState<string | null>(null);
 
   const vendorProductsQuery = useQuery({
     queryKey: ['vendor-products'],
     queryFn: getVendorProducts,
   });
+
+  const profileQuery = useQuery({
+    queryKey: ['vendor-profile'],
+    queryFn: getVendorProfile,
+    retry: false,
+  });
+
+  const isApproved = profileQuery.data?.status === 'APPROVED';
 
   const categoriesQuery = useQuery({
     queryKey: ['categories'],
@@ -73,9 +84,7 @@ export default function VendorProductsPage() {
   };
 
   const handleRemoveProduct = (productId: string) => {
-    if (confirm('Are you sure you want to remove this product?')) {
-      removeProductMutation.mutate(productId);
-    }
+    setConfirmRemoveProductId(productId);
   };
 
   return (
@@ -90,12 +99,22 @@ export default function VendorProductsPage() {
         </div>
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="inline-flex items-center gap-2 bg-[#3B7FC1] hover:bg-[#2B6FAF] text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+          disabled={!isApproved}
+          title={!isApproved ? 'Approval required to manage products' : undefined}
+          className="inline-flex items-center gap-2 bg-[#3B7FC1] hover:bg-[#2B6FAF] text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           Add Products
         </button>
       </div>
+
+      {/* Approval banner */}
+      {!isApproved && !profileQuery.isLoading && (
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-sm text-amber-400 flex items-center gap-2">
+          <span className="material-symbols-outlined text-[18px]">pending</span>
+          Your vendor profile is pending admin approval. Product management will be available once approved.
+        </div>
+      )}
 
       {/* Products List */}
       {vendorProductsQuery.isLoading ? (
@@ -128,7 +147,9 @@ export default function VendorProductsPage() {
           </p>
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="mt-6 inline-flex items-center gap-2 bg-[#3B7FC1] hover:bg-[#2B6FAF] text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+            disabled={!isApproved}
+            title={!isApproved ? 'Approval required to manage products' : undefined}
+            className="mt-6 inline-flex items-center gap-2 bg-[#3B7FC1] hover:bg-[#2B6FAF] text-white px-5 py-2.5 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
             Add Products
@@ -142,10 +163,27 @@ export default function VendorProductsPage() {
               product={product}
               onRemove={() => handleRemoveProduct(product.productId)}
               isRemoving={removeProductMutation.isPending && removeProductMutation.variables === product.productId}
+              canManage={isApproved}
             />
           ))}
         </div>
       )}
+
+      {/* Confirm Remove Dialog */}
+      <ConfirmDialog
+        open={confirmRemoveProductId !== null}
+        onClose={() => setConfirmRemoveProductId(null)}
+        onConfirm={() => {
+          if (confirmRemoveProductId) removeProductMutation.mutate(confirmRemoveProductId);
+          setConfirmRemoveProductId(null);
+        }}
+        title="Remove Product"
+        description="Are you sure you want to remove this product from your profile?"
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        variant="danger"
+        loading={removeProductMutation.isPending}
+      />
 
       {/* Add Products Modal */}
       {isAddModalOpen && (
@@ -269,10 +307,12 @@ function ProductCard({
   product,
   onRemove,
   isRemoving,
+  canManage,
 }: {
   product: VendorProduct;
   onRemove: () => void;
   isRemoving: boolean;
+  canManage: boolean;
 }) {
   return (
     <div className="bg-[#111827] border border-[#1E2A3A] rounded-2xl p-4 flex flex-col">
@@ -285,8 +325,9 @@ function ProductCard({
         </div>
         <button
           onClick={onRemove}
-          disabled={isRemoving}
-          className="text-[#4A6080] hover:text-red-400 transition-colors disabled:opacity-60"
+          disabled={isRemoving || !canManage}
+          title={!canManage ? 'Approval required to manage products' : undefined}
+          className="text-[#4A6080] hover:text-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isRemoving ? (
             <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>

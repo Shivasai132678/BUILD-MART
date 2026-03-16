@@ -60,6 +60,9 @@ enum VendorStatus {
 enum NotificationType {
   RFQ_CREATED
   QUOTE_RECEIVED
+  QUOTE_COUNTER_OFFER
+  QUOTE_COUNTER_ACCEPTED
+  QUOTE_COUNTER_REJECTED
   ORDER_CONFIRMED
   STATUS_UPDATED
   PAYMENT_INITIATED
@@ -67,6 +70,16 @@ enum NotificationType {
   PAYMENT_FAILED
   VENDOR_APPROVED
   VENDOR_REJECTED
+  VENDOR_SUSPENDED
+  RFQ_EXPIRING_SOON
+  DISPUTE_OPENED
+  DISPUTE_RESOLVED
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+  CLOSED
 }
 
 // ─── USERS ──────────────────────────────────────────────────
@@ -90,6 +103,7 @@ model User {
   reviews       Review[]
   notifications Notification[]
   otpRecords    OTPRecord[]
+  disputes      Dispute[]      @relation("BuyerDisputes")
 
   @@index([phone])
   @@index([role])
@@ -135,6 +149,7 @@ model VendorProfile {
   quotes   Quote[]
   orders   Order[]         @relation("VendorOrders")
   reviews  Review[]
+  disputes Dispute[]       @relation("VendorDisputes")
 
   @@index([city, status])
   @@index([deletedAt])
@@ -168,9 +183,10 @@ model Product {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category       Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   vendorProducts VendorProduct[]
   rfqItems       RFQItem[]
+  directOrderItems DirectOrderItem[]
 
   @@index([categoryId])
   @@index([isActive])
@@ -228,6 +244,7 @@ model RFQ {
   title         String?
   status        RFQStatus @default(OPEN)
   notes         String?
+  attachments   String[]
   validUntil    DateTime
   closedAt   DateTime?
   createdAt  DateTime  @default(now())
@@ -274,6 +291,12 @@ model Quote {
   validUntil  DateTime
   notes       String?
   isWithdrawn Boolean  @default(false)
+
+  // Counter-offer negotiation
+  counterOfferPrice Decimal? @db.Decimal(10, 2)
+  counterOfferNote  String?
+  counterStatus     String?  // PENDING | ACCEPTED | REJECTED (null = no counter-offer)
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -304,11 +327,27 @@ model QuoteItem {
 
 // ─── ORDERS ─────────────────────────────────────────────────
 
+model DirectOrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Decimal @db.Decimal(10, 2)
+  unit        String
+  unitPrice   Decimal @db.Decimal(10, 2)
+  subtotal    Decimal @db.Decimal(10, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
 model Order {
   id            String        @id @default(cuid())
   referenceCode String?       @unique
-  rfqId         String        @unique
-  quoteId       String        @unique
+  rfqId         String?       @unique
+  quoteId       String?       @unique
   buyerId       String
   vendorId      String
   totalAmount   Decimal       @db.Decimal(10, 2)
@@ -322,12 +361,14 @@ model Order {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  rfq     RFQ           @relation(fields: [rfqId], references: [id], onDelete: Restrict)
-  quote   Quote         @relation(fields: [quoteId], references: [id], onDelete: Restrict)
-  buyer   User          @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
-  vendor  VendorProfile @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: Restrict)
-  payment Payment?
-  review  Review?
+  rfq             RFQ?              @relation(fields: [rfqId], references: [id], onDelete: Restrict)
+  quote           Quote?            @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  buyer           User              @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  vendor          VendorProfile     @relation("VendorOrders", fields: [vendorId], references: [id], onDelete: Restrict)
+  payment         Payment?
+  review          Review?
+  disputes        Dispute[]
+  directItems     DirectOrderItem[]
 
   @@index([buyerId])
   @@index([vendorId])
@@ -370,6 +411,31 @@ model Review {
 
   @@index([vendorId])
   @@index([buyerId])
+}
+
+// ─── DISPUTES ───────────────────────────────────────────────
+
+model Dispute {
+  id          String        @id @default(cuid())
+  orderId     String
+  buyerId     String
+  vendorId    String
+  reason      String
+  description String
+  status      DisputeStatus @default(OPEN)
+  adminNotes  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  order  Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  buyer  User          @relation("BuyerDisputes", fields: [buyerId], references: [id], onDelete: Restrict)
+  vendor VendorProfile @relation("VendorDisputes", fields: [vendorId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([buyerId])
+  @@index([vendorId])
+  @@index([status])
 }
 
 // ─── NOTIFICATIONS ──────────────────────────────────────────

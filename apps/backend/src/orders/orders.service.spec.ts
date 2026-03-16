@@ -24,7 +24,7 @@ describe('OrdersService', () => {
   } as unknown as jest.Mocked<PrismaService>;
 
   const notificationsService = {
-    createNotification: jest.fn(),
+    create: jest.fn(),
   } as unknown as NotificationsService;
 
   const baseOrder = {
@@ -48,17 +48,17 @@ describe('OrdersService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     service = new OrdersService(prisma, notificationsService);
-    (notificationsService.createNotification as jest.Mock).mockResolvedValue(undefined);
+    (notificationsService.create as jest.Mock).mockResolvedValue(undefined);
   });
 
   describe('valid transitions', () => {
     it('CONFIRMED -> OUT_FOR_DELIVERY (vendor)', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValueOnce({ id: 'vendor-profile-1' });
-      prisma.order.findUnique.mockResolvedValueOnce({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValueOnce({ id: 'vendor-profile-1' });
+      (prisma.order.findUnique as jest.Mock).mockResolvedValueOnce({
         ...baseOrder,
         status: OrderStatus.CONFIRMED,
       });
-      prisma.order.update.mockResolvedValueOnce({
+      (prisma.order.update as jest.Mock).mockResolvedValueOnce({
         ...baseOrder,
         status: OrderStatus.OUT_FOR_DELIVERY,
         dispatchedAt: new Date('2026-02-27T09:00:00.000Z'),
@@ -70,22 +70,24 @@ describe('OrdersService', () => {
 
       expect(result.status).toBe(OrderStatus.OUT_FOR_DELIVERY);
       expect(prisma.order.update).toHaveBeenCalledTimes(1);
-      expect(notificationsService.createNotification).toHaveBeenCalledWith(
-        'buyer-1',
-        NotificationType.STATUS_UPDATED,
-        'Order status updated',
-        expect.stringContaining('out for delivery'),
-        expect.objectContaining({ status: OrderStatus.OUT_FOR_DELIVERY }),
+      expect(notificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'buyer-1',
+          type: NotificationType.STATUS_UPDATED,
+          title: 'Order status updated',
+          message: expect.stringContaining('out for delivery'),
+          metadata: expect.objectContaining({ status: OrderStatus.OUT_FOR_DELIVERY }),
+        }),
       );
     });
 
     it('OUT_FOR_DELIVERY -> DELIVERED (vendor)', async () => {
-      prisma.vendorProfile.findUnique.mockResolvedValueOnce({ id: 'vendor-profile-1' });
-      prisma.order.findUnique.mockResolvedValueOnce({
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValueOnce({ id: 'vendor-profile-1' });
+      (prisma.order.findUnique as jest.Mock).mockResolvedValueOnce({
         ...baseOrder,
         status: OrderStatus.OUT_FOR_DELIVERY,
       });
-      prisma.order.update.mockResolvedValueOnce({
+      (prisma.order.update as jest.Mock).mockResolvedValueOnce({
         ...baseOrder,
         status: OrderStatus.DELIVERED,
         deliveredAt: new Date('2026-02-27T10:00:00.000Z'),
@@ -96,27 +98,29 @@ describe('OrdersService', () => {
       });
 
       expect(result.status).toBe(OrderStatus.DELIVERED);
-      expect(notificationsService.createNotification).toHaveBeenCalledWith(
-        'buyer-1',
-        NotificationType.STATUS_UPDATED,
-        'Order status updated',
-        expect.stringContaining('delivered'),
-        expect.objectContaining({ status: OrderStatus.DELIVERED }),
+      expect(notificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'buyer-1',
+          type: NotificationType.STATUS_UPDATED,
+          title: 'Order status updated',
+          message: expect.stringContaining('delivered'),
+          metadata: expect.objectContaining({ status: OrderStatus.DELIVERED }),
+        }),
       );
     });
 
     it('CONFIRMED -> CANCELLED (buyer)', async () => {
-      prisma.order.findUnique.mockResolvedValueOnce({
+      (prisma.order.findUnique as jest.Mock).mockResolvedValueOnce({
         ...baseOrder,
         status: OrderStatus.CONFIRMED,
       });
-      prisma.order.update.mockResolvedValueOnce({
+      (prisma.order.update as jest.Mock).mockResolvedValueOnce({
         ...baseOrder,
         status: OrderStatus.CANCELLED,
         cancelledAt: new Date('2026-02-27T09:30:00.000Z'),
         cancelReason: 'Buyer requested cancellation',
       });
-      prisma.vendorProfile.findUnique.mockResolvedValueOnce({ userId: 'vendor-user-1' });
+      (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValueOnce({ userId: 'vendor-user-1' });
 
       const result = await service.cancelOrder(
         'order-1',
@@ -134,7 +138,7 @@ describe('OrdersService', () => {
           cancelledAt: expect.any(Date),
         }),
       });
-      expect(notificationsService.createNotification).toHaveBeenCalledTimes(2);
+      expect(notificationsService.create).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -146,9 +150,9 @@ describe('OrdersService', () => {
       [OrderStatus.DELIVERED, OrderStatus.OUT_FOR_DELIVERY],
     ])(
       'throws BadRequestException for %s -> %s',
-      async (currentStatus: OrderStatus, requestedStatus: OrderStatus) => {
-        prisma.vendorProfile.findUnique.mockResolvedValueOnce({ id: 'vendor-profile-1' });
-        prisma.order.findUnique.mockResolvedValueOnce({
+        async (currentStatus: OrderStatus, requestedStatus: OrderStatus) => {
+        (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValueOnce({ id: 'vendor-profile-1' });
+        (prisma.order.findUnique as jest.Mock).mockResolvedValueOnce({
           ...baseOrder,
           status: currentStatus,
         });
