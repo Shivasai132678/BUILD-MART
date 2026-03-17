@@ -20,6 +20,34 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## E2E Testing (Playwright)
+
+Run from repo root:
+
+```bash
+pnpm --dir apps/frontend test:e2e
+```
+
+Targeted suites:
+
+```bash
+pnpm --dir apps/frontend test:e2e -- --grep "Admin — vendor approval via UI"
+pnpm --dir apps/frontend test:e2e -- --grep "Pending vendor"
+```
+
+Prerequisites:
+
+- Frontend on `http://localhost:3000`
+- Backend on `http://localhost:3001`
+- Backend env includes `E2E_TEST_OTP=123456` for deterministic OTP login in tests
+
+## Onboarding + Access Guarantees
+
+- Fresh buyer onboarding flow is covered end-to-end: `/login` -> OTP -> `/onboarding/buyer` -> `/buyer/dashboard`.
+- Fresh vendor onboarding flow is covered end-to-end: `/login` -> OTP -> `/onboarding/vendor` submit -> `/vendor/dashboard` with pending banner.
+- Pending vendors retain `/vendor/*` dashboard access, but write operations remain blocked:
+  quote submit and vendor product mutation APIs are expected to return `403`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -44,6 +44,15 @@ pnpm test:cov           # coverage report
 pnpm test:e2e           # end-to-end tests
 ```
 
+## E2E Role-Flow Notes
+
+- JWT role claims are evaluated at token issue time. After role-changing onboarding actions in tests,
+  call `POST /api/v1/auth/refresh` and use the refreshed cookie for subsequent role-guarded endpoints.
+- Buyer flow: after `POST /api/v1/onboarding/buyer-profile`, refresh auth before buyer-only actions.
+- Vendor flow: once admin approval state is applied, refresh auth before vendor-only actions.
+- Vendor onboarding duplicate uniqueness conflicts now return `409 Conflict` (not `500`), with
+  explicit messages for duplicate `gstNumber` and other unique fields.
+
 ## Key Architecture
 
 | Module | Responsibility |

@@ -109,10 +109,20 @@ export default function VendorOnboardingPage() {
         productIds: values.productIds,
       });
 
-      const statusRes = await api.get('/api/v1/onboarding/status');
-      const statusData = statusRes.data?.data ?? statusRes.data;
-      if (statusData) {
-        setUser((prev) => ({ ...(prev ?? {}), ...statusData }));
+      // Refresh JWT so middleware immediately receives hasVendorProfile=true.
+      const refreshRes = await api.post('/api/v1/auth/refresh');
+      const refreshedUser =
+        refreshRes.data?.data?.user ??
+        refreshRes.data?.user ??
+        null;
+      if (refreshedUser) {
+        setUser(refreshedUser);
+      } else {
+        const statusRes = await api.get('/api/v1/onboarding/status');
+        const statusData = statusRes.data?.data ?? statusRes.data;
+        if (statusData) {
+          setUser((prev) => ({ ...(prev ?? {}), ...statusData }));
+        }
       }
 
       toast.success("Application submitted! You'll be notified once approved.");

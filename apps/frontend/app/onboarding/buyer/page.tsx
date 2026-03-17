@@ -28,17 +28,29 @@ export default function BuyerOnboardingPage() {
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
   const onSubmit = handleSubmit(async (values) => {
+    let refreshed = false;
     try {
       await api.post('/api/v1/onboarding/buyer-profile', {
         name: values.name,
         ...(values.companyName ? { companyName: values.companyName } : {}),
       });
+
+      // Refresh JWT so middleware sees updated BUYER role immediately.
+      const refreshRes = await api.post('/api/v1/auth/refresh');
+      const refreshedUser =
+        refreshRes.data?.data?.user ??
+        refreshRes.data?.user ??
+        null;
+      if (refreshedUser) {
+        setUser(refreshedUser);
+        refreshed = true;
+      }
     } catch (error) {
       toast.error(getApiErrorMessage(error));
       return;
     }
-    if (user) {
-      setUser({ ...user, name: values.name });
+    if (!refreshed && user) {
+      setUser({ ...user, name: values.name, role: 'BUYER' });
     }
     toast.success('Profile set up! Welcome to BuildMart.');
     router.replace('/buyer/dashboard');

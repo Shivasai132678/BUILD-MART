@@ -117,6 +117,26 @@ All scripts run from the **repo root**.
 
 ---
 
+## E2E Coverage
+
+Core E2E suites now enforce:
+
+- Fresh onboarding journeys from auth to dashboard for both buyer and vendor.
+- Vendor approval workflows (API and UI) without flaky onboarding-data collisions.
+- Pending vendor policy: dashboard/read access to `/vendor/*` is allowed, while mutating actions
+  (for example quote submission and vendor product mutations) are denied with `403`.
+
+Run locally:
+
+```bash
+pnpm --dir apps/backend test:e2e
+pnpm --dir apps/frontend test:e2e
+```
+
+Set `E2E_TEST_OTP=123456` in backend env for deterministic OTP flows in automation.
+
+---
+
 ## Demo Accounts
 
 Seed data creates these accounts (use the phone number to receive an OTP via console):

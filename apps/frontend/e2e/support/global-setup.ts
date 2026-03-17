@@ -22,6 +22,41 @@ const USERS = [
   { role: 'vendor', phone: '+919000000004' },
 ] as const;
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function postSendOtpWithRetry(
+  ctx: Awaited<ReturnType<typeof request.newContext>>,
+  phone: string,
+  role: string,
+  maxAttempts = 5,
+): Promise<void> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const sendRes = await ctx.post('/api/v1/auth/send-otp', {
+      data: { phone },
+    });
+
+    if (sendRes.ok()) return;
+
+    if (sendRes.status() !== 429 || attempt === maxAttempts) {
+      throw new Error(
+        `[global-setup] send-otp failed for ${role} (${phone}): ${sendRes.status()} ${await sendRes.text()}`,
+      );
+    }
+
+    const retryAfterHeader = sendRes.headers()['retry-after'];
+    const retryAfterSeconds = retryAfterHeader ? Number.parseInt(retryAfterHeader, 10) : NaN;
+    const waitMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? retryAfterSeconds * 1000
+      : attempt * 10_000;
+    console.log(
+      `[global-setup] send-otp throttled for ${role} (${phone}), attempt ${attempt}/${maxAttempts}. Retrying in ${waitMs}ms...`,
+    );
+    await sleep(waitMs);
+  }
+}
+
 export default async function globalSetup() {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 
@@ -29,14 +64,7 @@ export default async function globalSetup() {
     const ctx = await request.newContext({ baseURL: API_BASE });
 
     // 1. Trigger OTP — backend uses E2E_TEST_OTP when set
-    const sendRes = await ctx.post('/api/v1/auth/send-otp', {
-      data: { phone },
-    });
-    if (!sendRes.ok()) {
-      throw new Error(
-        `[global-setup] send-otp failed for ${role} (${phone}): ${sendRes.status()} ${await sendRes.text()}`,
-      );
-    }
+    await postSendOtpWithRetry(ctx, phone, role);
 
     // 2. Verify OTP — backend sets access_token HTTP-only cookie
     const verifyRes = await ctx.post('/api/v1/auth/verify-otp', {

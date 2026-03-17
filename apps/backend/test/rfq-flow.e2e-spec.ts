@@ -135,6 +135,25 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
    *   2. Inject a known OTP hash into DB (so verify-otp is deterministic)
    *   3. POST /auth/verify-otp → returns access_token cookie
    */
+  function extractAccessTokenCookie(
+    setCookieHeader: string[] | string | undefined,
+  ): string {
+    if (!setCookieHeader) {
+      throw new Error('Missing Set-Cookie header with access_token');
+    }
+
+    const rawCookie = Array.isArray(setCookieHeader)
+      ? (setCookieHeader.find((cookie) => cookie.includes('access_token=')) ??
+        setCookieHeader[0])
+      : setCookieHeader;
+
+    if (!rawCookie.includes('access_token=')) {
+      throw new Error('Set-Cookie header does not contain access_token');
+    }
+
+    return rawCookie;
+  }
+
   async function authenticateUser(phone: string): Promise<string> {
     await request(app.getHttpServer())
       .post('/api/v1/auth/send-otp')
@@ -159,11 +178,18 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       .send({ phone, otp: KNOWN_OTP })
       .expect(200);
 
-    const setCookie = res.headers['set-cookie'];
-    const cookie: string = Array.isArray(setCookie) ? setCookie[0] : setCookie;
-
+    const cookie = extractAccessTokenCookie(res.headers['set-cookie']);
     expect(cookie).toContain('access_token');
     return cookie;
+  }
+
+  async function refreshAuthCookie(currentCookie: string): Promise<string> {
+    const refreshRes = await request(app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', currentCookie)
+      .expect(200);
+
+    return extractAccessTokenCookie(refreshRes.headers['set-cookie']);
   }
 
   // ──────────────────────────────────────────────
@@ -175,7 +201,27 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       buyerCookie = await authenticateUser(BUYER_PHONE);
     });
 
-    it('Step 3: Buyer creates a delivery address', async () => {
+    it('Step 3: Buyer completes buyer onboarding and refreshes auth token', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/onboarding/buyer-profile')
+        .set('Cookie', buyerCookie)
+        .send({
+          name: 'E2E Buyer',
+          companyName: 'BuildMart QA',
+        })
+        .expect(201);
+
+      buyerCookie = await refreshAuthCookie(buyerCookie);
+
+      const meRes = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Cookie', buyerCookie)
+        .expect(200);
+
+      expect(meRes.body.data.role).toBe('BUYER');
+    });
+
+    it('Step 4: Buyer creates a delivery address', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/addresses')
         .set('Cookie', buyerCookie)
@@ -193,7 +239,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(addressId).toBeDefined();
     });
 
-    it('Step 4: Buyer creates an RFQ', async () => {
+    it('Step 5: Buyer creates an RFQ', async () => {
       const validUntil = new Date(
         Date.now() + 7 * 24 * 60 * 60 * 1000,
       ).toISOString();
@@ -213,11 +259,11 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(res.body.data.status).toBe('OPEN');
     });
 
-    it('Step 5-6: Vendor authenticates via OTP', async () => {
+    it('Step 6-7: Vendor authenticates via OTP', async () => {
       vendorCookie = await authenticateUser(VENDOR_PHONE);
     });
 
-    it('Step 7: Vendor onboards (role upgrades BUYER → VENDOR)', async () => {
+    it('Step 8: Vendor submits onboarding profile (role remains PENDING)', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/vendors/onboard')
         .set('Cookie', vendorCookie)
@@ -233,15 +279,25 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(vendorProfileId).toBeDefined();
     });
 
-    it('Step 8: Vendor re-authenticates to get fresh VENDOR JWT', async () => {
-      vendorCookie = await authenticateUser(VENDOR_PHONE);
-    });
-
-    it('Step 9: Seed vendor product + approve vendor (direct DB)', async () => {
+    it('Step 9: Approve vendor + seed vendor product (direct DB)', async () => {
       // Approve the vendor profile
       await prisma.vendorProfile.update({
         where: { id: vendorProfileId },
         data: { status: 'APPROVED', approvedAt: new Date() },
+      });
+
+      const vendorUser = await prisma.user.findUnique({
+        where: { phone: VENDOR_PHONE },
+        select: { id: true },
+      });
+      if (!vendorUser) {
+        throw new Error(`Vendor user not found for phone ${VENDOR_PHONE}`);
+      }
+
+      // Mirror admin approval side-effect: approved vendors hold VENDOR role
+      await prisma.user.update({
+        where: { id: vendorUser.id },
+        data: { role: 'VENDOR' },
       });
 
       // Map vendor to the seeded product
@@ -257,7 +313,19 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(profile?.products).toHaveLength(1);
     });
 
-    it('Step 10: Vendor sees available RFQs matching their products', async () => {
+    it('Step 10: Vendor refreshes auth token to pick up VENDOR role', async () => {
+      vendorCookie = await refreshAuthCookie(vendorCookie);
+
+      const meRes = await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Cookie', vendorCookie)
+        .expect(200);
+
+      expect(meRes.body.data.role).toBe('VENDOR');
+      expect(meRes.body.data.vendorApproved).toBe(true);
+    });
+
+    it('Step 11: Vendor sees available RFQs matching their products', async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/rfq/available')
         .set('Cookie', vendorCookie)
@@ -268,7 +336,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(rfqs.some((r: { id: string }) => r.id === rfqId)).toBe(true);
     });
 
-    it('Step 11: Vendor submits a quote for the RFQ', async () => {
+    it('Step 12: Vendor submits a quote for the RFQ', async () => {
       const validUntil = new Date(
         Date.now() + 7 * 24 * 60 * 60 * 1000,
       ).toISOString();
@@ -299,7 +367,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(quoteId).toBeDefined();
     });
 
-    it('Step 12: Buyer views quotes for the RFQ', async () => {
+    it('Step 13: Buyer views quotes for the RFQ', async () => {
       const res = await request(app.getHttpServer())
         .get(`/api/v1/quotes/rfq/${rfqId}`)
         .set('Cookie', buyerCookie)
@@ -310,7 +378,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(quotes.some((q: { id: string }) => q.id === quoteId)).toBe(true);
     });
 
-    it('Step 13: Buyer accepts quote → creates order (CONFIRMED)', async () => {
+    it('Step 14: Buyer accepts quote → creates order (CONFIRMED)', async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/orders')
         .set('Cookie', buyerCookie)
@@ -322,7 +390,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(res.body.data.status).toBe('CONFIRMED');
     });
 
-    it('Step 14: Vendor updates order → OUT_FOR_DELIVERY', async () => {
+    it('Step 15: Vendor updates order → OUT_FOR_DELIVERY', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/orders/${orderId}/status`)
         .set('Cookie', vendorCookie)
@@ -332,7 +400,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(res.body.data.status).toBe('OUT_FOR_DELIVERY');
     });
 
-    it('Step 15: Vendor updates order → DELIVERED', async () => {
+    it('Step 16: Vendor updates order → DELIVERED', async () => {
       const res = await request(app.getHttpServer())
         .patch(`/api/v1/orders/${orderId}/status`)
         .set('Cookie', vendorCookie)
@@ -342,7 +410,7 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       expect(res.body.data.status).toBe('DELIVERED');
     });
 
-    it('Step 16: Verify RFQ status is CLOSED', async () => {
+    it('Step 17: Verify RFQ status is CLOSED', async () => {
       const rfq = await prisma.rFQ.findUnique({ where: { id: rfqId } });
       expect(rfq?.status).toBe('CLOSED');
     });

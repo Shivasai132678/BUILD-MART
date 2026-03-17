@@ -26,6 +26,7 @@ are tracked in git.
 | `RAZORPAY_WEBHOOK_SECRET` | Prod | Razorpay webhook signing secret |
 | `MSG91_AUTH_KEY` | No | MSG91 auth key for OTP SMS delivery |
 | `MSG91_TEMPLATE_ID` | No | MSG91 OTP template ID |
+| `E2E_TEST_OTP` | No (test/dev) | Deterministic OTP override for automated E2E (recommended: `123456`) |
 | `WHATSAPP_API_KEY` | No | Interakt/AiSensy WhatsApp Business API key |
 | `WHATSAPP_SENDER_NUMBER` | No | WhatsApp sender phone number |
 
@@ -46,3 +47,6 @@ In production a missing value triggers a console error warning.
 ---
 
 RULE: Never commit `.env` files. Only commit `.env.example` with blank values.
+
+For local E2E runs, set `E2E_TEST_OTP=123456` in `apps/backend/.env` so frontend and backend
+test suites can complete OTP login deterministically.

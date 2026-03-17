@@ -29,6 +29,10 @@ function unwrap<T>(body: Record<string, unknown>): T {
   return (body.data ?? body) as T;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 async function apiGet<T>(ctx: APIRequestContext, path: string): Promise<T> {
   const res = await ctx.get(`${API}${path}`);
   if (!res.ok()) throw new Error(`GET ${path} → ${res.status()}: ${await res.text()}`);
@@ -44,10 +48,12 @@ async function apiPost<T>(ctx: APIRequestContext, path: string, data: unknown): 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Product  = { id: string; name: string; unit: string };
+type Category = { id: string; name: string };
 type Address  = { id: string };
 type Rfq      = { id: string; status: string; referenceCode?: string };
 type Quote    = { id: string; totalAmount: string };
 type Order    = { id: string; status: string };
+type AdminVendor = { id: string; businessName: string; status: string };
 type Paginated<T> = { items: T[]; total: number };
 
 // ─── Unique phone generator  ──────────────────────────────────────────────────
@@ -58,6 +64,17 @@ function freshPhone(): string {
   const suffix = String(Date.now()).slice(-6) + String(freshPhoneSeq++);
   const digits = suffix.slice(0, 10).padEnd(10, '1');
   return `+91${digits}`;
+}
+
+const NON_ZERO_ALPHA_NUM = '123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const ALPHA_NUM = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+let freshGstSeq = 0;
+function freshGstNumber(): string {
+  freshGstSeq += 1;
+  const fourDigits = String(Date.now() + freshGstSeq).slice(-4);
+  const checkChar = NON_ZERO_ALPHA_NUM[freshGstSeq % NON_ZERO_ALPHA_NUM.length];
+  const tailChar = ALPHA_NUM[(freshGstSeq * 7) % ALPHA_NUM.length];
+  return `36AABCT${fourDigits}F${checkChar}Z${tailChar}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,7 +101,88 @@ test.describe('Auth — new user registration', () => {
 
     // New user (no name set) → onboarding role chooser
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
-    await expect(page.getByText(/how will you use buildmart/i)).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /how will you use buildmart/i }),
+    ).toBeVisible();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1A. FRESH ONBOARDING — AUTH TO DASHBOARD
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('Fresh onboarding — auth to dashboard', () => {
+  test('fresh buyer: /login → OTP → /onboarding/buyer → /buyer/dashboard', async ({ page }) => {
+    const phone = freshPhone();
+
+    await page.goto('/login');
+    await page.getByLabel('Phone Number').fill(phone);
+    await page.getByRole('button', { name: /get otp|send otp/i }).click();
+    await expect(page.getByLabel(/otp/i)).toBeVisible({ timeout: 10_000 });
+    await page.getByLabel(/otp/i).fill(E2E_OTP);
+    await page.getByRole('button', { name: /verify|confirm|sign in|continue/i }).click();
+
+    await expect(page).toHaveURL(/\/onboarding$/, { timeout: 20_000 });
+    await page.getByRole('link', { name: /i'?m a buyer/i }).click();
+    await expect(page).toHaveURL(/\/onboarding\/buyer/, { timeout: 10_000 });
+
+    await page.locator('#buyer-name').fill('Fresh Buyer E2E');
+    await page.getByRole('button', { name: /continue to dashboard/i }).click();
+    await expect(page).toHaveURL(/\/buyer\/dashboard/, { timeout: 20_000 });
+  });
+
+  test('fresh vendor: /login → OTP → /onboarding/vendor submit → /vendor/dashboard pending', async ({ page }) => {
+    const phone = freshPhone();
+    const gstNumber = freshGstNumber();
+
+    await page.goto('/login');
+    await page.getByLabel('Phone Number').fill(phone);
+    await page.getByRole('button', { name: /get otp|send otp/i }).click();
+    await expect(page.getByLabel(/otp/i)).toBeVisible({ timeout: 10_000 });
+    await page.getByLabel(/otp/i).fill(E2E_OTP);
+    await page.getByRole('button', { name: /verify|confirm|sign in|continue/i }).click();
+
+    await expect(page).toHaveURL(/\/onboarding$/, { timeout: 20_000 });
+    await page.getByRole('link', { name: /i'?m a vendor/i }).click();
+    await expect(page).toHaveURL(/\/onboarding\/vendor/, { timeout: 10_000 });
+
+    await page.getByPlaceholder(/sharma building supplies/i).fill('Fresh Vendor E2E');
+    await page.getByPlaceholder(/27aapfu|gst number/i).fill(gstNumber);
+    await page.getByPlaceholder(/e\.g\. hyderabad/i).fill('Hyderabad');
+    await page
+      .locator('input[name="serviceableAreas"], textarea[name="serviceableAreas"]')
+      .first()
+      .fill('Madhapur, Gachibowli');
+    await page.getByRole('button', { name: /continue/i }).click();
+
+    const categories = await apiGet<Paginated<Category>>(
+      page.request,
+      '/api/v1/categories?limit=1&offset=0',
+    );
+    expect(categories.items.length).toBeGreaterThan(0);
+    const category = categories.items[0];
+
+    const products = await apiGet<Paginated<Product>>(
+      page.request,
+      `/api/v1/products?limit=1&offset=0&categoryId=${category.id}`,
+    );
+    expect(products.items.length).toBeGreaterThan(0);
+    const product = products.items[0];
+
+    await page.getByRole('button', { name: category.name }).first().click();
+    await page
+      .getByRole('button', { name: new RegExp(escapeRegExp(product.name), 'i') })
+      .first()
+      .click();
+    await page.getByRole('button', { name: /review/i }).click();
+    await page.getByRole('button', { name: /submit for review/i }).click();
+
+    await expect(page).toHaveURL(/\/onboarding\/pending/, { timeout: 20_000 });
+    await page.goto('/vendor/dashboard');
+    await expect(page).toHaveURL(/\/vendor\/dashboard/, { timeout: 20_000 });
+    await expect(page.getByText(/your account is pending approval/i)).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 
@@ -344,7 +442,7 @@ test.describe('Vendor onboarding — multi-step form', () => {
 
     // Fill step 1 fields (labels have no htmlFor, use placeholder/name selectors)
     await page.getByPlaceholder(/sharma building supplies/i).fill('E2E Test Vendors Pvt Ltd');
-    await page.getByPlaceholder(/27aapfu|gst number/i).fill('36AABCT1234F1Z5');
+    await page.getByPlaceholder(/27aapfu|gst number/i).fill(freshGstNumber());
     const cityField = page.getByPlaceholder(/e\.g\. hyderabad/i);
     await cityField.clear();
     await cityField.fill('Hyderabad');
@@ -389,94 +487,57 @@ test.describe('Admin workflows', () => {
     await expect(page).not.toHaveURL(/\/login/);
   });
 
-  test('vendor approvals — approve button visible when pending vendors exist', async ({ page }) => {
-    // First create a pending vendor via API so there is at least one to approve
-    const phone = freshPhone();
-    await page.request.post(`${API}/api/v1/auth/send-otp`, { data: { phone } });
-    await page.request.post(`${API}/api/v1/auth/verify-otp`, { data: { phone, otp: E2E_OTP } });
+  test('vendor approvals — approve button visible for newly onboarded vendor row', async ({ page }) => {
+    // Reuse an existing pending vendor to avoid OTP throttle in long suites.
+    const pendingVendors = await apiGet<Paginated<AdminVendor>>(
+      page.request,
+      '/api/v1/admin/vendors?limit=20&offset=0&status=PENDING',
+    );
+    expect(pendingVendors.items.length).toBeGreaterThan(0);
+    const businessName = pendingVendors.items[0].businessName;
 
-    // Onboard as vendor via API using admin request (we just need to create the profile)
-    // Use a separate vendor context
-    const vendorCtx = await page.context().browser()!.newContext();
-    const vReq = vendorCtx.request;
-    await vReq.post(`${API}/api/v1/auth/send-otp`, { data: { phone } });
-    await vReq.post(`${API}/api/v1/auth/verify-otp`, { data: { phone, otp: E2E_OTP } });
-
-    // Get a product to include
-    const products = await apiGet<Paginated<Product>>(vReq, '/api/v1/products?limit=1&offset=0');
-    if (products.items.length > 0) {
-      try {
-        await apiPost(vReq, '/api/v1/vendors/onboard', {
-          businessName: 'Admin Approval Test Vendor',
-          gstNumber: '36AABCT5678F1Z2',
-          city: 'Hyderabad',
-          serviceableAreas: ['Banjara Hills'],
-          productIds: [products.items[0].id],
-        });
-      } catch {
-        // May fail if phone already has a vendor profile — that's OK
-      }
-    }
-    await vendorCtx.close();
-
-    // Navigate to admin vendors page
     await page.goto('/admin/vendors');
     await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('heading', { name: /vendor management/i })).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByRole('button', { name: /^pending$/i }).click();
+    await page.waitForLoadState('networkidle');
 
-    // Check for pending vendor cards — approve button may or may not be visible
-    const approveBtn = page.getByRole('button', { name: /approve/i }).first();
-    const hasVendors = await approveBtn.isVisible({ timeout: 5_000 }).catch(() => false);
+    const vendorCard = page
+      .locator('div.border.rounded-2xl', { hasText: businessName })
+      .first();
+    await expect(vendorCard).toBeVisible({ timeout: 15_000 });
 
-    if (hasVendors) {
-      // Clicking approve opens confirm dialog
-      await approveBtn.click();
-      await expect(page.getByRole('dialog').or(page.getByText(/confirm|approve/i).first())).toBeVisible({ timeout: 5_000 });
-      // Close without confirming
-      const cancelBtn = page.getByRole('button', { name: /cancel|no/i }).first();
-      if (await cancelBtn.isVisible()) await cancelBtn.click();
-    } else {
-      console.log('[e2e] No pending vendors visible — skipping approve button check');
-    }
+    const approveBtn = vendorCard.getByRole('button', { name: /approve/i });
+    await expect(approveBtn).toBeVisible({ timeout: 8_000 });
+    await approveBtn.click();
+    await expect(
+      page.getByText(new RegExp(`approve ${escapeRegExp(businessName)}\\?`, 'i')),
+    ).toBeVisible({
+      timeout: 8_000,
+    });
+    const confirmOverlay = page.locator('div.fixed.inset-0').last();
+    await confirmOverlay.getByRole('button', { name: /^cancel$/i }).click();
   });
 
   test('admin can approve a vendor via API', async ({ page }) => {
-    // Create a fresh vendor user and onboard them
-    const phone = freshPhone();
-    const vendorCtx = await page.context().browser()!.newContext();
-    const vReq = vendorCtx.request;
+    const pendingVendors = await apiGet<Paginated<AdminVendor>>(
+      page.request,
+      '/api/v1/admin/vendors?limit=20&offset=0&status=PENDING',
+    );
+    expect(pendingVendors.items.length).toBeGreaterThan(0);
+    const vendorProfileId = pendingVendors.items[0].id;
 
-    await vReq.post(`${API}/api/v1/auth/send-otp`, { data: { phone } });
-    await vReq.post(`${API}/api/v1/auth/verify-otp`, { data: { phone, otp: E2E_OTP } });
-
-    const products = await apiGet<Paginated<Product>>(vReq, '/api/v1/products?limit=1&offset=0');
-    expect(products.items.length).toBeGreaterThan(0);
-
-    let vendorProfileId: string | undefined;
-    try {
-      const profile = await apiPost<{ id: string }>(vReq, '/api/v1/vendors/onboard', {
-        businessName: 'API Approval Test Corp',
-        gstNumber: '36AABCT9012F1Z3',
-        city: 'Hyderabad',
-        serviceableAreas: ['Jubilee Hills'],
-        productIds: [products.items[0].id],
-      });
-      vendorProfileId = profile.id;
-    } catch {
-      console.log('[e2e] Onboard failed (profile may already exist) — skipping approval');
-    }
-    await vendorCtx.close();
-
-    if (vendorProfileId) {
-      // Admin approves via API
-      const approveRes = await page.request.patch(
-        `${API}/api/v1/admin/vendors/${vendorProfileId}/approve`,
-      );
-      expect(approveRes.ok(), `Admin approve failed with HTTP ${approveRes.status()}`).toBe(true);
-      // VendorProfile has status field (APPROVED), not isApproved boolean
-      const approved = unwrap<{ status: string }>((await approveRes.json()) as Record<string, unknown>);
-      expect(approved.status).toBe('APPROVED');
-      console.log(`[e2e] ✓ Vendor ${vendorProfileId} approved via admin API`);
-    }
+    // Admin approves via API
+    const approveRes = await page.request.patch(
+      `${API}/api/v1/admin/vendors/${vendorProfileId}/approve`,
+    );
+    expect(approveRes.ok(), `Admin approve failed with HTTP ${approveRes.status()}`).toBe(true);
+    // VendorProfile has status field (APPROVED), not isApproved boolean
+    const approved = unwrap<{ status: string }>((await approveRes.json()) as Record<string, unknown>);
+    expect(approved.status).toBe('APPROVED');
+    console.log(`[e2e] ✓ Vendor ${vendorProfileId} approved via admin API`);
   });
 });
 
@@ -793,73 +854,49 @@ test.describe('Vendor — RFQ detail and quote form', () => {
 test.describe('Admin — vendor approval via UI', () => {
   test.use({ storageState: STORAGE.admin });
 
-  test('admin approves a pending vendor through the UI', async ({ page, browser }) => {
-    // Create a fresh vendor and onboard them via API
-    const phone = freshPhone();
-    const vendorCtx = await browser.newContext();
-    const vReq = vendorCtx.request;
-
-    await vReq.post(`${API}/api/v1/auth/send-otp`, { data: { phone } });
-    await vReq.post(`${API}/api/v1/auth/verify-otp`, { data: { phone, otp: E2E_OTP } });
-
-    const products = await apiGet<Paginated<Product>>(vReq, '/api/v1/products?limit=1&offset=0');
-    let onboardOk = false;
-    if (products.items.length > 0) {
-      try {
-        await apiPost(vReq, '/api/v1/vendors/onboard', {
-          businessName:     'UI Approval Test Vendor',
-          gstNumber:        '36AABCT3456F1Z4',
-          city:             'Hyderabad',
-          serviceableAreas: ['Banjara Hills'],
-          productIds:       [products.items[0].id],
-        });
-        onboardOk = true;
-      } catch {
-        console.log('[e2e] Onboard possibly already exists — continuing');
-      }
-    }
-    await vendorCtx.close();
-
-    if (!onboardOk) {
-      console.log('[e2e] Could not onboard fresh vendor — skipping UI approval test');
-      return;
-    }
+  test('admin approves a pending vendor through the UI', async ({ page }) => {
+    const pendingVendors = await apiGet<Paginated<AdminVendor>>(
+      page.request,
+      '/api/v1/admin/vendors?limit=20&offset=0&status=PENDING',
+    );
+    expect(pendingVendors.items.length).toBeGreaterThan(0);
+    const targetVendor = pendingVendors.items[0];
+    const businessName = targetVendor.businessName;
 
     // Navigate to admin vendor approvals page
     await page.goto('/admin/vendors');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /vendor approval/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: /vendor management/i })).toBeVisible({
+      timeout: 10_000,
+    });
+    await page.getByRole('button', { name: /^pending$/i }).click();
+    await page.waitForLoadState('networkidle');
 
-    // Look for an Approve button
-    const approveBtn = page.getByRole('button', { name: /approve/i }).first();
-    const hasApproveBtn = await approveBtn.isVisible({ timeout: 8_000 }).catch(() => false);
+    const vendorCard = page
+      .locator('div.border.rounded-2xl', { hasText: businessName })
+      .first();
+    await expect(vendorCard).toBeVisible({ timeout: 15_000 });
 
-    if (!hasApproveBtn) {
-      console.log('[e2e] No approve button visible — pending vendor may not appear immediately');
-      return;
-    }
-
+    const approveBtn = vendorCard.getByRole('button', { name: /approve/i });
+    await expect(approveBtn).toBeVisible({ timeout: 8_000 });
     await approveBtn.click();
 
-    // A confirmation dialog should appear
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
-    if (dialogVisible) {
-      // Confirm approval
-      const confirmBtn = dialog.getByRole('button', { name: /approve|confirm|yes/i });
-      await confirmBtn.click();
-      // Toast or status update
-      await expect(page.getByText(/approved/i).first()).toBeVisible({ timeout: 10_000 });
-      console.log('[e2e] ✓ Vendor approved through UI');
-    } else {
-      // Dialog may not be a role=dialog — look for confirm button directly
-      const confirmBtn = page.getByRole('button', { name: /confirm|yes/i }).first();
-      if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
-        await confirmBtn.click();
-        await expect(page.getByText(/approved/i).first()).toBeVisible({ timeout: 10_000 });
-        console.log('[e2e] ✓ Vendor approved through UI (no dialog role)');
-      }
-    }
+    await expect(
+      page.getByText(new RegExp(`approve ${escapeRegExp(businessName)}\\?`, 'i')),
+    ).toBeVisible({
+      timeout: 8_000,
+    });
+    await page.getByRole('button', { name: /confirm approve/i }).click();
+
+    await expect.poll(async () => {
+      const allVendors = await apiGet<Paginated<AdminVendor>>(
+        page.request,
+        '/api/v1/admin/vendors?limit=100&offset=0',
+      );
+      return allVendors.items.find((v) => v.id === targetVendor.id)?.status ?? 'MISSING';
+    }, { timeout: 12_000 }).toBe('APPROVED');
+
+    console.log('[e2e] ✓ Vendor approved through UI');
   });
 });
 

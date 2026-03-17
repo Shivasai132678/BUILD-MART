@@ -6,8 +6,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { UserRole, NotificationType, VendorStatus } from '@prisma/client';
-import type { Prisma, VendorProfile } from '@prisma/client';
+import { NotificationType, Prisma, UserRole, VendorStatus } from '@prisma/client';
+import type { VendorProfile } from '@prisma/client';
 import { AuditLogService } from '../common/audit/audit.service';
 import { CloudinaryAdapter } from '../files/cloudinary.adapter';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -51,27 +51,55 @@ export class VendorService {
     // Resolve document URLs before the transaction to avoid external I/O inside a DB transaction
     const createData = await this.buildCreateData(userId, dto);
 
-    const vendorProfile = await this.prisma.$transaction(async (tx) => {
-      // Create vendor profile (data resolved outside transaction to avoid external I/O inside tx)
-      const profile = await tx.vendorProfile.create({
-        data: createData,
-      });
-
-      // Create vendor products if provided
-      if (dto.productIds && dto.productIds.length > 0) {
-        await tx.vendorProduct.createMany({
-          data: dto.productIds.map(productId => ({
-            vendorId: profile.id,
-            productId,
-            stockAvailable: true,
-          })),
-          skipDuplicates: true,
+    let vendorProfile: VendorProfile;
+    try {
+      vendorProfile = await this.prisma.$transaction(async (tx) => {
+        // Create vendor profile (data resolved outside transaction to avoid external I/O inside tx)
+        const profile = await tx.vendorProfile.create({
+          data: createData,
         });
-        this.logger.log(`Created ${dto.productIds.length} vendor products for vendorId=${profile.id}`);
+
+        // Create vendor products if provided
+        if (dto.productIds && dto.productIds.length > 0) {
+          await tx.vendorProduct.createMany({
+            data: dto.productIds.map(productId => ({
+              vendorId: profile.id,
+              productId,
+              stockAvailable: true,
+            })),
+            skipDuplicates: true,
+          });
+          this.logger.log(`Created ${dto.productIds.length} vendor products for vendorId=${profile.id}`);
+        }
+
+        return profile;
+      });
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const targetMeta = error.meta?.target;
+        const targets = Array.isArray(targetMeta)
+          ? targetMeta.map(String)
+          : targetMeta
+            ? [String(targetMeta)]
+            : [];
+        const normalizedTargets = targets.map((t) => t.toLowerCase());
+
+        if (normalizedTargets.some((t) => t.includes('gst'))) {
+          throw new ConflictException('Vendor onboarding failed: gstNumber already exists');
+        }
+
+        if (normalizedTargets.some((t) => t.includes('user'))) {
+          throw new ConflictException('Vendor profile already exists for this user');
+        }
+
+        const targetSummary = targets.length > 0 ? targets.join(', ') : 'unknown field';
+        throw new ConflictException(
+          `Vendor onboarding failed: duplicate value for ${targetSummary}`,
+        );
       }
 
-      return profile;
-    });
+      throw error;
+    }
 
     this.logger.log(`Vendor profile created for userId=${userId}, pending admin approval`);
 
