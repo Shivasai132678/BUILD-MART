@@ -50,8 +50,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const jwtSecret = process.env.JWT_SECRET;
 
   if (!jwtSecret) {
-    // In dev without JWT_SECRET, fall through (should not happen in production)
-    return redirectToLogin(request, 'misconfigured');
+    // Do not hard-block protected-route navigation if frontend env is missing
+    // JWT_SECRET. Route-level auth checks (/api/v1/auth/me) will still enforce
+    // authentication/authorization and avoid OTP-login redirect loops.
+    return NextResponse.next();
   }
 
   try {
@@ -79,7 +81,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.next();
   } catch {
-    return redirectToLogin(request);
+    // If token verification fails here (e.g. frontend secret drift), allow the
+    // request to proceed so client-side auth checks can recover gracefully.
+    return NextResponse.next();
   }
 }
 

@@ -44,6 +44,25 @@ function getRedirectPath(user: LoginUser): string {
   }
 }
 
+function resolvePostLoginTarget(user: LoginUser, redirectParam: string | null): string {
+  const roleDefaultTarget =
+    user.role === 'PENDING' && !user.hasVendorProfile
+      ? '/onboarding'
+      : getRedirectPath(user);
+
+  if (!redirectParam) return roleDefaultTarget;
+
+  const candidate = redirectParam.trim();
+  if (!candidate) return roleDefaultTarget;
+
+  // Allow only safe internal paths.
+  if (!candidate.startsWith('/') || candidate.startsWith('//')) return roleDefaultTarget;
+  // Never redirect back to login after successful auth.
+  if (candidate === '/login' || candidate.startsWith('/login?')) return roleDefaultTarget;
+
+  return candidate;
+}
+
 export function OtpStep({ phone, onBack }: OtpStepProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,13 +97,16 @@ export function OtpStep({ phone, onBack }: OtpStepProps) {
       }
       setUser(user);
       toast.success('Logged in successfully!');
-      const redirect = searchParams.get('redirect');
-      // Only send to onboarding if they haven't chosen a role yet (PENDING with no profile)
-      if (user.role === 'PENDING' && !user.hasVendorProfile) {
-        router.replace('/onboarding');
-      } else {
-        router.replace(redirect ?? getRedirectPath(user));
-      }
+      const target = resolvePostLoginTarget(user, searchParams.get('redirect'));
+      router.replace(target);
+      router.refresh();
+
+      // Production-safe fallback for cases where client-side navigation gets stuck.
+      window.setTimeout(() => {
+        if (window.location.pathname === '/login') {
+          window.location.replace(target);
+        }
+      }, 250);
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
