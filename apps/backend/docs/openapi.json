@@ -1,0 +1,4043 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1": {
+      "get": {
+        "operationId": "AppController_getHello_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns service welcome text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "example": "BuildMart backend is running"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get API welcome message",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "HealthController_getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Health payload with service/database status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "ok",
+                    "db": "up",
+                    "timestamp": "2026-03-21T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "status": "down",
+                    "db": "down",
+                    "success": false,
+                    "statusCode": 503,
+                    "error": "ServiceUnavailableException",
+                    "message": "Service Unavailable Exception",
+                    "timestamp": "2026-03-21T00:00:00.000Z",
+                    "path": "/api/health"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get service health and readiness status",
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/api/v1/admin/metrics": {
+      "get": {
+        "operationId": "AdminController_getMetrics_v1",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "UTC ISO start date for metrics window",
+            "schema": {
+              "example": "2026-03-01T00:00:00.000Z",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "UTC ISO end date for metrics window",
+            "schema": {
+              "example": "2026-03-31T23:59:59.999Z",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated platform metrics"
+          },
+          "400": {
+            "description": "Invalid date filter window (e.g. from > to) or malformed date"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get admin dashboard metrics",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/vendors/pending": {
+      "get": {
+        "operationId": "AdminController_getPendingVendors_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated pending vendors list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List pending vendor approvals",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/orders": {
+      "get": {
+        "operationId": "AdminController_listAllOrders_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "CONFIRMED",
+                "OUT_FOR_DELIVERY",
+                "DELIVERED",
+                "CANCELLED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated admin orders list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List all orders for admin operations",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/orders/{id}": {
+      "get": {
+        "operationId": "AdminController_getOrderById_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin order details"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get order details by id (admin)",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "AdminController_getAllUsers_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated users list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List users for admin",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/vendors": {
+      "get": {
+        "operationId": "AdminController_getAllVendors_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "PENDING",
+                "APPROVED",
+                "REJECTED",
+                "SUSPENDED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated vendors list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List vendors for admin",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/rfqs": {
+      "get": {
+        "operationId": "AdminController_getAllRfqs_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated RFQs list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List RFQs for admin oversight",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/orders/{id}/cancel": {
+      "post": {
+        "operationId": "AdminController_forceCancelOrder_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order force-cancelled"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Force cancel order as admin",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/orders/{id}/flag": {
+      "patch": {
+        "operationId": "AdminController_flagOrder_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FlagOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order flagged successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Flag order for admin attention",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/vendors/bulk-approve": {
+      "post": {
+        "operationId": "AdminController_bulkApproveVendors_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkVendorActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Vendors approved in bulk"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Bulk approve vendors",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/admin/vendors/bulk-suspend": {
+      "post": {
+        "operationId": "AdminController_bulkSuspendVendors_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkVendorActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Vendors suspended in bulk"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Bulk suspend vendors",
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/api/v1/notifications/unread-count": {
+      "get": {
+        "operationId": "NotificationsController_getUnreadCount_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Unread notification count"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          },
+          "429": {
+            "description": "Notification polling rate limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get unread notification count",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "operationId": "NotificationsController_listNotifications_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated notifications list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          },
+          "429": {
+            "description": "Notification polling rate limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List notifications for authenticated user",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "patch": {
+        "operationId": "NotificationsController_markAllAsRead_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "All notifications marked read"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "patch": {
+        "operationId": "NotificationsController_markAsRead_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked read"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Mark a notification as read",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/addresses": {
+      "post": {
+        "operationId": "AddressesController_createAddress_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAddressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Address created successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only BUYER role can manage addresses"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create buyer address",
+        "tags": [
+          "Addresses"
+        ]
+      },
+      "get": {
+        "operationId": "AddressesController_listAddresses_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated addresses list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only BUYER role can manage addresses"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List buyer addresses",
+        "tags": [
+          "Addresses"
+        ]
+      }
+    },
+    "/api/v1/addresses/{id}": {
+      "get": {
+        "operationId": "AddressesController_getAddress_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address details"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only BUYER role can manage addresses"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get buyer address by id",
+        "tags": [
+          "Addresses"
+        ]
+      },
+      "patch": {
+        "operationId": "AddressesController_updateAddress_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAddressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Address updated successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only BUYER role can manage addresses"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update buyer address by id",
+        "tags": [
+          "Addresses"
+        ]
+      },
+      "delete": {
+        "operationId": "AddressesController_softDeleteAddress_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address deleted successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only BUYER role can manage addresses"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Soft delete buyer address by id",
+        "tags": [
+          "Addresses"
+        ]
+      }
+    },
+    "/api/v1/disputes": {
+      "post": {
+        "operationId": "DisputesController_create_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDisputeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dispute created successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create dispute for an order (buyer)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/my": {
+      "get": {
+        "operationId": "DisputesController_listMine_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "OPEN",
+                "RESOLVED",
+                "CLOSED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated buyer disputes"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List disputes created by buyer",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/vendor": {
+      "get": {
+        "operationId": "DisputesController_listVendor_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "OPEN",
+                "RESOLVED",
+                "CLOSED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated vendor disputes"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List disputes involving vendor",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/{id}": {
+      "get": {
+        "operationId": "DisputesController_getOne_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dispute details"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get dispute details by id",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/admin/all": {
+      "get": {
+        "operationId": "DisputesController_listAll_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "OPEN",
+                "RESOLVED",
+                "CLOSED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated global disputes list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List all disputes (admin)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/admin/{id}/resolve": {
+      "patch": {
+        "operationId": "DisputesController_resolve_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveDisputeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dispute resolved/closed"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Resolve or close dispute (admin)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/files/upload": {
+      "post": {
+        "operationId": "FilesController_uploadProductImage_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Image uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "success": true,
+                    "data": {
+                      "url": "https://res.cloudinary.com/demo/image/upload/v1/buildmart-products/img.png"
+                    },
+                    "timestamp": "2026-03-21T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role can upload files"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Upload product image to Cloudinary",
+        "tags": [
+          "Files"
+        ]
+      }
+    },
+    "/api/v1/auth/send-otp": {
+      "post": {
+        "operationId": "AuthController_sendOtp_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP accepted for delivery",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "success": true,
+                    "data": {
+                      "message": "OTP sent successfully"
+                    },
+                    "timestamp": "2026-03-21T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "OTP rate limit exceeded"
+          }
+        },
+        "summary": "Send OTP to user phone",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/verify-otp": {
+      "post": {
+        "operationId": "AuthController_verifyOtp_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified and access_token cookie issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "success": true,
+                    "data": {
+                      "user": {
+                        "id": "user_123",
+                        "phone": "+919876543210",
+                        "role": "BUYER",
+                        "fullName": "Buyer User"
+                      },
+                      "onboarding": {
+                        "completed": true,
+                        "nextStep": null
+                      }
+                    },
+                    "timestamp": "2026-03-21T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "OTP verification rate limit exceeded"
+          }
+        },
+        "summary": "Verify OTP and establish session cookie",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "success": true,
+                    "data": {
+                      "message": "Session refreshed"
+                    },
+                    "timestamp": "2026-03-21T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Refresh access token cookie using authenticated session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Logout completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "success": true,
+                    "data": {
+                      "message": "Logged out successfully"
+                    },
+                    "timestamp": "2026-03-21T00:00:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Clear access token cookie and logout user",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Authenticated user context",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "example": {
+                    "sub": "user_123",
+                    "phone": "+919876543210",
+                    "role": "VENDOR",
+                    "hasVendorProfile": true
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get authenticated user payload from JWT",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/onboarding/status": {
+      "get": {
+        "operationId": "OnboardingController_getOnboardingStatus_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Onboarding state for authenticated user"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get onboarding completion status",
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/v1/onboarding/buyer-profile": {
+      "post": {
+        "operationId": "OnboardingController_setBuyerProfile_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetBuyerProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Buyer profile saved and onboarding advanced"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Set buyer profile during onboarding",
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/v1/vendors/discover": {
+      "get": {
+        "operationId": "VendorController_discoverVendors_v1",
+        "parameters": [
+          {
+            "name": "city",
+            "required": false,
+            "in": "query",
+            "description": "Filter by city",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by category id",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "minRating",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated vendor discovery results"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Discover approved vendors for buyers",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/vendors/onboard": {
+      "post": {
+        "operationId": "VendorController_onboard_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardVendorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Vendor onboarding submitted for review"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Submit vendor onboarding profile",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/vendors/profile": {
+      "get": {
+        "operationId": "VendorController_getProfile_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Vendor profile details"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get authenticated user vendor profile",
+        "tags": [
+          "Vendors"
+        ]
+      },
+      "patch": {
+        "operationId": "VendorController_updateProfile_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVendorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vendor profile updated"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update authenticated vendor profile",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/vendors/stats": {
+      "get": {
+        "operationId": "VendorController_getVendorStats_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Vendor stats for analytics cards"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get vendor dashboard statistics",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/vendors/products": {
+      "get": {
+        "operationId": "VendorController_getVendorProducts_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Maximum products to return (1-100)",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Pagination offset",
+            "schema": {
+              "minimum": 0,
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated vendor product list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List products mapped to authenticated vendor",
+        "tags": [
+          "Vendors"
+        ]
+      },
+      "post": {
+        "operationId": "VendorController_addVendorProducts_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManageVendorProductsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Products added to vendor catalog"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Add products to authenticated vendor catalog",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/vendors/products/{productId}": {
+      "delete": {
+        "operationId": "VendorController_removeVendorProduct_v1",
+        "parameters": [
+          {
+            "name": "productId",
+            "required": true,
+            "in": "path",
+            "description": "Product id to remove",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product removed from vendor catalog"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Remove product from authenticated vendor catalog",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/vendors/{id}": {
+      "get": {
+        "operationId": "VendorController_getPublicVendorProfile_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Vendor profile id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public vendor profile for buyer view"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get public vendor profile by id",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/vendors/{id}/products": {
+      "get": {
+        "operationId": "VendorController_getPublicVendorProducts_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Vendor profile id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor public products for buyer catalog"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get public product list for vendor",
+        "tags": [
+          "Vendors"
+        ]
+      }
+    },
+    "/api/v1/admin/vendors/{id}/approve": {
+      "patch": {
+        "operationId": "AdminVendorController_approveVendor_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Vendor profile id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor approved"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Approve vendor onboarding",
+        "tags": [
+          "Admin Vendors"
+        ]
+      }
+    },
+    "/api/v1/admin/vendors/{id}/reject": {
+      "patch": {
+        "operationId": "AdminVendorController_rejectVendor_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Vendor profile id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectVendorDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vendor rejected"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Reject vendor onboarding",
+        "tags": [
+          "Admin Vendors"
+        ]
+      }
+    },
+    "/api/v1/admin/vendors/{id}/status": {
+      "patch": {
+        "operationId": "AdminVendorController_updateVendorStatus_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Vendor profile id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateVendorStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vendor status updated"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role is allowed"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Force update vendor status",
+        "tags": [
+          "Admin Vendors"
+        ]
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "operationId": "CategoriesController_listCategories_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated categories list"
+          }
+        },
+        "summary": "List product categories",
+        "tags": [
+          "Categories"
+        ]
+      },
+      "post": {
+        "operationId": "CategoriesController_createCategory_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role can create categories"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create category (admin)",
+        "tags": [
+          "Categories"
+        ]
+      }
+    },
+    "/api/v1/categories/{id}": {
+      "get": {
+        "operationId": "CategoriesController_getCategory_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Category id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category details"
+          }
+        },
+        "summary": "Get category by id",
+        "tags": [
+          "Categories"
+        ]
+      },
+      "patch": {
+        "operationId": "CategoriesController_updateCategory_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Category id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCategoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update category (admin)",
+        "tags": [
+          "Categories"
+        ]
+      },
+      "delete": {
+        "operationId": "CategoriesController_deleteCategory_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Category id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deleted"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Delete category (admin)",
+        "tags": [
+          "Categories"
+        ]
+      }
+    },
+    "/api/v1/products": {
+      "get": {
+        "operationId": "ProductsController_listProducts_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated products list"
+          }
+        },
+        "summary": "List products",
+        "tags": [
+          "Products"
+        ]
+      },
+      "post": {
+        "operationId": "ProductsController_createProduct_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Product created"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only ADMIN role can create products"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create product (admin)",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/products/{id}": {
+      "get": {
+        "operationId": "ProductsController_getProduct_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Product id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product details"
+          }
+        },
+        "summary": "Get product by id",
+        "tags": [
+          "Products"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductsController_updateProduct_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Product id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Product updated"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update product (admin)",
+        "tags": [
+          "Products"
+        ]
+      },
+      "delete": {
+        "operationId": "ProductsController_deleteProduct_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Product id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product deleted"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Delete product (admin)",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/rfq": {
+      "post": {
+        "operationId": "RfqController_createRFQ_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRfqDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "RFQ created successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          },
+          "429": {
+            "description": "RFQ create rate limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create a new RFQ",
+        "tags": [
+          "RFQ"
+        ]
+      },
+      "get": {
+        "operationId": "RfqController_listRFQs_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Optional RFQ status filter",
+            "schema": {
+              "enum": [
+                "OPEN",
+                "QUOTED",
+                "CLOSED",
+                "EXPIRED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated buyer RFQs"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List RFQs for authenticated buyer",
+        "tags": [
+          "RFQ"
+        ]
+      }
+    },
+    "/api/v1/rfq/available": {
+      "get": {
+        "operationId": "RfqController_getAvailableRFQs_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated matched RFQs for vendor"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List available RFQs matched for vendor",
+        "tags": [
+          "RFQ"
+        ]
+      }
+    },
+    "/api/v1/rfq/browse": {
+      "get": {
+        "operationId": "RfqController_browseAllRFQs_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "categoryId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by product category id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated open RFQs for marketplace browse"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Browse all open RFQs for vendors",
+        "tags": [
+          "RFQ"
+        ]
+      }
+    },
+    "/api/v1/rfq/{id}": {
+      "get": {
+        "operationId": "RfqController_getRFQ_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RFQ details with access validation"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get RFQ details by id",
+        "tags": [
+          "RFQ"
+        ]
+      }
+    },
+    "/api/v1/rfq/{id}/close": {
+      "patch": {
+        "operationId": "RfqController_closeRFQ_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "RFQ closed successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Close an RFQ",
+        "tags": [
+          "RFQ"
+        ]
+      }
+    },
+    "/api/v1/quotes": {
+      "post": {
+        "operationId": "QuotesController_createQuote_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateQuoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Quote created successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create quote for an RFQ",
+        "tags": [
+          "Quotes"
+        ]
+      }
+    },
+    "/api/v1/quotes/rfq/{rfqId}": {
+      "get": {
+        "operationId": "QuotesController_getQuotesForRFQ_v1",
+        "parameters": [
+          {
+            "name": "rfqId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated quotes for RFQ"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          },
+          "429": {
+            "description": "Quotes polling rate limit exceeded"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List quotes for an RFQ (buyer view)",
+        "tags": [
+          "Quotes"
+        ]
+      }
+    },
+    "/api/v1/quotes/{id}": {
+      "patch": {
+        "operationId": "QuotesController_updateQuote_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateQuoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Quote updated successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update an existing quote",
+        "tags": [
+          "Quotes"
+        ]
+      },
+      "delete": {
+        "operationId": "QuotesController_deleteQuote_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quote deleted successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Delete an existing quote",
+        "tags": [
+          "Quotes"
+        ]
+      }
+    },
+    "/api/v1/quotes/my/{rfqId}": {
+      "get": {
+        "operationId": "QuotesController_getVendorQuoteForRfq_v1",
+        "parameters": [
+          {
+            "name": "rfqId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor quote details for RFQ"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get current vendor quote for RFQ",
+        "tags": [
+          "Quotes"
+        ]
+      }
+    },
+    "/api/v1/quotes/{id}/counter": {
+      "post": {
+        "operationId": "QuotesController_counterOfferQuote_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CounterOfferQuoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Counter-offer submitted"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Submit counter-offer on vendor quote",
+        "tags": [
+          "Quotes"
+        ]
+      }
+    },
+    "/api/v1/quotes/{id}/counter/respond": {
+      "post": {
+        "operationId": "QuotesController_respondToCounterOffer_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "accept",
+            "required": true,
+            "in": "query",
+            "description": "true to accept, false to reject",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Counter-offer response recorded"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Accept or reject buyer counter-offer",
+        "tags": [
+          "Quotes"
+        ]
+      }
+    },
+    "/api/v1/orders/direct": {
+      "post": {
+        "operationId": "OrdersController_createDirectOrder_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDirectOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Direct order created successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create direct order from vendor profile",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "post": {
+        "operationId": "OrdersController_createOrder_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Order created from accepted quote"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create order by accepting a quote",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "get": {
+        "operationId": "OrdersController_listOrders_v1",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": 0,
+              "type": "number"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Optional order status filter",
+            "schema": {
+              "enum": [
+                "CONFIRMED",
+                "OUT_FOR_DELIVERY",
+                "DELIVERED",
+                "CANCELLED"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated order list"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "List orders for authenticated buyer/vendor",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_getOrder_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order details"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Get order by id with access checks",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/status": {
+      "patch": {
+        "operationId": "OrdersController_updateOrderStatus_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrderStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order status updated"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Update order status (vendor only)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/cancel": {
+      "post": {
+        "operationId": "OrdersController_cancelOrder_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order cancelled successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Cancel an order with reason",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/review": {
+      "post": {
+        "operationId": "OrdersController_submitReview_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review submitted successfully"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Submit buyer review for delivered order",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/invoice": {
+      "get": {
+        "operationId": "OrdersController_downloadInvoice_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice PDF binary stream"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Insufficient role permissions"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Download order invoice PDF",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/payments/create-order": {
+      "post": {
+        "operationId": "PaymentsController_createPaymentOrder_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment order created"
+          },
+          "401": {
+            "description": "Missing or invalid access_token cookie"
+          },
+          "403": {
+            "description": "Only buyers can create payment orders"
+          }
+        },
+        "security": [
+          {
+            "access_token": []
+          }
+        ],
+        "summary": "Create Razorpay order for buyer order",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/webhook": {
+      "post": {
+        "operationId": "PaymentsController_handleWebhook_v1",
+        "parameters": [
+          {
+            "name": "x-razorpay-signature",
+            "required": true,
+            "in": "header",
+            "description": "Razorpay webhook signature header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook processed (or idempotently skipped)"
+          }
+        },
+        "summary": "Razorpay webhook callback (idempotent)",
+        "tags": [
+          "Payments"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "BuildMart API",
+    "description": "BuildMart construction procurement platform API",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "access_token": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "access_token"
+      }
+    },
+    "schemas": {
+      "FlagOrderDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Reason to flag order for admin review",
+            "example": "Potential payment mismatch detected by ops team.",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "BulkVendorActionDto": {
+        "type": "object",
+        "properties": {
+          "vendorIds": {
+            "description": "Vendor profile ids for bulk action",
+            "example": [
+              "vendor_001",
+              "vendor_002"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "vendorIds"
+        ]
+      },
+      "CreateAddressDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Address label",
+            "example": "Site Office"
+          },
+          "line1": {
+            "type": "string",
+            "description": "Primary address line",
+            "example": "Plot 42, Industrial Area"
+          },
+          "line2": {
+            "type": "string",
+            "description": "Secondary address line",
+            "example": "Near Metro Pillar 120"
+          },
+          "area": {
+            "type": "string",
+            "description": "Locality or area",
+            "example": "Madhapur"
+          },
+          "city": {
+            "type": "string",
+            "description": "City",
+            "example": "Hyderabad"
+          },
+          "state": {
+            "type": "string",
+            "description": "State",
+            "example": "Telangana"
+          },
+          "pincode": {
+            "type": "string",
+            "description": "6-digit India pincode",
+            "example": "500081"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Mark as default address",
+            "example": true
+          }
+        },
+        "required": [
+          "line1",
+          "city",
+          "state",
+          "pincode"
+        ]
+      },
+      "UpdateAddressDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateDisputeDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Order id under dispute",
+            "example": "order_001"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Short dispute reason title",
+            "example": "Damaged material on delivery"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed dispute description",
+            "example": "15 out of 100 cement bags were torn on arrival; requesting replacement.",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "orderId",
+          "reason",
+          "description"
+        ]
+      },
+      "ResolveDisputeDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Resolution status (defaults to RESOLVED)",
+            "enum": [
+              "RESOLVED",
+              "CLOSED"
+            ],
+            "example": "RESOLVED"
+          },
+          "adminNotes": {
+            "type": "string",
+            "description": "Internal admin resolution notes",
+            "example": "Vendor agreed to replace damaged items within 48 hours.",
+            "maxLength": 2000
+          }
+        }
+      },
+      "SendOtpDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number in E.164 India format",
+            "example": "+919876543210"
+          }
+        },
+        "required": [
+          "phone"
+        ]
+      },
+      "VerifyOtpDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "Phone number in E.164 India format",
+            "example": "+919876543210"
+          },
+          "otp": {
+            "type": "string",
+            "description": "6-digit OTP sent to the phone number",
+            "example": "123456"
+          }
+        },
+        "required": [
+          "phone",
+          "otp"
+        ]
+      },
+      "SetBuyerProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Buyer full name",
+            "example": "Rahul Sharma"
+          },
+          "companyName": {
+            "type": "string",
+            "description": "Buyer company name",
+            "example": "Sharma Constructions Pvt Ltd"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "OnboardVendorDto": {
+        "type": "object",
+        "properties": {
+          "businessName": {
+            "type": "string",
+            "description": "Registered business name",
+            "example": "Sri Lakshmi Steels"
+          },
+          "gstNumber": {
+            "type": "string",
+            "description": "Valid GSTIN",
+            "example": "29ABCDE1234F1Z5"
+          },
+          "city": {
+            "type": "string",
+            "description": "Primary operating city",
+            "example": "Hyderabad"
+          },
+          "serviceableAreas": {
+            "description": "Serviceable locations/areas",
+            "example": [
+              "Madhapur",
+              "Kukatpally"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "productIds": {
+            "description": "Optional initial product ids vendor can supply",
+            "example": [
+              "prod_001",
+              "prod_017"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "gstDocumentUrl": {
+            "type": "string",
+            "description": "Public URL to GST document",
+            "example": "https://cdn.example.com/gst.pdf"
+          },
+          "businessLicenseUrl": {
+            "type": "string",
+            "description": "Public URL to business license",
+            "example": "https://cdn.example.com/license.pdf"
+          }
+        },
+        "required": [
+          "businessName",
+          "gstNumber",
+          "serviceableAreas"
+        ]
+      },
+      "UpdateVendorDto": {
+        "type": "object",
+        "properties": {
+          "businessName": {
+            "type": "string",
+            "description": "Updated business name",
+            "example": "Lakshmi Steel Traders Pvt Ltd"
+          },
+          "gstNumber": {
+            "type": "string",
+            "description": "Updated GSTIN",
+            "example": "29ABCDE1234F1Z5"
+          },
+          "city": {
+            "type": "string",
+            "description": "Updated city",
+            "example": "Secunderabad"
+          },
+          "serviceableAreas": {
+            "description": "Updated serviceable locations",
+            "example": [
+              "Gachibowli",
+              "Miyapur"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "gstDocumentUrl": {
+            "type": "string",
+            "description": "Updated GST document URL",
+            "example": "https://cdn.example.com/new-gst.pdf"
+          },
+          "businessLicenseUrl": {
+            "type": "string",
+            "description": "Updated business license URL",
+            "example": "https://cdn.example.com/new-license.pdf"
+          }
+        }
+      },
+      "ManageVendorProductsDto": {
+        "type": "object",
+        "properties": {
+          "productIds": {
+            "description": "Product ids to associate with vendor",
+            "example": [
+              "prod_001",
+              "prod_014"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "productIds"
+        ]
+      },
+      "RejectVendorDto": {
+        "type": "object",
+        "properties": {
+          "rejectionReason": {
+            "type": "string",
+            "description": "Reason for rejecting vendor onboarding",
+            "example": "GST document is invalid or unreadable.",
+            "maxLength": 500
+          }
+        }
+      },
+      "UpdateVendorStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Target vendor approval lifecycle status",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "SUSPENDED"
+            ],
+            "example": "APPROVED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CreateCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Category name",
+            "example": "Cement"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Unique slug identifier",
+            "example": "cement"
+          },
+          "description": {
+            "type": "string",
+            "description": "Category description",
+            "example": "All cement products and grades"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Category image URL",
+            "example": "https://cdn.example.com/categories/cement.png"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether category is active",
+            "example": true
+          }
+        },
+        "required": [
+          "name",
+          "slug"
+        ]
+      },
+      "UpdateCategoryDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateProductDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Category id this product belongs to",
+            "example": "cat_001"
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name",
+            "example": "OPC Cement 53 Grade"
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description",
+            "example": "High strength cement suitable for RCC structures"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Base unit of product",
+            "example": "bag"
+          },
+          "basePrice": {
+            "type": "string",
+            "description": "Base price as decimal string",
+            "example": "380.00"
+          },
+          "imageUrl": {
+            "type": "string",
+            "description": "Product image URL",
+            "example": "https://cdn.example.com/products/cement-53.png"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Whether product is active",
+            "example": true
+          }
+        },
+        "required": [
+          "categoryId",
+          "name",
+          "unit",
+          "basePrice"
+        ]
+      },
+      "UpdateProductDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateRfqItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Catalog product id",
+            "example": "prod_001"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Requested quantity",
+            "example": 50
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of measure",
+            "example": "kg"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes for this line item",
+            "example": "Need M20 grade only"
+          }
+        },
+        "required": [
+          "productId",
+          "quantity",
+          "unit"
+        ]
+      },
+      "CreateRfqDto": {
+        "type": "object",
+        "properties": {
+          "addressId": {
+            "type": "string",
+            "description": "Buyer address id for delivery",
+            "example": "addr_001"
+          },
+          "title": {
+            "type": "string",
+            "description": "Optional RFQ title",
+            "example": "Cement and steel requirement for slab casting"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional RFQ notes",
+            "example": "Deliver before 10 AM. GST invoice mandatory."
+          },
+          "validUntil": {
+            "type": "string",
+            "description": "RFQ validity end date in ISO format",
+            "example": "2026-04-15T18:30:00.000Z"
+          },
+          "items": {
+            "description": "Requested product line items",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateRfqItemDto"
+            }
+          }
+        },
+        "required": [
+          "addressId",
+          "validUntil",
+          "items"
+        ]
+      },
+      "CreateQuoteItemDto": {
+        "type": "object",
+        "properties": {
+          "productName": {
+            "type": "string",
+            "description": "Product display name",
+            "example": "OPC Cement 53 Grade"
+          },
+          "quantity": {
+            "type": "string",
+            "description": "Quoted quantity as decimal string",
+            "example": "100.00"
+          },
+          "unit": {
+            "type": "string",
+            "description": "Unit of measure",
+            "example": "bags"
+          },
+          "unitPrice": {
+            "type": "string",
+            "description": "Unit price as decimal string",
+            "example": "380.50"
+          },
+          "subtotal": {
+            "type": "string",
+            "description": "Line subtotal as decimal string",
+            "example": "38050.00"
+          }
+        },
+        "required": [
+          "productName",
+          "quantity",
+          "unit",
+          "unitPrice",
+          "subtotal"
+        ]
+      },
+      "CreateQuoteDto": {
+        "type": "object",
+        "properties": {
+          "rfqId": {
+            "type": "string",
+            "description": "RFQ id this quote responds to",
+            "example": "rfq_001"
+          },
+          "subtotal": {
+            "type": "string",
+            "description": "Subtotal as decimal string",
+            "example": "45000.00"
+          },
+          "taxAmount": {
+            "type": "string",
+            "description": "Tax amount as decimal string",
+            "example": "8100.00"
+          },
+          "deliveryFee": {
+            "type": "string",
+            "description": "Delivery fee as decimal string",
+            "example": "1200.00"
+          },
+          "totalAmount": {
+            "type": "string",
+            "description": "Total amount as decimal string",
+            "example": "54300.00"
+          },
+          "validUntil": {
+            "type": "string",
+            "description": "Quote validity date in ISO format",
+            "example": "2026-04-01T18:30:00.000Z"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Optional quote-level notes",
+            "example": "Delivery in two batches across 48 hours."
+          },
+          "items": {
+            "description": "Line items for this quote",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateQuoteItemDto"
+            }
+          }
+        },
+        "required": [
+          "rfqId",
+          "subtotal",
+          "taxAmount",
+          "deliveryFee",
+          "totalAmount",
+          "validUntil",
+          "items"
+        ]
+      },
+      "UpdateQuoteDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CounterOfferQuoteDto": {
+        "type": "object",
+        "properties": {
+          "counterOfferPrice": {
+            "type": "string",
+            "description": "Counter-offer total price as decimal string",
+            "example": "52000.00"
+          },
+          "counterOfferNote": {
+            "type": "string",
+            "description": "Optional note attached to counter-offer",
+            "example": "Can reduce price if delivery window is flexible."
+          }
+        },
+        "required": [
+          "counterOfferPrice"
+        ]
+      },
+      "DirectOrderItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Catalog product id",
+            "example": "prod_001"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Order quantity",
+            "example": 20
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ]
+      },
+      "CreateDirectOrderDto": {
+        "type": "object",
+        "properties": {
+          "vendorId": {
+            "type": "string",
+            "description": "Vendor profile id to order from",
+            "example": "vendor_001"
+          },
+          "addressId": {
+            "type": "string",
+            "description": "Buyer address id for delivery",
+            "example": "addr_001"
+          },
+          "items": {
+            "description": "Line items for direct order",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectOrderItemDto"
+            }
+          }
+        },
+        "required": [
+          "vendorId",
+          "addressId",
+          "items"
+        ]
+      },
+      "CreateOrderDto": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "description": "Accepted quote id to create order from",
+            "example": "quote_001"
+          }
+        },
+        "required": [
+          "quoteId"
+        ]
+      },
+      "UpdateOrderStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Next order status in allowed state machine transitions",
+            "enum": [
+              "CONFIRMED",
+              "OUT_FOR_DELIVERY",
+              "DELIVERED",
+              "CANCELLED"
+            ],
+            "example": "OUT_FOR_DELIVERY"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CancelOrderDto": {
+        "type": "object",
+        "properties": {
+          "cancelReason": {
+            "type": "string",
+            "description": "Reason for order cancellation",
+            "example": "Site schedule changed. Requirement postponed.",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "cancelReason"
+        ]
+      },
+      "CreateReviewDto": {
+        "type": "object",
+        "properties": {
+          "rating": {
+            "type": "number",
+            "description": "Review rating from 1 to 5",
+            "minimum": 1,
+            "maximum": 5,
+            "example": 5
+          },
+          "comment": {
+            "type": "string",
+            "description": "Optional review comment",
+            "example": "Material quality and delivery were excellent."
+          }
+        },
+        "required": [
+          "rating"
+        ]
+      },
+      "CreatePaymentOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Order id to initiate payment for",
+            "example": "order_001"
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      }
+    }
+  }
+}
