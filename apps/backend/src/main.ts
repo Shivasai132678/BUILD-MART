@@ -1,12 +1,14 @@
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
-async function bootstrap() {
+export async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   const logger = new Logger('Bootstrap');
 
@@ -15,6 +17,7 @@ async function bootstrap() {
       'E2E_TEST_OTP must not be set in production — it bypasses real OTP verification. Aborting.',
     );
     process.exit(1);
+    return;
   }
 
   app.setGlobalPrefix('api');
@@ -26,10 +29,18 @@ async function bootstrap() {
     '/api/v1/payments/webhook',
     express.raw({ type: 'application/json' }),
   );
+  app.use(cookieParser());
   app.use(helmet());
 
   const frontendUrl = process.env.FRONTEND_URL;
   if (!frontendUrl) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.error(
+        'FRONTEND_URL is required in production. Refusing to start with insecure CORS config.',
+      );
+      process.exit(1);
+      return;
+    }
     logger.error(
       'FRONTEND_URL is not set — CORS will block all browser requests!',
     );
@@ -39,6 +50,7 @@ async function bootstrap() {
   app.enableCors({
     origin: frontendUrl,
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
   });
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new ResponseInterceptor());
@@ -51,12 +63,15 @@ async function bootstrap() {
   );
 
   if (process.env.NODE_ENV !== 'production') {
-    const { SwaggerModule, DocumentBuilder } = await import('@nestjs/swagger');
     const config = new DocumentBuilder()
       .setTitle('BuildMart API')
       .setDescription('BuildMart construction procurement platform API')
       .setVersion('1.0')
-      .addCookieAuth('access_token')
+      .addCookieAuth(
+        'access_token',
+        { type: 'apiKey', in: 'cookie' },
+        'access_token',
+      )
       .build();
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api/docs', app, document);
@@ -65,4 +80,7 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3001);
 }
-void bootstrap();
+
+if (process.env.NODE_ENV !== 'test') {
+  void bootstrap();
+}

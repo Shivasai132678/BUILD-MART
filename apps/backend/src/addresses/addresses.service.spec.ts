@@ -52,6 +52,63 @@ describe('AddressesService', () => {
       expect(result.items).toEqual([]);
       expect(result.total).toBe(0);
     });
+
+    it('passes orderBy with default-first and newest-first', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([[], 0]);
+
+      await service.listAddresses('user-1', 20, 0);
+
+      const findManyCall = (prisma.address.findMany as jest.Mock).mock.calls[0][0];
+      expect(findManyCall.orderBy).toEqual([
+        { isDefault: 'desc' },
+        { createdAt: 'desc' },
+      ]);
+    });
+  });
+
+  describe('createAddress', () => {
+    it('creates non-default address without transaction', async () => {
+      (prisma.address.create as jest.Mock).mockResolvedValue({ id: 'addr-1' });
+
+      const result = await service.createAddress('user-1', {
+        label: 'Home',
+        line1: 'Line 1',
+        city: 'Hyderabad',
+        state: 'TS',
+        pincode: '500001',
+      });
+
+      expect(result.id).toBe('addr-1');
+      expect(prisma.address.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          line1: 'Line 1',
+          city: 'Hyderabad',
+          state: 'TS',
+          pincode: '500001',
+          area: 'Line 1',
+        }),
+      });
+    });
+
+    it('creates default address via transaction and clears previous defaults', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([
+        { count: 1 },
+        { id: 'addr-2', isDefault: true },
+      ]);
+
+      const result = await service.createAddress('user-1', {
+        label: 'Office',
+        line1: 'Line 2',
+        city: 'Hyderabad',
+        state: 'TS',
+        pincode: '500002',
+        isDefault: true,
+      });
+
+      expect(result.id).toBe('addr-2');
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.address.updateMany).toHaveBeenCalled();
+    });
   });
 
   describe('softDeleteAddress', () => {
@@ -123,6 +180,59 @@ describe('AddressesService', () => {
 
       await expect(
         service.getAddress('user-1', 'addr-deleted'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('updateAddress', () => {
+    it('updates regular fields and derives area from line1 when area omitted', async () => {
+      (prisma.address.findFirst as jest.Mock).mockResolvedValue({
+        id: 'addr-1',
+        userId: 'user-1',
+        deletedAt: null,
+      });
+      (prisma.address.update as jest.Mock).mockResolvedValue({
+        id: 'addr-1',
+        line1: 'New line',
+        area: 'New line',
+      });
+
+      const result = await service.updateAddress('user-1', 'addr-1', {
+        line1: 'New line',
+      });
+
+      expect(result.area).toBe('New line');
+      expect(prisma.address.update).toHaveBeenCalledWith({
+        where: { id: 'addr-1' },
+        data: expect.objectContaining({ line1: 'New line', area: 'New line' }),
+      });
+    });
+
+    it('updates default address in transaction and clears others', async () => {
+      (prisma.address.findFirst as jest.Mock).mockResolvedValue({
+        id: 'addr-1',
+        userId: 'user-1',
+        deletedAt: null,
+      });
+      (prisma.$transaction as jest.Mock).mockResolvedValue([
+        { count: 2 },
+        { id: 'addr-1', isDefault: true },
+      ]);
+
+      const result = await service.updateAddress('user-1', 'addr-1', {
+        isDefault: true,
+        label: 'Primary',
+      });
+
+      expect(result.isDefault).toBe(true);
+      expect(prisma.$transaction).toHaveBeenCalled();
+    });
+
+    it('throws not found for updating invisible address', async () => {
+      (prisma.address.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(
+        service.updateAddress('user-1', 'missing', { label: 'X' }),
       ).rejects.toThrow(NotFoundException);
     });
   });

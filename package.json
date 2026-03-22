@@ -1,6 +1,15 @@
 {
     "name": "buildmart",
     "private": true,
+    "packageManager": "pnpm@10.17.1",
+    "pnpm": {
+        "overrides": {
+            "socket.io-parser": "^4.2.6",
+            "multer": "^2.1.1",
+            "effect": "^3.20.0",
+            "file-type": "^21.3.2"
+        }
+    },
     "scripts": {
         "dev": "concurrently --names \"BACKEND,FRONTEND\" --prefix-colors \"blue,green\" \"pnpm dev:backend\" \"pnpm dev:frontend\"",
         "dev:backend": "cd apps/backend && pnpm start:dev",

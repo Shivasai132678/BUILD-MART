@@ -19,6 +19,7 @@
  */
 import { test, expect, request as playwrightRequest } from '@playwright/test';
 import { STORAGE, E2E_OTP } from './support/auth';
+import { getCsrfHeaders } from './support/csrf';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
@@ -38,13 +39,19 @@ async function apiGet<T>(ctx: import('@playwright/test').APIRequestContext, apiP
 }
 
 async function apiPost<T>(ctx: import('@playwright/test').APIRequestContext, apiPath: string, data: unknown): Promise<T> {
-  const res = await ctx.post(apiPath, { data });
+  const res = await ctx.post(apiPath, {
+    data,
+    headers: await getCsrfHeaders(ctx, API_BASE),
+  });
   if (!res.ok()) throw new Error(`POST ${apiPath} → ${res.status()}: ${await res.text()}`);
   return unwrap<T>((await res.json()) as Record<string, unknown>);
 }
 
 async function apiPatch<T>(ctx: import('@playwright/test').APIRequestContext, apiPath: string, data: unknown): Promise<T> {
-  const res = await ctx.patch(apiPath, { data });
+  const res = await ctx.patch(apiPath, {
+    data,
+    headers: await getCsrfHeaders(ctx, API_BASE),
+  });
   if (!res.ok()) throw new Error(`PATCH ${apiPath} → ${res.status()}: ${await res.text()}`);
   return unwrap<T>((await res.json()) as Record<string, unknown>);
 }
@@ -130,7 +137,13 @@ test.describe('New user full lifecycle', () => {
     try {
       await apiPost(ctx, '/api/v1/onboarding/buyer-profile', { name: 'Test Buyer Lifecycle' });
       // Refresh token so JWT carries role=BUYER (needed for /buyer/* middleware)
-      await ctx.post('/api/v1/auth/refresh', {});
+      const refreshRes = await ctx.post('/api/v1/auth/refresh', {
+        headers: await getCsrfHeaders(ctx, API_BASE),
+      });
+      expect(
+        refreshRes.ok(),
+        `refresh failed: ${refreshRes.status()} ${await refreshRes.text()}`,
+      ).toBe(true);
       await ctx.storageState({ path: buyerStateFile });
       console.log(`[e2e] Buyer onboarding complete: ${buyerPhone}`);
     } finally {
@@ -179,7 +192,13 @@ test.describe('New user full lifecycle', () => {
       expect(profile.status).toBe('PENDING');
 
       // Refresh token so JWT carries hasVendorProfile=true
-      await ctx.post('/api/v1/auth/refresh', {});
+      const refreshRes = await ctx.post('/api/v1/auth/refresh', {
+        headers: await getCsrfHeaders(ctx, API_BASE),
+      });
+      expect(
+        refreshRes.ok(),
+        `refresh failed: ${refreshRes.status()} ${await refreshRes.text()}`,
+      ).toBe(true);
       await ctx.storageState({ path: vendorStateFile });
       console.log(`[e2e] Vendor registered and onboarded: ${vendorPhone}, vendorId=${vendorId}`);
     } finally {
@@ -206,7 +225,13 @@ test.describe('New user full lifecycle', () => {
     // Refresh the vendor token and re-save storageState.
     const vendorCtx = await loadApiSession(vendorStateFile);
     try {
-      await vendorCtx.post('/api/v1/auth/refresh', {});
+      const refreshRes = await vendorCtx.post('/api/v1/auth/refresh', {
+        headers: await getCsrfHeaders(vendorCtx, API_BASE),
+      });
+      expect(
+        refreshRes.ok(),
+        `vendor refresh failed: ${refreshRes.status()} ${await refreshRes.text()}`,
+      ).toBe(true);
       await vendorCtx.storageState({ path: vendorStateFile });
     } finally {
       await vendorCtx.dispose();

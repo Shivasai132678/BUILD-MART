@@ -1,10 +1,14 @@
+/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { JwtService } from '@nestjs/jwt';
 import {
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { createHash } from 'node:crypto';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
 import { Msg91Adapter } from './providers/msg91.adapter';
@@ -22,6 +26,7 @@ describe('AuthService', () => {
       create: jest.fn(),
       findFirst: jest.fn(),
       updateMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
   } as unknown as jest.Mocked<PrismaService>;
 
@@ -37,6 +42,8 @@ describe('AuthService', () => {
     jest.clearAllMocks();
     process.env.JWT_SECRET = 'test-jwt-secret';
     process.env.JWT_EXPIRES_IN = '7d';
+    delete process.env.E2E_TEST_OTP;
+    delete process.env.RUN_E2E_TESTS;
 
     service = new AuthService(prisma, jwtService, msg91Adapter);
   });
@@ -64,7 +71,8 @@ describe('AuthService', () => {
       expect(result).toEqual({ message: 'OTP sent' });
       expect(prisma.oTPRecord.create).toHaveBeenCalledTimes(1);
 
-      const createArg = (prisma.oTPRecord.create as jest.Mock).mock.calls[0][0] as {
+      const createArg = (prisma.oTPRecord.create as jest.Mock).mock
+        .calls[0][0] as {
         data: {
           userId: string;
           otpHash: string;
@@ -80,7 +88,8 @@ describe('AuthService', () => {
       );
       expect(createArg.data.isUsed).toBe(false);
 
-      const sentOtp = (msg91Adapter.sendOtp as jest.Mock).mock.calls[0][1] as string;
+      const sentOtp = (msg91Adapter.sendOtp as jest.Mock).mock
+        .calls[0][1] as string;
       expect(sentOtp).toMatch(/^\d{6}$/);
       expect(createArg.data.otpHash).not.toBe(sentOtp);
     });
@@ -100,13 +109,16 @@ describe('AuthService', () => {
 
       await service.sendOtp({ phone: '+919000000098' });
 
-      const createArg = (prisma.oTPRecord.create as jest.Mock).mock.calls[0][0] as {
+      const createArg = (prisma.oTPRecord.create as jest.Mock).mock
+        .calls[0][0] as {
         data: {
           expiresAt: Date;
         };
       };
 
-      expect(createArg.data.expiresAt.getTime() - now.getTime()).toBe(5 * 60 * 1000);
+      expect(createArg.data.expiresAt.getTime() - now.getTime()).toBe(
+        5 * 60 * 1000,
+      );
     });
 
     it('throws if phone has more than 5 attempts in 60s (throttle)', async () => {
@@ -146,6 +158,84 @@ describe('AuthService', () => {
         },
       });
     });
+
+    it('fails closed when OTP provider delivery fails and rolls back OTP record', async () => {
+      (prisma.user.upsert as jest.Mock).mockResolvedValue({
+        id: 'user-5',
+        phone: '+919000000095',
+        role: UserRole.PENDING,
+      });
+      (prisma.oTPRecord.count as jest.Mock).mockResolvedValue(0);
+      (prisma.oTPRecord.create as jest.Mock).mockResolvedValue({ id: 'otp-5' });
+      (prisma.oTPRecord.deleteMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (msg91Adapter.sendOtp as jest.Mock).mockRejectedValue(
+        new Error('MSG91 timeout'),
+      );
+
+      await expect(service.sendOtp({ phone: '+919000000095' })).rejects.toThrow(
+        'OTP delivery failed. Please try again.',
+      );
+
+      expect(prisma.oTPRecord.deleteMany).toHaveBeenCalledWith({
+        where: {
+          id: 'otp-5',
+          isUsed: false,
+        },
+      });
+    });
+
+    it('fails closed when OTP provider is misconfigured and rolls back OTP record', async () => {
+      (prisma.user.upsert as jest.Mock).mockResolvedValue({
+        id: 'user-6',
+        phone: '+919000000094',
+        role: UserRole.PENDING,
+      });
+      (prisma.oTPRecord.count as jest.Mock).mockResolvedValue(0);
+      (prisma.oTPRecord.create as jest.Mock).mockResolvedValue({ id: 'otp-6' });
+      (prisma.oTPRecord.deleteMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
+      (msg91Adapter.sendOtp as jest.Mock).mockRejectedValue(
+        new Error('MSG91_AUTH_KEY is required'),
+      );
+
+      await expect(
+        service.sendOtp({ phone: '+919000000094' }),
+      ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+      expect(prisma.oTPRecord.deleteMany).toHaveBeenCalledWith({
+        where: {
+          id: 'otp-6',
+          isUsed: false,
+        },
+      });
+    });
+
+    it('handles malformed cookie encoding safely while ensuring csrf cookie', () => {
+      const response = {
+        cookie: jest.fn(),
+      } as unknown as Response;
+
+      service.ensureCsrfCookie(
+        {
+          headers: {
+            cookie: 'access_token=abc; csrf_token=%E0%A4%A',
+          },
+        } as unknown as Request,
+        response,
+      );
+
+      expect(response.cookie).toHaveBeenCalledWith(
+        'csrf_token',
+        expect.any(String),
+        expect.objectContaining({
+          httpOnly: false,
+          path: '/',
+        }),
+      );
+    });
   });
 
   describe('verifyOtp', () => {
@@ -179,7 +269,9 @@ describe('AuthService', () => {
           vendorProfile: null,
         },
       });
-      (prisma.oTPRecord.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.oTPRecord.updateMany as jest.Mock).mockResolvedValue({
+        count: 1,
+      });
       (jwtService.signAsync as jest.Mock).mockResolvedValue('jwt-token-value');
 
       const response = buildResponse();
@@ -215,8 +307,12 @@ describe('AuthService', () => {
         },
       });
 
-      expect((response.cookie as jest.Mock).mock.calls[0][0]).toBe('access_token');
-      expect((response.cookie as jest.Mock).mock.calls[0][1]).toBe('jwt-token-value');
+      expect((response.cookie as jest.Mock).mock.calls[0][0]).toBe(
+        'access_token',
+      );
+      expect((response.cookie as jest.Mock).mock.calls[0][1]).toBe(
+        'jwt-token-value',
+      );
     });
 
     it('throws UnauthorizedException on wrong hash', async () => {
@@ -278,7 +374,9 @@ describe('AuthService', () => {
           role: UserRole.BUYER,
         },
       });
-      (prisma.oTPRecord.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+      (prisma.oTPRecord.updateMany as jest.Mock).mockResolvedValue({
+        count: 0,
+      });
 
       const response = buildResponse();
 

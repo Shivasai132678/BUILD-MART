@@ -42,13 +42,19 @@ const KNOWN_OTP_HASH = createHash('sha256').update(KNOWN_OTP).digest('hex');
 const BUYER_PHONE = '+919000100001';
 const VENDOR_PHONE = '+919000100002';
 
+type AuthSession = {
+  accessCookie: string;
+  csrfCookie: string;
+  csrfToken: string;
+};
+
 describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
 
   // Shared state across sequential happy-path tests
-  let buyerCookie: string;
-  let vendorCookie: string;
+  let buyerSession: AuthSession;
+  let vendorSession: AuthSession;
   let addressId: string;
   let productId: string;
   let rfqId: string;
@@ -135,26 +141,72 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
    *   2. Inject a known OTP hash into DB (so verify-otp is deterministic)
    *   3. POST /auth/verify-otp → returns access_token cookie
    */
-  function extractAccessTokenCookie(
+  function extractCookiePair(
     setCookieHeader: string[] | string | undefined,
+    cookieName: string,
   ): string {
     if (!setCookieHeader) {
-      throw new Error('Missing Set-Cookie header with access_token');
+      throw new Error(`Missing Set-Cookie header with ${cookieName}`);
     }
 
-    const rawCookie = Array.isArray(setCookieHeader)
-      ? (setCookieHeader.find((cookie) => cookie.includes('access_token=')) ??
-        setCookieHeader[0])
-      : setCookieHeader;
+    const setCookies = Array.isArray(setCookieHeader)
+      ? setCookieHeader
+      : [setCookieHeader];
+    const cookiePrefix = `${cookieName}=`;
+    const rawCookie = setCookies.find((cookie) =>
+      cookie.startsWith(cookiePrefix),
+    );
 
-    if (!rawCookie.includes('access_token=')) {
-      throw new Error('Set-Cookie header does not contain access_token');
+    if (!rawCookie) {
+      throw new Error(`Set-Cookie header does not contain ${cookieName}`);
     }
 
-    return rawCookie;
+    return rawCookie.split(';')[0];
   }
 
-  async function authenticateUser(phone: string): Promise<string> {
+  function safeDecodeCookieValue(cookiePair: string): string {
+    const rawValue = cookiePair.slice(cookiePair.indexOf('=') + 1);
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+
+  function buildAuthSession(
+    setCookieHeader: string[] | string | undefined,
+  ): AuthSession {
+    const accessCookie = extractCookiePair(setCookieHeader, 'access_token');
+    const csrfCookie = extractCookiePair(setCookieHeader, 'csrf_token');
+
+    return {
+      accessCookie,
+      csrfCookie,
+      csrfToken: safeDecodeCookieValue(csrfCookie),
+    };
+  }
+
+  function withSession(
+    requestBuilder: request.Test,
+    session: AuthSession,
+  ): request.Test {
+    return requestBuilder.set('Cookie', [
+      session.accessCookie,
+      session.csrfCookie,
+    ]);
+  }
+
+  function withSessionAndCsrf(
+    requestBuilder: request.Test,
+    session: AuthSession,
+  ): request.Test {
+    return withSession(requestBuilder, session).set(
+      'X-CSRF-Token',
+      session.csrfToken,
+    );
+  }
+
+  async function authenticateUser(phone: string): Promise<AuthSession> {
     await request(app.getHttpServer())
       .post('/api/v1/auth/send-otp')
       .send({ phone })
@@ -178,18 +230,21 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
       .send({ phone, otp: KNOWN_OTP })
       .expect(200);
 
-    const cookie = extractAccessTokenCookie(res.headers['set-cookie']);
-    expect(cookie).toContain('access_token');
-    return cookie;
+    const session = buildAuthSession(res.headers['set-cookie']);
+    expect(session.accessCookie).toContain('access_token=');
+    expect(session.csrfCookie).toContain('csrf_token=');
+    return session;
   }
 
-  async function refreshAuthCookie(currentCookie: string): Promise<string> {
-    const refreshRes = await request(app.getHttpServer())
-      .post('/api/v1/auth/refresh')
-      .set('Cookie', currentCookie)
-      .expect(200);
+  async function refreshAuthSession(
+    currentSession: AuthSession,
+  ): Promise<AuthSession> {
+    const refreshRes = await withSessionAndCsrf(
+      request(app.getHttpServer()).post('/api/v1/auth/refresh'),
+      currentSession,
+    ).expect(200);
 
-    return extractAccessTokenCookie(refreshRes.headers['set-cookie']);
+    return buildAuthSession(refreshRes.headers['set-cookie']);
   }
 
   // ──────────────────────────────────────────────
@@ -198,33 +253,35 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
 
   describe('Happy path: RFQ → Quote → Order → Delivered', () => {
     it('Step 1-2: Buyer authenticates via OTP', async () => {
-      buyerCookie = await authenticateUser(BUYER_PHONE);
+      buyerSession = await authenticateUser(BUYER_PHONE);
     });
 
     it('Step 3: Buyer completes buyer onboarding and refreshes auth token', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/onboarding/buyer-profile')
-        .set('Cookie', buyerCookie)
+      await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/onboarding/buyer-profile'),
+        buyerSession,
+      )
         .send({
           name: 'E2E Buyer',
           companyName: 'BuildMart QA',
         })
         .expect(201);
 
-      buyerCookie = await refreshAuthCookie(buyerCookie);
+      buyerSession = await refreshAuthSession(buyerSession);
 
-      const meRes = await request(app.getHttpServer())
-        .get('/api/v1/auth/me')
-        .set('Cookie', buyerCookie)
-        .expect(200);
+      const meRes = await withSession(
+        request(app.getHttpServer()).get('/api/v1/auth/me'),
+        buyerSession,
+      ).expect(200);
 
       expect(meRes.body.data.role).toBe('BUYER');
     });
 
     it('Step 4: Buyer creates a delivery address', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/addresses')
-        .set('Cookie', buyerCookie)
+      const res = await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/addresses'),
+        buyerSession,
+      )
         .send({
           label: 'Site Office',
           line1: '123 Main Road',
@@ -244,9 +301,10 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
         Date.now() + 7 * 24 * 60 * 60 * 1000,
       ).toISOString();
 
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/rfq')
-        .set('Cookie', buyerCookie)
+      const res = await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/rfq'),
+        buyerSession,
+      )
         .send({
           addressId,
           validUntil,
@@ -260,13 +318,14 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('Step 6-7: Vendor authenticates via OTP', async () => {
-      vendorCookie = await authenticateUser(VENDOR_PHONE);
+      vendorSession = await authenticateUser(VENDOR_PHONE);
     });
 
     it('Step 8: Vendor submits onboarding profile (role remains PENDING)', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/vendors/onboard')
-        .set('Cookie', vendorCookie)
+      const res = await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/vendors/onboard'),
+        vendorSession,
+      )
         .send({
           businessName: 'Test Cement Supplier',
           gstNumber: '29ABCDE1234F1Z5',
@@ -314,22 +373,22 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('Step 10: Vendor refreshes auth token to pick up VENDOR role', async () => {
-      vendorCookie = await refreshAuthCookie(vendorCookie);
+      vendorSession = await refreshAuthSession(vendorSession);
 
-      const meRes = await request(app.getHttpServer())
-        .get('/api/v1/auth/me')
-        .set('Cookie', vendorCookie)
-        .expect(200);
+      const meRes = await withSession(
+        request(app.getHttpServer()).get('/api/v1/auth/me'),
+        vendorSession,
+      ).expect(200);
 
       expect(meRes.body.data.role).toBe('VENDOR');
       expect(meRes.body.data.vendorApproved).toBe(true);
     });
 
     it('Step 11: Vendor sees available RFQs matching their products', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/rfq/available')
-        .set('Cookie', vendorCookie)
-        .expect(200);
+      const res = await withSession(
+        request(app.getHttpServer()).get('/api/v1/rfq/available'),
+        vendorSession,
+      ).expect(200);
 
       const rfqs = res.body.data.items;
       expect(rfqs.length).toBeGreaterThanOrEqual(1);
@@ -341,9 +400,10 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
         Date.now() + 7 * 24 * 60 * 60 * 1000,
       ).toISOString();
 
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/quotes')
-        .set('Cookie', vendorCookie)
+      const res = await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/quotes'),
+        vendorSession,
+      )
         .send({
           rfqId,
           subtotal: '40000.00',
@@ -368,10 +428,10 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('Step 13: Buyer views quotes for the RFQ', async () => {
-      const res = await request(app.getHttpServer())
-        .get(`/api/v1/quotes/rfq/${rfqId}`)
-        .set('Cookie', buyerCookie)
-        .expect(200);
+      const res = await withSession(
+        request(app.getHttpServer()).get(`/api/v1/quotes/rfq/${rfqId}`),
+        buyerSession,
+      ).expect(200);
 
       const quotes = res.body.data.data;
       expect(quotes.length).toBeGreaterThanOrEqual(1);
@@ -379,9 +439,10 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('Step 14: Buyer accepts quote → creates order (CONFIRMED)', async () => {
-      const res = await request(app.getHttpServer())
-        .post('/api/v1/orders')
-        .set('Cookie', buyerCookie)
+      const res = await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/orders'),
+        buyerSession,
+      )
         .send({ quoteId })
         .expect(201);
 
@@ -391,9 +452,10 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('Step 15: Vendor updates order → OUT_FOR_DELIVERY', async () => {
-      const res = await request(app.getHttpServer())
-        .patch(`/api/v1/orders/${orderId}/status`)
-        .set('Cookie', vendorCookie)
+      const res = await withSessionAndCsrf(
+        request(app.getHttpServer()).patch(`/api/v1/orders/${orderId}/status`),
+        vendorSession,
+      )
         .send({ status: 'OUT_FOR_DELIVERY' })
         .expect(200);
 
@@ -401,9 +463,10 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('Step 16: Vendor updates order → DELIVERED', async () => {
-      const res = await request(app.getHttpServer())
-        .patch(`/api/v1/orders/${orderId}/status`)
-        .set('Cookie', vendorCookie)
+      const res = await withSessionAndCsrf(
+        request(app.getHttpServer()).patch(`/api/v1/orders/${orderId}/status`),
+        vendorSession,
+      )
         .send({ status: 'DELIVERED' })
         .expect(200);
 
@@ -433,9 +496,10 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('POST /api/v1/quotes as BUYER → 403', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/quotes')
-        .set('Cookie', buyerCookie)
+      await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/quotes'),
+        buyerSession,
+      )
         .send({
           rfqId: 'fake-rfq-id',
           subtotal: '100.00',
@@ -457,18 +521,20 @@ describeIf(shouldRunE2E)('RFQ → Quote → Order (e2e)', () => {
     });
 
     it('POST /api/v1/orders with non-existent quoteId → 404', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/orders')
-        .set('Cookie', buyerCookie)
+      await withSessionAndCsrf(
+        request(app.getHttpServer()).post('/api/v1/orders'),
+        buyerSession,
+      )
         .send({ quoteId: 'non-existent-quote-id' })
         .expect(404);
     });
 
     it('PATCH /api/v1/orders/:id/status with invalid transition → 400', async () => {
       // Order is already DELIVERED — cannot transition backwards
-      await request(app.getHttpServer())
-        .patch(`/api/v1/orders/${orderId}/status`)
-        .set('Cookie', vendorCookie)
+      await withSessionAndCsrf(
+        request(app.getHttpServer()).patch(`/api/v1/orders/${orderId}/status`),
+        vendorSession,
+      )
         .send({ status: 'OUT_FOR_DELIVERY' })
         .expect(400);
     });

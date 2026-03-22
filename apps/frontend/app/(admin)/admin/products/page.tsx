@@ -28,6 +28,26 @@ function slugify(str: string) {
     .replace(/\s+/g, '-');
 }
 
+function isMoneyInput(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  const parts = trimmed.split('.');
+  if (parts.length > 2) return false;
+
+  const [whole, fraction = ''] = parts;
+  if (!whole || fraction.length > 2) return false;
+
+  const isDigitsOnly = (segment: string) => {
+    for (const ch of segment) {
+      if (ch < '0' || ch > '9') return false;
+    }
+    return true;
+  };
+
+  return isDigitsOnly(whole) && (fraction === '' || isDigitsOnly(fraction));
+}
+
 // ─── sub-components ─────────────────────────────────────────
 
 function ImageUploadField({
@@ -273,7 +293,7 @@ function ProductModal({
     form.categoryId &&
     form.name.trim() &&
     form.unit.trim() &&
-    /^\d+(\.\d{1,2})?$/.test(form.basePrice);
+    isMoneyInput(form.basePrice);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -466,7 +486,7 @@ export default function AdminProductsPage() {
             <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
               <span className="material-symbols-outlined text-[56px] text-[#1E2238] mb-4">inventory_2</span>
               <p className="text-base font-medium text-[#F5F0E8]">No products found</p>
-              <p className="text-sm text-[#8A9BC0] mt-1">Click "New Product" to add your first product.</p>
+              <p className="text-sm text-[#8A9BC0] mt-1">Click &quot;New Product&quot; to add your first product.</p>
             </div>
           ) : (
             <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl overflow-hidden">
@@ -540,7 +560,7 @@ export default function AdminProductsPage() {
             <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl flex flex-col items-center justify-center py-20 text-center px-6">
               <span className="material-symbols-outlined text-[56px] text-[#1E2238] mb-4">category</span>
               <p className="text-base font-medium text-[#F5F0E8]">No categories yet</p>
-              <p className="text-sm text-[#8A9BC0] mt-1">Click "New Category" to create the first one.</p>
+              <p className="text-sm text-[#8A9BC0] mt-1">Click &quot;New Category&quot; to create the first one.</p>
             </div>
           ) : (
             <div className="bg-[#12152A] border border-[#1E2238] rounded-2xl overflow-hidden">

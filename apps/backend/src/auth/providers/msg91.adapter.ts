@@ -20,17 +20,11 @@ export class Msg91Adapter {
     const templateId = this.configService.get<string>('MSG91_TEMPLATE_ID');
 
     if (!authKey) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('MSG91_AUTH_KEY is required in production');
-      }
-      this.logger.warn('MSG91_AUTH_KEY not set — OTP not sent (dev mode)');
-      this.logger.debug(`OTP sent for phone ending: ${phone.slice(-4)}`);
-      return;
+      throw new Error('MSG91_AUTH_KEY is required');
     }
 
     if (!templateId) {
-      this.logger.warn('MSG91_TEMPLATE_ID not set — OTP not sent');
-      return;
+      throw new Error('MSG91_TEMPLATE_ID is required');
     }
 
     const payload: Msg91OtpPayload = {
@@ -47,8 +41,16 @@ export class Msg91Adapter {
       });
     } catch (error: unknown) {
       const message = this.resolveErrorMessage(error);
-      this.logger.error(`MSG91 sendOtp failed for ${phone}: ${message}`);
+      const safeMessage = this.sanitizeErrorMessage(message);
+      this.logger.error(`MSG91 sendOtp failed: ${safeMessage}`);
+      throw new Error('OTP provider unavailable');
     }
+  }
+
+  private sanitizeErrorMessage(message: string): string {
+    return message
+      .replace(/(?:\+?\d[\d\s-]{6,}\d)/g, '[redacted-phone]')
+      .replace(/\b\d{4,6}\b/g, '[redacted-otp]');
   }
 
   private resolveErrorMessage(error: unknown): string {

@@ -19,6 +19,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { E2E_OTP, STORAGE } from './support/auth';
+import { getCsrfHeaders } from './support/csrf';
 import path from 'node:path';
 import os from 'node:os';
 
@@ -51,7 +52,10 @@ async function apiPost<T = unknown>(
   path: string,
   body: Record<string, unknown>,
 ): Promise<T> {
-  const res = await req.post(`${API}${path}`, { data: body });
+  const res = await req.post(`${API}${path}`, {
+    data: body,
+    headers: await getCsrfHeaders(req, API),
+  });
   const json = await res.json();
   if (!res.ok()) throw new Error(`POST ${path} failed ${res.status()}: ${JSON.stringify(json)}`);
   return (json.data ?? json) as T;
@@ -86,7 +90,10 @@ test.describe('Pending vendor — read-only dashboard access', () => {
       // Register the user (creates a PENDING role account)
       const sendRes = await apiCtx.request.post(`${API}/api/v1/auth/send-otp`, { data: { phone: pendingPhone } });
       expect(sendRes.ok(), `send-otp failed: ${sendRes.status()} ${await sendRes.text()}`).toBe(true);
-      const verifyRes = await apiCtx.request.post(`${API}/api/v1/auth/verify-otp`, { data: { phone: pendingPhone, otp: E2E_OTP } });
+      const verifyRes = await apiCtx.request.post(`${API}/api/v1/auth/verify-otp`, {
+        data: { phone: pendingPhone, otp: E2E_OTP },
+        headers: await getCsrfHeaders(apiCtx.request, API),
+      });
       expect(verifyRes.ok(), `verify-otp failed: ${verifyRes.status()} ${await verifyRes.text()}`).toBe(true);
 
       // Get a product to use in onboarding
@@ -267,6 +274,7 @@ test.describe('Pending vendor — read-only dashboard access', () => {
     const apiCtx = await browser.newContext({ storageState: SESSION_PATH });
     try {
       const quoteRes = await apiCtx.request.post(`${API}/api/v1/quotes`, {
+        headers: await getCsrfHeaders(apiCtx.request, API),
         data: {
           rfqId: pendingRfqId,
           subtotal: '2500.00',
@@ -286,6 +294,7 @@ test.describe('Pending vendor — read-only dashboard access', () => {
       expect(quoteRes.status()).toBe(403);
 
       const addProductRes = await apiCtx.request.post(`${API}/api/v1/vendors/products`, {
+        headers: await getCsrfHeaders(apiCtx.request, API),
         data: { productIds: [pendingProduct.id] },
       });
       expect(addProductRes.status()).toBe(403);

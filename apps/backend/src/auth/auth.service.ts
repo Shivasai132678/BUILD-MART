@@ -3,12 +3,18 @@ import {
   HttpStatus,
   Injectable,
   Logger,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole, VendorStatus } from '@prisma/client';
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
-import type { CookieOptions, Response } from 'express';
+import {
+  createHash,
+  randomBytes,
+  randomInt,
+  timingSafeEqual,
+} from 'node:crypto';
+import type { CookieOptions, Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
@@ -36,6 +42,8 @@ type LogoutResponse = {
   message: 'Logged out';
 };
 
+const CSRF_COOKIE_NAME = 'csrf_token';
+
 type RefreshTokenResponse = {
   message: 'Refreshed';
   user: {
@@ -57,7 +65,67 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly msg91Adapter: Msg91Adapter,
-  ) { }
+  ) {}
+
+  private createCsrfToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  private readCookie(request: Request, cookieName: string): string | null {
+    const cookies = request.cookies as Record<string, unknown> | undefined;
+    const fromCookies = cookies?.[cookieName];
+    if (typeof fromCookies === 'string' && fromCookies.length > 0) {
+      return fromCookies;
+    }
+
+    const cookieHeader = request.headers?.cookie;
+    if (typeof cookieHeader !== 'string' || cookieHeader.length === 0) {
+      return null;
+    }
+
+    const cookiePairs = cookieHeader.split(';');
+    for (const pair of cookiePairs) {
+      const [rawKey, ...rawValueParts] = pair.trim().split('=');
+      if (rawKey === cookieName) {
+        const value = rawValueParts.join('=').trim();
+        if (value.length === 0) {
+          return null;
+        }
+
+        return this.safeDecodeCookieValue(value);
+      }
+    }
+
+    return null;
+  }
+
+  private safeDecodeCookieValue(value: string): string | null {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return null;
+    }
+  }
+
+  private buildCsrfCookieOptions(): CookieOptions {
+    const isProd = process.env.NODE_ENV === 'production';
+    const maxAgeMs = this.parseExpiresInToMs(process.env.JWT_EXPIRES_IN);
+    return {
+      httpOnly: false,
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
+      path: '/',
+      maxAge: maxAgeMs,
+    };
+  }
+
+  private setCsrfCookie(response: Response): void {
+    response.cookie(
+      CSRF_COOKIE_NAME,
+      this.createCsrfToken(),
+      this.buildCsrfCookieOptions(),
+    );
+  }
 
   async sendOtp({ phone }: SendOtpDto): Promise<SendOtpResponse> {
     const user = await this.prisma.user.upsert({
@@ -85,17 +153,21 @@ export class AuthService {
       );
     }
 
-    const e2eOtp = this.isE2ETestOtpEnabled() ? process.env.E2E_TEST_OTP : undefined;
+    const e2eOtp = this.isE2ETestOtpEnabled()
+      ? process.env.E2E_TEST_OTP
+      : undefined;
     const otp = e2eOtp ?? randomInt(100_000, 1_000_000).toString();
 
     if (process.env.NODE_ENV !== 'production') {
-      this.logger.warn(e2eOtp ? `[E2E] Fixed OTP for ${phone}: ${otp}` : `[DEV] OTP for ${phone}: ${otp}`);
+      this.logger.warn(
+        e2eOtp ? '[E2E] Fixed OTP mode enabled' : '[DEV] OTP generated',
+      );
     }
 
     const otpHash = this.hashOtp(otp);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await this.prisma.oTPRecord.create({
+    const createdOtp = await this.prisma.oTPRecord.create({
       data: {
         userId: user.id,
         otpHash,
@@ -104,8 +176,23 @@ export class AuthService {
       },
     });
 
-    this.logger.debug(`OTP sent for phone ending: ${phone.slice(-4)}`);
-    await this.msg91Adapter.sendOtp(phone, otp);
+    if (e2eOtp) {
+      return { message: 'OTP sent' };
+    }
+
+    try {
+      await this.msg91Adapter.sendOtp(phone, otp);
+    } catch {
+      await this.prisma.oTPRecord.deleteMany({
+        where: {
+          id: createdOtp.id,
+          isUsed: false,
+        },
+      });
+      throw new ServiceUnavailableException(
+        'OTP delivery failed. Please try again.',
+      );
+    }
 
     return { message: 'OTP sent' };
   }
@@ -188,7 +275,12 @@ export class AuthService {
     // Use module-level JWT config (secret + expiresIn set in JwtModule.registerAsync)
     const token = await this.jwtService.signAsync(payload);
 
-    response.cookie('access_token', token, this.buildAccessTokenCookieOptions());
+    response.cookie(
+      'access_token',
+      token,
+      this.buildAccessTokenCookieOptions(),
+    );
+    this.setCsrfCookie(response);
 
     return {
       message: 'Verified',
@@ -239,7 +331,12 @@ export class AuthService {
     // Use module-level JWT config (secret + expiresIn set in JwtModule.registerAsync)
     const token = await this.jwtService.signAsync(payload);
 
-    response.cookie('access_token', token, this.buildAccessTokenCookieOptions());
+    response.cookie(
+      'access_token',
+      token,
+      this.buildAccessTokenCookieOptions(),
+    );
+    this.setCsrfCookie(response);
 
     return {
       message: 'Refreshed',
@@ -257,7 +354,17 @@ export class AuthService {
 
   logout(response: Response): LogoutResponse {
     response.clearCookie('access_token', this.buildBaseCookieOptions());
+    response.clearCookie(CSRF_COOKIE_NAME, this.buildCsrfCookieOptions());
     return { message: 'Logged out' };
+  }
+
+  ensureCsrfCookie(request: Request, response: Response): void {
+    const hasAccessToken = this.readCookie(request, 'access_token') !== null;
+    const hasCsrfCookie = this.readCookie(request, CSRF_COOKIE_NAME) !== null;
+
+    if (hasAccessToken && !hasCsrfCookie) {
+      this.setCsrfCookie(response);
+    }
   }
 
   private hashOtp(otp: string): string {
@@ -265,7 +372,9 @@ export class AuthService {
   }
 
   private isE2ETestOtpEnabled(): boolean {
-    return process.env.NODE_ENV !== 'production' && !!process.env.E2E_TEST_OTP;
+    const isTestRuntime =
+      process.env.NODE_ENV === 'test' || process.env.RUN_E2E_TESTS === 'true';
+    return isTestRuntime && !!process.env.E2E_TEST_OTP;
   }
 
   private buildBaseCookieOptions(): CookieOptions {
@@ -296,20 +405,18 @@ export class AuthService {
       return SEVEN_DAYS_MS;
     }
 
-    const match = /^(\d+)(ms|s|m|h|d)?$/.exec(value.trim());
+    const match = /^(\d+)(s|m|h|d)?$/.exec(value.trim());
 
     if (!match) {
-      this.logger.warn(
-        `Could not parse JWT_EXPIRES_IN="${value}", defaulting to 7d`,
+      throw new Error(
+        `Invalid JWT_EXPIRES_IN value "${value}". Use formats like 900s, 15m, 24h, or 7d (milliseconds are not supported).`,
       );
-      return SEVEN_DAYS_MS;
     }
 
     const amount = parseInt(match[1], 10);
     const unit = match[2] ?? 's';
 
     const multipliers: Record<string, number> = {
-      ms: 1,
       s: 1_000,
       m: 60 * 1_000,
       h: 60 * 60 * 1_000,

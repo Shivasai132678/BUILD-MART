@@ -13,6 +13,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { STORAGE, E2E_OTP, PHONES } from './support/auth';
+import { getCsrfHeaders } from './support/csrf';
 
 const API = 'http://localhost:3001';
 
@@ -43,7 +44,10 @@ async function apiPost<T>(
   path: string,
   data: unknown,
 ): Promise<T> {
-  const res = await req.post(`${API}${path}`, { data });
+  const res = await req.post(`${API}${path}`, {
+    data,
+    headers: await getCsrfHeaders(req, API),
+  });
   if (!res.ok()) throw new Error(`POST ${path} → ${res.status()}: ${await res.text()}`);
   return unwrap<T>((await res.json()) as Record<string, unknown>);
 }
@@ -53,7 +57,10 @@ async function apiPatch<T>(
   path: string,
   data: unknown,
 ): Promise<T> {
-  const res = await req.patch(`${API}${path}`, { data });
+  const res = await req.patch(`${API}${path}`, {
+    data,
+    headers: await getCsrfHeaders(req, API),
+  });
   if (!res.ok()) throw new Error(`PATCH ${path} → ${res.status()}: ${await res.text()}`);
   return unwrap<T>((await res.json()) as Record<string, unknown>);
 }

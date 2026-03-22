@@ -13,6 +13,7 @@
  */
 import { test, expect, type APIRequestContext } from '@playwright/test';
 import { STORAGE } from './support/auth';
+import { getCsrfHeaders } from './support/csrf';
 
 const API = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:3001';
 
@@ -28,7 +29,10 @@ async function apiGet<T>(ctx: APIRequestContext, path: string): Promise<T> {
 }
 
 async function apiPost<T>(ctx: APIRequestContext, path: string, data: unknown): Promise<T> {
-  const res = await ctx.post(`${API}${path}`, { data });
+  const res = await ctx.post(`${API}${path}`, {
+    data,
+    headers: await getCsrfHeaders(ctx, API),
+  });
   if (!res.ok()) throw new Error(`POST ${path} → ${res.status()}: ${await res.text()}`);
   return unwrap<T>(await res.json() as Record<string, unknown>);
 }

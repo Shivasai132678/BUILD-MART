@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosHeaders } from 'axios';
 
 export type ApiSuccessEnvelope<T> = {
   success: true;
@@ -16,6 +16,46 @@ const baseURL = typeof window !== 'undefined'
 export const api = axios.create({
   baseURL,
   withCredentials: true,
+});
+
+function readCookie(name: string): string | null {
+  if (typeof document === 'undefined' || !document.cookie) {
+    return null;
+  }
+
+  const prefix = `${encodeURIComponent(name)}=`;
+  const cookies = document.cookie.split(';');
+
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim();
+    if (trimmed.startsWith(prefix)) {
+      const value = trimmed.slice(prefix.length);
+      if (value.length === 0) {
+        return null;
+      }
+
+      try {
+        return decodeURIComponent(value);
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
+}
+
+api.interceptors.request.use((config) => {
+  if (typeof window !== 'undefined') {
+    const csrfToken = readCookie('csrf_token');
+    if (csrfToken) {
+      const headers = AxiosHeaders.from(config.headers ?? {});
+      headers.set('X-CSRF-Token', csrfToken);
+      config.headers = headers;
+    }
+  }
+
+  return config;
 });
 
 function isAuthEndpointRequest(error: unknown): boolean {

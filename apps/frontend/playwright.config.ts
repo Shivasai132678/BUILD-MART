@@ -12,7 +12,12 @@ export default defineConfig({
   retries: 1,
   workers: 1,
   reporter: 'list',
-  globalSetup: './e2e/support/global-setup.ts',
+  globalSetup:
+    process.env.CI === 'true'
+      ? './e2e/support/global-setup.ts'
+      : process.env.PLAYWRIGHT_SKIP_AUTH_SETUP === 'true'
+        ? undefined
+        : './e2e/support/global-setup.ts',
 
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',

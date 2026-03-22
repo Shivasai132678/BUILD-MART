@@ -4,9 +4,19 @@ node_modules/
 dist/
 .next/
 build/
+coverage/
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# Backend coverage artifacts
+apps/backend/coverage/
+
+# Frontend generated artifacts
+apps/frontend/.next-e2e/
+apps/frontend/test-results/
+apps/frontend/playwright-report/
+apps/frontend/coverage/
 
 # Agent planning artifacts
 findings.md

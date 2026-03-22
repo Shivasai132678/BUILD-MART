@@ -22,9 +22,6 @@ describe('VendorService', () => {
     user: {
       update: jest.fn(),
     },
-    auditLog: {
-      create: jest.fn(),
-    },
     $transaction: jest.fn(),
   } as unknown as jest.Mocked<PrismaService>;
 
@@ -50,7 +47,6 @@ describe('VendorService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (prisma.auditLog.create as jest.Mock).mockResolvedValue({ id: 'audit-1' });
     (prisma.user.update as jest.Mock).mockResolvedValue({ id: 'user-1', role: UserRole.VENDOR });
     (notificationsService.create as jest.Mock).mockResolvedValue(undefined);
     service = new VendorService(prisma, cloudinaryAdapter, notificationsService, auditLogService);
@@ -330,14 +326,12 @@ describe('VendorService', () => {
 
       await service.approveVendor('vp-1', 'admin-1');
 
-      expect(prisma.auditLog.create).toHaveBeenCalledWith({
-        data: {
-          userId: 'admin-1',
-          action: 'VENDOR_APPROVED',
-          entityType: 'VendorProfile',
-          entityId: 'vp-1',
-          newValue: { approvedAt: expect.any(String) },
-        },
+      expect(auditLogService.log).toHaveBeenCalledWith({
+        userId: 'admin-1',
+        action: 'VENDOR_APPROVED',
+        entityType: 'VendorProfile',
+        entityId: 'vp-1',
+        newValue: { approvedAt: expect.any(String) },
       });
     });
 
@@ -367,7 +361,7 @@ describe('VendorService', () => {
       ).resolves.toBeDefined();
     });
 
-    it('does not throw if auditLog.create fails (non-blocking)', async () => {
+    it('does not throw if approval notification dispatch fails (non-blocking)', async () => {
       (prisma.vendorProfile.findUnique as jest.Mock).mockResolvedValue({
         id: 'vp-1',
         userId: 'user-1',
@@ -377,8 +371,8 @@ describe('VendorService', () => {
         id: 'vp-1',
         status: VendorStatus.APPROVED,
       });
-      (prisma.auditLog.create as jest.Mock).mockRejectedValue(
-        new Error('DB write failed'),
+      (notificationsService.create as jest.Mock).mockRejectedValue(
+        new Error('Notification provider down'),
       );
 
       const result = await service.approveVendor('vp-1', 'admin-1');

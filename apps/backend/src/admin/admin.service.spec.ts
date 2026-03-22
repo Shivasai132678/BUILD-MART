@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common';
-import { OrderStatus, Prisma, VendorStatus } from '@prisma/client';
+import { NotificationType, OrderStatus, Prisma, VendorStatus } from '@prisma/client';
 import { AuditLogService } from '../common/audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,19 +11,39 @@ describe('AdminService', () => {
   const prisma = {
     user: {
       count: jest.fn(),
+      findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     vendorProfile: {
       count: jest.fn(),
       findMany: jest.fn(),
+      updateMany: jest.fn(),
     },
     rFQ: {
       count: jest.fn(),
+      findMany: jest.fn(),
     },
     order: {
       count: jest.fn(),
       aggregate: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    dispute: {
+      count: jest.fn(),
+    },
+    address: {
+      count: jest.fn(),
+    },
+    payment: {
+      count: jest.fn(),
+    },
+    quote: {
+      count: jest.fn(),
+    },
+    product: {
+      count: jest.fn(),
     },
     $transaction: jest.fn(),
   } as unknown as jest.Mocked<PrismaService>;
@@ -300,6 +320,157 @@ describe('AdminService', () => {
 
       await expect(service.getOrderById('nonexistent')).rejects.toThrow(
         NotFoundException,
+      );
+    });
+  });
+
+  describe('additional admin listing methods', () => {
+    it('getAllUsers returns paginated users with deletedAt filter', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([[{ id: 'u-1' }], 1]);
+
+      const result = await service.getAllUsers(10, 0);
+
+      expect(result).toEqual({ items: [{ id: 'u-1' }], total: 1, limit: 10, offset: 0 });
+      const findManyCall = (prisma.user.findMany as jest.Mock).mock.calls[0][0];
+      expect(findManyCall.where).toEqual({ deletedAt: null });
+    });
+
+    it('getAllVendors returns filtered by status when provided', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([[{ id: 'v-1' }], 1]);
+
+      const result = await service.getAllVendors(20, 0, VendorStatus.APPROVED);
+
+      expect(result.total).toBe(1);
+      const findManyCall = (prisma.vendorProfile.findMany as jest.Mock).mock.calls[0][0];
+      expect(findManyCall.where).toEqual({ deletedAt: null, status: VendorStatus.APPROVED });
+    });
+
+    it('getAllRfqs returns paginated data and sanitizes negatives', async () => {
+      (prisma.$transaction as jest.Mock).mockResolvedValue([[], 0]);
+
+      const result = await service.getAllRfqs(-2, -8);
+
+      expect(result).toEqual({ items: [], total: 0, limit: 1, offset: 0 });
+    });
+  });
+
+  describe('forceCancelOrder', () => {
+    it('force cancels cancellable order and logs audit', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        status: OrderStatus.CONFIRMED,
+        rfq: { buyerId: 'buyer-1' },
+        vendor: { userId: 'vendor-user-1' },
+      });
+      (prisma.order.update as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        status: OrderStatus.CANCELLED,
+      });
+
+      const result = await service.forceCancelOrder('order-1', 'admin-1');
+
+      expect(result.status).toBe(OrderStatus.CANCELLED);
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'ADMIN_FORCE_CANCEL_ORDER',
+          entityId: 'order-1',
+        }),
+      );
+      expect(notificationsService.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws not found when order is missing', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.forceCancelOrder('missing', 'admin-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws bad request for terminal statuses', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        status: OrderStatus.DELIVERED,
+        rfq: { buyerId: 'buyer-1' },
+        vendor: { userId: 'vendor-user-1' },
+      });
+
+      await expect(service.forceCancelOrder('order-1', 'admin-1')).rejects.toThrow(
+        'Cannot force-cancel an order with status DELIVERED',
+      );
+    });
+  });
+
+  describe('flagOrder', () => {
+    it('flags order and writes audit log', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({ id: 'order-1' });
+      (prisma.order.update as jest.Mock).mockResolvedValue({
+        id: 'order-1',
+        cancelReason: 'FLAG: suspicious pattern',
+      });
+
+      const result = await service.flagOrder('order-1', 'admin-1', 'suspicious pattern');
+
+      expect(result.cancelReason).toBe('FLAG: suspicious pattern');
+      expect(auditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'ADMIN_FLAG_ORDER', entityId: 'order-1' }),
+      );
+    });
+
+    it('throws not found if order missing', async () => {
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.flagOrder('missing', 'admin-1', 'x')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('bulk vendor actions', () => {
+    it('bulkApproveVendors returns skipped when no pending vendors found', async () => {
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.bulkApproveVendors(['v1', 'v2'], 'admin-1');
+
+      expect(result).toEqual({ approved: 0, skipped: 2 });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('bulkSuspendVendors returns skipped when no approved vendors found', async () => {
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.bulkSuspendVendors(['v1'], 'admin-1');
+
+      expect(result).toEqual({ suspended: 0, skipped: 1 });
+    });
+
+    it('bulkApproveVendors updates vendors and users and sends notifications', async () => {
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([
+        { id: 'v1', userId: 'u1', user: { id: 'u1' } },
+      ]);
+      (prisma.$transaction as jest.Mock).mockResolvedValue(undefined);
+
+      const result = await service.bulkApproveVendors(['v1', 'v2'], 'admin-1');
+
+      expect(result).toEqual({ approved: 1, skipped: 1 });
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(notificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ type: NotificationType.VENDOR_APPROVED }),
+      );
+    });
+
+    it('bulkSuspendVendors updates statuses and sends notifications', async () => {
+      (prisma.vendorProfile.findMany as jest.Mock).mockResolvedValue([
+        { id: 'v1', userId: 'u1', user: { id: 'u1' } },
+      ]);
+      (prisma.vendorProfile.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+      const result = await service.bulkSuspendVendors(['v1', 'v2'], 'admin-1');
+
+      expect(result).toEqual({ suspended: 1, skipped: 1 });
+      expect(prisma.vendorProfile.updateMany).toHaveBeenCalled();
+      expect(notificationsService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ type: NotificationType.VENDOR_SUSPENDED }),
       );
     });
   });

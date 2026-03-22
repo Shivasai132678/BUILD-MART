@@ -217,13 +217,38 @@ describe('PaymentsService', () => {
       });
     });
 
-    it('returns ack without throwing on invalid HMAC signature', async () => {
+    it('returns ack when webhook payload misses payment.entity.order_id', async () => {
+      const body = JSON.stringify({
+        event: 'payment.captured',
+        payload: { payment: { entity: { id: 'pay_without_order' } } },
+      });
+      const signature = generateSignature(body, WEBHOOK_SECRET);
+
+      const result = await service.handleWebhook(Buffer.from(body), signature);
+
+      expect(result).toEqual({ received: true });
+      expect(prisma.payment.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns ack when payment row is missing for webhook order id', async () => {
+      const body = buildWebhookBody('payment.captured', 'order_rzp_missing');
+      const signature = generateSignature(body, WEBHOOK_SECRET);
+
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.handleWebhook(Buffer.from(body), signature);
+
+      expect(result).toEqual({ received: true });
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException on invalid HMAC signature', async () => {
       const body = buildWebhookBody('payment.captured', 'order_rzp_1');
       const invalidSignature = 'invalid-signature-value';
 
-      const result = await service.handleWebhook(Buffer.from(body), invalidSignature);
-
-      expect(result).toEqual({ received: true });
+      await expect(
+        service.handleWebhook(Buffer.from(body), invalidSignature),
+      ).rejects.toThrow('Invalid Razorpay signature');
       expect(prisma.payment.update).not.toHaveBeenCalled();
     });
 
@@ -243,6 +268,23 @@ describe('PaymentsService', () => {
       expect(result).toEqual({ received: true });
       expect(prisma.payment.update).not.toHaveBeenCalled();
       expect(notificationsService.create).not.toHaveBeenCalled();
+    });
+
+    it('returns ack for unhandled event types without mutating payment', async () => {
+      const body = buildWebhookBody('payment.authorized', 'order_rzp_authorized');
+      const signature = generateSignature(body, WEBHOOK_SECRET);
+
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
+        id: 'payment-auth-1',
+        orderId: 'order-auth-1',
+        razorpayOrderId: 'order_rzp_authorized',
+        status: PaymentStatus.INITIATED,
+      });
+
+      const result = await service.handleWebhook(Buffer.from(body), signature);
+
+      expect(result).toEqual({ received: true });
+      expect(prisma.payment.update).not.toHaveBeenCalled();
     });
 
     it('marks payment FAILED on payment.failed event', async () => {
@@ -375,6 +417,134 @@ describe('PaymentsService', () => {
 
       expect(result).toEqual({ received: true });
       expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('throws UnauthorizedException when signature header is missing', async () => {
+      const body = buildWebhookBody('payment.captured', 'order_rzp_no_sig');
+
+      await expect(
+        service.handleWebhook(Buffer.from(body), undefined),
+      ).rejects.toThrow('Missing Razorpay signature');
+    });
+
+    it('returns ack when webhook body is malformed JSON', async () => {
+      const malformedBody = '{"event":"payment.captured"';
+      const signature = generateSignature(malformedBody, WEBHOOK_SECRET);
+
+      const result = await service.handleWebhook(
+        Buffer.from(malformedBody),
+        signature,
+      );
+
+      expect(result).toEqual({ received: true });
+    });
+
+    it('returns ack when order lookup fails during success notification fanout', async () => {
+      const body = buildWebhookBody('payment.captured', 'order_rzp_notify_missing');
+      const signature = generateSignature(body, WEBHOOK_SECRET);
+
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
+        id: 'payment-notify-missing',
+        orderId: 'order-missing',
+        razorpayOrderId: 'order_rzp_notify_missing',
+        status: PaymentStatus.INITIATED,
+        razorpayPaymentId: null,
+      });
+      (prisma.payment.update as jest.Mock).mockResolvedValue({
+        id: 'payment-notify-missing',
+        orderId: 'order-missing',
+        status: PaymentStatus.SUCCESS,
+      });
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
+
+      const result = await service.handleWebhook(Buffer.from(body), signature);
+
+      expect(result).toEqual({ received: true });
+      expect(notificationsService.create).not.toHaveBeenCalled();
+    });
+
+    it('continues when buyer and vendor notification dispatch throws for payment.captured', async () => {
+      const body = buildWebhookBody('payment.captured', 'order_rzp_notify_fail', 'pay_notify_fail');
+      const signature = generateSignature(body, WEBHOOK_SECRET);
+
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
+        id: 'payment-notify-fail',
+        orderId: 'order-notify-fail',
+        razorpayOrderId: 'order_rzp_notify_fail',
+        status: PaymentStatus.INITIATED,
+        razorpayPaymentId: null,
+      });
+      (prisma.payment.update as jest.Mock).mockResolvedValue({
+        id: 'payment-notify-fail',
+        orderId: 'order-notify-fail',
+        status: PaymentStatus.SUCCESS,
+      });
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+        id: 'order-notify-fail',
+        buyerId: 'buyer-notify-fail',
+        vendorId: 'vendor-profile-1',
+        referenceCode: null,
+        vendor: {
+          userId: 'vendor-user-1',
+        },
+      });
+
+      (notificationsService.create as jest.Mock)
+        .mockRejectedValueOnce(new Error('buyer notification failed'))
+        .mockRejectedValueOnce(new Error('vendor notification failed'));
+
+      const result = await service.handleWebhook(Buffer.from(body), signature);
+
+      expect(result).toEqual({ received: true });
+      expect(notificationsService.create).toHaveBeenCalledTimes(2);
+    });
+
+    it('continues when buyer and vendor notification dispatch throws for payment.failed', async () => {
+      const body = JSON.stringify({
+        event: 'payment.failed',
+        payload: {
+          payment: {
+            entity: {
+              id: 'pay_fail_notify',
+              order_id: 'order_rzp_fail_notify',
+              error: {
+                description: 'Gateway timeout',
+              },
+            },
+          },
+        },
+      });
+      const signature = generateSignature(body, WEBHOOK_SECRET);
+
+      (prisma.payment.findUnique as jest.Mock).mockResolvedValue({
+        id: 'payment-fail-notify',
+        orderId: 'order-fail-notify',
+        razorpayOrderId: 'order_rzp_fail_notify',
+        status: PaymentStatus.INITIATED,
+      });
+      (prisma.payment.update as jest.Mock).mockResolvedValue({
+        id: 'payment-fail-notify',
+        orderId: 'order-fail-notify',
+        status: PaymentStatus.FAILED,
+      });
+      (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+        id: 'order-fail-notify',
+        buyerId: 'buyer-fail-notify',
+        vendorId: 'vendor-profile-2',
+        referenceCode: null,
+        vendor: {
+          userId: 'vendor-user-2',
+        },
+      });
+
+      (notificationsService.create as jest.Mock)
+        .mockRejectedValueOnce(new Error('buyer fail notification failed'))
+        .mockRejectedValueOnce(new Error('vendor fail notification failed'));
+
+      const result = await service.handleWebhook(Buffer.from(body), signature);
+
+      expect(result).toEqual({ received: true });
+      expect(notificationsService.create).toHaveBeenCalledTimes(2);
     });
   });
 });

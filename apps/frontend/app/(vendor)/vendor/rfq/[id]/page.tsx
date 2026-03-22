@@ -14,21 +14,47 @@ import { formatINR, toPaise } from '@/lib/utils/money';
 import { getRfqById, submitQuote, getMyQuoteForRfq, respondToCounterOffer } from '@/lib/vendor-api';
 import { getVendorProfile } from '@/lib/vendor-profile-api';
 
-const DECIMAL_STRING_REGEX = /^\d+(\.\d{1,2})?$/;
+function isDecimalString(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  const parts = trimmed.split('.');
+  if (parts.length > 2) return false;
+
+  const [whole, fraction = ''] = parts;
+  if (!whole || fraction.length > 2) return false;
+
+  const isDigitsOnly = (segment: string) => {
+    for (const ch of segment) {
+      if (ch < '0' || ch > '9') return false;
+    }
+    return true;
+  };
+
+  return isDigitsOnly(whole) && (fraction === '' || isDigitsOnly(fraction));
+}
 
 const quoteFormSchema = z.object({
   items: z
     .array(
       z.object({
         productName: z.string().min(1, 'Product name is required'),
-        quantity: z.string().regex(DECIMAL_STRING_REGEX, 'Quantity must be a decimal string'),
+        quantity: z
+          .string()
+          .refine(isDecimalString, 'Quantity must be a decimal string'),
         unit: z.string().min(1, 'Unit is required'),
-        unitPrice: z.string().regex(DECIMAL_STRING_REGEX, 'Unit price must be a decimal string'),
+        unitPrice: z
+          .string()
+          .refine(isDecimalString, 'Unit price must be a decimal string'),
       }),
     )
     .min(1, 'At least one quote item is required'),
-  taxAmount: z.string().regex(DECIMAL_STRING_REGEX, 'Tax amount must be a decimal string'),
-  deliveryFee: z.string().regex(DECIMAL_STRING_REGEX, 'Delivery fee must be a decimal string'),
+  taxAmount: z
+    .string()
+    .refine(isDecimalString, 'Tax amount must be a decimal string'),
+  deliveryFee: z
+    .string()
+    .refine(isDecimalString, 'Delivery fee must be a decimal string'),
   validUntil: z.string().min(1, 'Valid until is required'),
   notes: z.string().optional(),
 });

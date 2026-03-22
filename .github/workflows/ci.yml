@@ -2,9 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [develop]
+    branches: ['**']
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
@@ -41,7 +49,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -52,11 +60,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Frontend typecheck
+        run: cd apps/frontend && pnpm typecheck
+
       - name: Lint backend
         run: cd apps/backend && pnpm lint
 
       - name: Lint frontend
         run: cd apps/frontend && pnpm lint
+
+      - name: Security lint backend
+        run: cd apps/backend && pnpm lint:security
+
+      - name: Security lint frontend
+        run: cd apps/frontend && pnpm lint:security
 
       - name: Run Prisma migrations (deploy — no shadow DB)
         run: cd apps/backend && npx prisma migrate deploy
@@ -65,9 +82,18 @@ jobs:
       - name: Build backend
         run: cd apps/backend && pnpm build
 
+      - name: Verify OpenAPI spec is up-to-date
+        run: cd apps/backend && pnpm docs:openapi:check
+
       - name: Build frontend
         run: cd apps/frontend && pnpm build
 
       - name: Run backend tests
         run: cd apps/backend && pnpm test
         # If no test files exist yet this step will pass (jest returns 0 on no tests)
+
+      - name: Run auth CSRF e2e test
+        run: cd apps/backend && RUN_E2E_TESTS=true pnpm exec jest --config ./test/jest-e2e.json --runInBand --forceExit test/auth-csrf.e2e-spec.ts
+
+      - name: Dependency vulnerability gate (moderate+)
+        run: cd apps/backend && pnpm audit:production

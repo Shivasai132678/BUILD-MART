@@ -20,6 +20,7 @@
 
 import { test, expect, type APIRequestContext, type Browser, type BrowserContext } from '@playwright/test';
 import { STORAGE, E2E_OTP } from './support/auth';
+import { getCsrfHeaders } from './support/csrf';
 
 const API = process.env.PLAYWRIGHT_API_URL ?? 'http://localhost:3001';
 
@@ -40,7 +41,10 @@ async function apiGet<T>(ctx: APIRequestContext, path: string): Promise<T> {
 }
 
 async function apiPost<T>(ctx: APIRequestContext, path: string, data: unknown): Promise<T> {
-  const res = await ctx.post(`${API}${path}`, { data });
+  const res = await ctx.post(`${API}${path}`, {
+    data,
+    headers: await getCsrfHeaders(ctx, API),
+  });
   if (!res.ok()) throw new Error(`POST ${path} → ${res.status()}: ${await res.text()}`);
   return unwrap<T>((await res.json()) as Record<string, unknown>);
 }
@@ -396,7 +400,10 @@ test.describe('Vendor onboarding — multi-step form', () => {
     pendingCtx = await browser.newContext();
     const sendRes = await pendingCtx.request.post(`${API}/api/v1/auth/send-otp`, { data: { phone } });
     expect(sendRes.ok()).toBeTruthy();
-    const verifyRes = await pendingCtx.request.post(`${API}/api/v1/auth/verify-otp`, { data: { phone, otp: E2E_OTP } });
+    const verifyRes = await pendingCtx.request.post(`${API}/api/v1/auth/verify-otp`, {
+      data: { phone, otp: E2E_OTP },
+      headers: await getCsrfHeaders(pendingCtx.request, API),
+    });
     expect(verifyRes.ok()).toBeTruthy();
   });
 
@@ -532,6 +539,7 @@ test.describe('Admin workflows', () => {
     // Admin approves via API
     const approveRes = await page.request.patch(
       `${API}/api/v1/admin/vendors/${vendorProfileId}/approve`,
+      { headers: await getCsrfHeaders(page.request, API) },
     );
     expect(approveRes.ok(), `Admin approve failed with HTTP ${approveRes.status()}`).toBe(true);
     // VendorProfile has status field (APPROVED), not isApproved boolean
