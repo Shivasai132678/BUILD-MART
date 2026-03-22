@@ -78,7 +78,7 @@ export async function bootstrap() {
     logger.log('Swagger docs available at /api/docs (non-production only)');
   }
 
-  await app.listen(process.env.PORT ?? 3001);
+  await app.listen(process.env.PORT ?? '3001');
 }
 
 if (process.env.NODE_ENV !== 'test') {
