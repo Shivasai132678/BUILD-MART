@@ -79,6 +79,9 @@ jobs:
         run: cd apps/backend && npx prisma migrate deploy
         # Rule 21: NEVER use migrate dev in CI. Always migrate deploy.
 
+      - name: Generate Prisma client
+        run: cd apps/backend && npx prisma generate
+
       - name: Build backend
         run: cd apps/backend && pnpm build
 
